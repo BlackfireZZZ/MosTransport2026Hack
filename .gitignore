@@ -154,6 +154,10 @@ activemq-data/
 env/
 venv/
 ENV/
+.uv-cache/
+node_modules/
+frontend/dist/
+.vite/
 env.bak/
 venv.bak/
 
