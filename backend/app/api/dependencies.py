@@ -29,8 +29,16 @@ def get_tram_graph_repository() -> FileTramGraphRepository:
     return FileTramGraphRepository(settings.tram_graph_json, settings.tram_graph_geojson)
 
 
-def get_tram_network_service() -> TramNetworkService:
-    return TramNetworkService(get_tram_graph_repository())
+TramGraphRepositoryDep = Annotated[
+    FileTramGraphRepository, Depends(get_tram_graph_repository)
+]
+
+
+def get_tram_network_service(repository: TramGraphRepositoryDep) -> TramNetworkService:
+    # Injected rather than called: calling it directly puts the repository outside the
+    # dependency graph, where dependency_overrides cannot reach it and a test has to
+    # reach through the cache instead of replacing it.
+    return TramNetworkService(repository)
 
 
 TramNetworkServiceDep = Annotated[TramNetworkService, Depends(get_tram_network_service)]

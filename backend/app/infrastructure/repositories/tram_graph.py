@@ -20,13 +20,10 @@ from app.domain.tram_graph import (
     Coordinate,
     GraphMetadata,
     TramEdge,
+    TramGraphDataError,
     TramNetwork,
     TramStop,
 )
-
-
-class TramGraphDataError(RuntimeError):
-    """The committed graph files are missing, unreadable or internally inconsistent."""
 
 
 class FileTramGraphRepository:

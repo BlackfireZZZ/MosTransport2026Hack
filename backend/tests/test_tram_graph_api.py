@@ -15,11 +15,8 @@ from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_tram_graph_repository
 from app.core.config import settings
-from app.domain.tram_graph import TramNetwork
-from app.infrastructure.repositories.tram_graph import (
-    FileTramGraphRepository,
-    TramGraphDataError,
-)
+from app.domain.tram_graph import TramGraphDataError, TramNetwork
+from app.infrastructure.repositories.tram_graph import FileTramGraphRepository
 from app.main import app
 
 BASE = "/api/v1/tram-graph"

@@ -28,6 +28,10 @@ class TramNetworkService:
     def __init__(self, repository: TramGraphRepository) -> None:
         self._repository = repository
 
+    async def ensure_available(self) -> None:
+        """Load the graph, so a readiness probe fails on a broken one."""
+        await self._repository.get_network()
+
     async def stats(self) -> NetworkStats:
         network = await self._repository.get_network()
         return network.stats()

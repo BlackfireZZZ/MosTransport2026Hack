@@ -25,6 +25,10 @@ from enum import StrEnum
 Coordinate = tuple[float, float]
 
 
+class TramGraphDataError(RuntimeError):
+    """The stored graph could not be turned into a usable network."""
+
+
 def route_sort_key(ref: str) -> tuple[int, int, str]:
     """Order refs 1, 2, 10 rather than 1, 10, 2, with the non-numeric ones last.
 
