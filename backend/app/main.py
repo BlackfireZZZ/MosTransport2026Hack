@@ -4,9 +4,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.middleware.observability import ObservabilityMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.infrastructure.db.session import engine
+from app.infrastructure.observability import configure_http_logger
 
 
 @asynccontextmanager
@@ -16,6 +18,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    configure_http_logger(settings.log_level)
     application = FastAPI(
         title=settings.app_name,
         version="0.1.0",
@@ -26,9 +29,10 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[str(origin).rstrip("/") for origin in settings.backend_cors_origins],
         allow_credentials=True,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+    application.add_middleware(ObservabilityMiddleware)
     application.include_router(api_router, prefix=settings.api_v1_prefix)
     return application
 

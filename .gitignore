@@ -157,6 +157,8 @@ ENV/
 .uv-cache/
 node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 .vite/
 env.bak/
 venv.bak/

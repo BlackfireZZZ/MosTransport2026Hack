@@ -68,5 +68,7 @@ features/forecast/{components,hooks,types}
 ## Наблюдаемость и безопасность
 
 - `/health/live` проверяет процесс, `/health/ready` — DB.
-- Следующие шаги: JSON logs, request ID, latency/error metrics, freshness и model quality dashboards.
+- Каждый ответ получает `X-Request-ID`; HTTP access logs с длительностью запроса
+  сериализуются в JSON.
+- После хакатона: metrics/traces, forecast freshness и model quality dashboards.
 - До production нужны SSO/RBAC, audit log, secret manager, rate limits, TLS и классификация исходных полей.

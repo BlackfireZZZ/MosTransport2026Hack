@@ -1,0 +1,489 @@
+{
+  "components": {
+    "schemas": {
+      "ForecastHorizon": {
+        "enum": [
+          "day",
+          "month",
+          "year"
+        ],
+        "title": "ForecastHorizon",
+        "type": "string"
+      },
+      "ForecastPointResponse": {
+        "properties": {
+          "capacity": {
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity",
+            "type": "number"
+          },
+          "lower_bound": {
+            "minimum": 0.0,
+            "title": "Lower Bound",
+            "type": "number"
+          },
+          "predicted_passengers": {
+            "minimum": 0.0,
+            "title": "Predicted Passengers",
+            "type": "number"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "upper_bound": {
+            "minimum": 0.0,
+            "title": "Upper Bound",
+            "type": "number"
+          }
+        },
+        "required": [
+          "timestamp",
+          "predicted_passengers",
+          "lower_bound",
+          "upper_bound",
+          "capacity"
+        ],
+        "title": "ForecastPointResponse",
+        "type": "object"
+      },
+      "ForecastResponse": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/ForecastHorizon"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "peak_load_percent": {
+            "title": "Peak Load Percent",
+            "type": "number"
+          },
+          "peak_passengers": {
+            "title": "Peak Passengers",
+            "type": "number"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastPointResponse"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "route": {
+            "$ref": "#/components/schemas/RouteResponse"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/StopLoadResponse"
+            },
+            "title": "Stops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "route",
+          "horizon",
+          "generated_at",
+          "model_version",
+          "peak_passengers",
+          "peak_load_percent",
+          "points",
+          "stops"
+        ],
+        "title": "ForecastResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "RouteResponse": {
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "name",
+          "color"
+        ],
+        "title": "RouteResponse",
+        "type": "object"
+      },
+      "ScenarioRequest": {
+        "properties": {
+          "additional_vehicles": {
+            "default": 0,
+            "maximum": 20.0,
+            "minimum": -5.0,
+            "title": "Additional Vehicles",
+            "type": "integer"
+          },
+          "demand_change_percent": {
+            "default": 0,
+            "maximum": 300.0,
+            "minimum": -90.0,
+            "title": "Demand Change Percent",
+            "type": "number"
+          },
+          "horizon": {
+            "$ref": "#/components/schemas/ForecastHorizon",
+            "default": "day"
+          },
+          "interval_change_percent": {
+            "default": 0,
+            "maximum": 200.0,
+            "minimum": -75.0,
+            "title": "Interval Change Percent",
+            "type": "number"
+          },
+          "route_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Route Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "route_id"
+        ],
+        "title": "ScenarioRequest",
+        "type": "object"
+      },
+      "ScenarioResponse": {
+        "properties": {
+          "affected_stops": {
+            "items": {
+              "$ref": "#/components/schemas/StopLoadResponse"
+            },
+            "title": "Affected Stops",
+            "type": "array"
+          },
+          "baseline_peak_load_percent": {
+            "title": "Baseline Peak Load Percent",
+            "type": "number"
+          },
+          "capacity_delta": {
+            "title": "Capacity Delta",
+            "type": "number"
+          },
+          "passenger_delta": {
+            "title": "Passenger Delta",
+            "type": "number"
+          },
+          "scenario_peak_load_percent": {
+            "title": "Scenario Peak Load Percent",
+            "type": "number"
+          },
+          "solver_version": {
+            "title": "Solver Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseline_peak_load_percent",
+          "scenario_peak_load_percent",
+          "passenger_delta",
+          "capacity_delta",
+          "affected_stops",
+          "solver_version"
+        ],
+        "title": "ScenarioResponse",
+        "type": "object"
+      },
+      "StopLoadResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "load_percent": {
+            "minimum": 0.0,
+            "title": "Load Percent",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "predicted_passengers": {
+            "minimum": 0.0,
+            "title": "Predicted Passengers",
+            "type": "number"
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "predicted_passengers",
+          "load_percent",
+          "sequence"
+        ],
+        "title": "StopLoadResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Прогноз пассажиропотока московского наземного транспорта",
+    "title": "TramFlow API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/forecasts": {
+      "get": {
+        "operationId": "get_forecast_api_v1_forecasts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "title": "Route Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "horizon",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ForecastHorizon",
+              "default": "day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Forecast",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "operationId": "liveness_api_v1_health_live_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Liveness Api V1 Health Live Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "readiness_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Readiness Api V1 Health Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/routes": {
+      "get": {
+        "operationId": "list_routes_api_v1_routes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RouteResponse"
+                  },
+                  "title": "Response List Routes Api V1 Routes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Routes",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/scenarios/evaluate": {
+      "post": {
+        "operationId": "evaluate_scenario_api_v1_scenarios_evaluate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evaluate Scenario",
+        "tags": [
+          "forecast"
+        ]
+      }
+    }
+  }
+}

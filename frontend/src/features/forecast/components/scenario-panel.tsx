@@ -59,7 +59,7 @@ export function ScenarioPanel({ routeId, horizon }: ScenarioPanelProps) {
         </label>
 
         {scenario.data && (
-          <div className="scenario-result" aria-live="polite">
+          <div className="scenario-result" data-testid="scenario-result" aria-live="polite">
             <span>Пиковая загрузка</span>
             <div>
               <strong>{scenario.data.baseline_peak_load_percent.toFixed(0)}%</strong>

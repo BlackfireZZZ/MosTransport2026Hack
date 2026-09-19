@@ -22,14 +22,19 @@ docker compose up --build
 ## Команды разработки
 
 ```bash
-make setup          # uv workspace backend + ML, npm frontend
+make bootstrap      # locked backend + ML + frontend dependencies
+make doctor         # версии runtimes, Docker и конфигурация
 make up             # production-like стек: DB, migration, API, Caddy
 make dev-frontend   # только Vite; backend ожидается на :8000
 make dev-backend    # только PostgreSQL + FastAPI с reload
 make dev-ml         # только изолированный ML workspace
 make dev            # DB + backend + frontend вместе
-make check
+make verify-fast    # основной цикл: lint, types, unit, contracts
+make verify         # fast + Alembic на чистой БД
+make verify-full    # verify + Docker smoke + browser E2E
 make smoke
+make ml-eval
+make contract-generate
 make migration NAME="add feature"
 ```
 
@@ -49,6 +54,27 @@ make dev-frontend
 
 В dev Vite проксирует `/api` на `http://localhost:8000`; в Compose тот же путь проксирует Caddy. Поэтому frontend-код не меняет base URL между окружениями. Компоненты shadcn хранятся в `frontend/src/components/ui` и принадлежат проекту.
 
+Проект закрепляет Python 3.13 и Node 24. Если локальные версии отличаются,
+используйте `.devcontainer` или Docker; `make doctor` покажет конкретное
+расхождение.
+
+## Параллельная работа агентов
+
+Крупная задача автоматически получает отдельную ветку, worktree и изолированный
+Compose project:
+
+```bash
+make agent-create ID=graph-forecast
+make agent-up ID=graph-forecast
+make agent-smoke ID=graph-forecast
+make agent-down ID=graph-forecast
+make agent-remove ID=graph-forecast
+```
+
+Порты и PostgreSQL volume вычисляются из `ID`, поэтому несколько задач не
+перезаписывают runtime друг друга. Точные критерии крупной задачи и безопасный
+lifecycle находятся в [AGENTS.md](AGENTS.md).
+
 ## Структура
 
 ```text
@@ -64,6 +90,8 @@ frontend/src/
   components/ui/        # локальные shadcn/ui primitives
   features/             # вертикальные продуктовые модули
 docs/
+  agentic/              # task, verification, permissions и handoff
+  exec-plans/           # только крупные/high-risk задачи
   architecture/         # границы, данные, масштабирование
   decisions/            # ADR — журнал решений
 ```
@@ -82,4 +110,13 @@ docs/
 
 ## Контроль качества
 
-CI и `make check` проверяют Ruff, mypy и pytest для backend; ESLint, Vitest и production build для frontend; корректность Docker Compose; smoke-тест API и SPA после запуска контейнеров.
+`make verify-fast` проверяет архитектурные границы, Ruff, mypy, backend/ML
+pytest, ML golden-eval, ESLint, Vitest, production build, OpenAPI drift и Docker
+Compose. `make verify` дополнительно прогоняет Alembic на чистой БД, а
+`make verify-full` собирает контейнеры, запускает smoke и три критических
+Playwright-сценария. CI использует те же команды.
+
+Это hackathon-профиль на три дня: ExecPlan применяется только для изменений
+API/БД/ML-контрактов, параллельной записи или работы дольше 90 минут. Тяжёлые
+процессы вроде cloud preview environments и отдельной agent-evaluation platform
+намеренно не включены.

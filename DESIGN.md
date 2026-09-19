@@ -16,7 +16,7 @@
 | Surface | `#fbfaf6` | `--card` |
 | Elevated | `#ffffff` | `--popover` |
 | Ink | `#1f2529` | `--foreground` |
-| Secondary text | `#667078` | `--muted-foreground` |
+| Secondary text | `#59636a` | `--muted-foreground` |
 | Hairline | `#d8dad7` | `--border` |
 | Moscow red | `#d9342b` | `--primary` |
 | Deep red | `#a8241e` | `--primary-strong` |

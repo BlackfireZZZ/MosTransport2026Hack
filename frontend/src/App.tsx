@@ -1,12 +1,12 @@
-import { Activity, Bell, Database, GitBranch, Map, Route, Settings2, TramFront } from "lucide-react"
-import { lazy, Suspense, useEffect, useState } from "react"
+import { Activity, Bell, Database, GitBranch, Map, Settings2, TramFront } from "lucide-react"
+import { lazy, Suspense, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NetworkMap } from "@/features/forecast/components/network-map"
 import { ScenarioPanel } from "@/features/forecast/components/scenario-panel"
 import { useForecast, useRoutes } from "@/features/forecast/hooks/use-forecast"
@@ -39,13 +39,10 @@ function App() {
   const routes = useRoutes()
   const [routeId, setRouteId] = useState(1)
   const [horizon, setHorizon] = useState<ForecastHorizon>("day")
-  const forecast = useForecast(routeId, horizon)
-
-  useEffect(() => {
-    if (routes.data?.length && !routes.data.some((route) => route.id === routeId)) {
-      setRouteId(routes.data[0].id)
-    }
-  }, [routeId, routes.data])
+  const selectedRouteId = routes.data?.some((route) => route.id === routeId)
+    ? routeId
+    : (routes.data?.[0]?.id ?? routeId)
+  const forecast = useForecast(selectedRouteId, horizon)
 
   const data = forecast.data
   const busiestStop = data?.stops.length
@@ -83,7 +80,7 @@ function App() {
           <section className="filters" aria-label="Параметры прогноза">
             <div className="filter-field">
               <label htmlFor="route-select">Маршрут</label>
-              <Select value={String(routeId)} onValueChange={(value) => setRouteId(Number(value))}>
+              <Select value={String(selectedRouteId)} onValueChange={(value) => setRouteId(Number(value))}>
                 <SelectTrigger id="route-select"><SelectValue placeholder="Выберите маршрут" /></SelectTrigger>
                 <SelectContent>
                   {routes.data?.map((route) => <SelectItem key={route.id} value={String(route.id)}>{route.number} · {route.name}</SelectItem>)}
@@ -94,6 +91,11 @@ function App() {
               <label>Горизонт планирования</label>
               <Tabs value={horizon} onValueChange={(value) => setHorizon(value as ForecastHorizon)}>
                 <TabsList aria-label="Горизонт планирования">{horizons.map((item) => <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>)}</TabsList>
+                {horizons.map((item) => (
+                  <TabsContent key={item.value} value={item.value} className="sr-only">
+                    Выбран горизонт: {item.label}
+                  </TabsContent>
+                ))}
               </Tabs>
             </div>
             <div className="freshness"><span>Срез данных</span><strong>{generatedAt}</strong></div>
@@ -123,7 +125,7 @@ function App() {
               </Suspense>
               <section className="lower-grid" id="network">
                 <NetworkMap stops={data.stops} />
-                <div id="scenario"><ScenarioPanel key={`${routeId}-${horizon}`} routeId={routeId} horizon={horizon} /></div>
+                <div id="scenario"><ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} /></div>
               </section>
               <footer className="data-note" id="data"><Map />Прогноз построен для потока на графе сети и затем распределён на маршрут · модель {data.model_version}</footer>
             </>

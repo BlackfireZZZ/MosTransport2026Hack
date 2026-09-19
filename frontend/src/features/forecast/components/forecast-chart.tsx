@@ -22,7 +22,7 @@ function formatTick(timestamp: string, horizon: ForecastHorizon) {
 }
 
 interface ForecastChartProps {
-  points: ForecastPoint[]
+  points: readonly ForecastPoint[]
   horizon: ForecastHorizon
 }
 

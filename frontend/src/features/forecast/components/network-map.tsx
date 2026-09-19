@@ -6,7 +6,7 @@ import type { StopLoad } from "@/features/forecast/types"
 import { formatPassengers } from "@/lib/utils"
 
 interface NetworkMapProps {
-  stops: StopLoad[]
+  stops: readonly StopLoad[]
 }
 
 function stopColor(load: number) {
