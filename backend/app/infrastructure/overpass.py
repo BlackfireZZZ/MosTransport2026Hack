@@ -13,7 +13,7 @@ Two traps, both documented in `docs/overpass-api.md` and both pinned by tests:
 
 1. **The HTML error pages arrive under 400 and 504.** A client that raises on the
    status code before reading the body throws away the only description of what went
-   wrong. `UrllibTransport` therefore returns an HTTP error response as an ordinary
+   wrong. `HttpxTransport` therefore returns an HTTP error response as an ordinary
    `RawResponse` instead of raising, which makes that mistake unrepresentable here.
 2. **The message straddles a tag boundary.** The word "Error" sits inside a
    `<strong>` and the part that matters follows the closing tag, so a regex anchored
@@ -35,11 +35,11 @@ import asyncio
 import html
 import json
 import re
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlencode
+
+import httpx
 
 from app.domain.overpass import OverpassError, OverpassResult, OverpassStatus
 
@@ -100,28 +100,24 @@ class OverpassTransport(Protocol):
     async def fetch(self, url: str, data: bytes | None, read_timeout: float) -> RawResponse: ...
 
 
-class UrllibTransport:
+class HttpxTransport:
     async def fetch(self, url: str, data: bytes | None, read_timeout: float) -> RawResponse:
-        return await asyncio.to_thread(self._fetch, url, data, read_timeout)
-
-    @staticmethod
-    def _fetch(url: str, data: bytes | None, read_timeout: float) -> RawResponse:
-        # The URL is operator-configured (OVERPASS_BASE_URL), never caller-supplied.
-        request = urllib.request.Request(
-            url,
-            data=data,
-            method="POST" if data is not None else "GET",
-        )
         try:
-            with urllib.request.urlopen(request, timeout=read_timeout) as response:
-                return RawResponse(int(response.status), response.read().decode("utf-8", "replace"))
-        except urllib.error.HTTPError as error:
-            # Deliberately not re-raised: 400 and 504 carry the HTML error page, and
-            # the page body is the only description of the failure.
-            return RawResponse(int(error.code), error.read().decode("utf-8", "replace"))
-        # URLError and TimeoutError are both OSError, so one clause covers both.
-        except OSError as error:
+            async with httpx.AsyncClient(timeout=read_timeout) as client:
+                response = (
+                    await client.post(
+                        url,
+                        content=data,
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    )
+                    if data is not None
+                    else await client.get(url)
+                )
+        except httpx.HTTPError as error:
             raise OverpassTransportError(f"{type(error).__name__}: {error}") from error
+        # Returned rather than raised: 400 and 504 carry the HTML error page, and that
+        # page body is the only description of what went wrong.
+        return RawResponse(response.status_code, response.text)
 
 
 class HttpOverpassGateway:
@@ -137,7 +133,7 @@ class HttpOverpassGateway:
         self._status_url = status_url
         self._query_timeout = query_timeout
         self._health_timeout = health_timeout
-        self._transport = transport or UrllibTransport()
+        self._transport = transport or HttpxTransport()
 
     async def run_query(self, query: str) -> OverpassResult:
         payload = urlencode({"data": query}).encode("utf-8")
