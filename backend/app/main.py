@@ -25,6 +25,11 @@ def create_app() -> FastAPI:
         description="Прогноз пассажиропотока московского наземного транспорта",
         lifespan=lifespan,
     )
+    # Order matters: add_middleware prepends, so the LAST one added is outermost.
+    # CORS must be outermost, otherwise the JSON error ObservabilityMiddleware
+    # produces on a crash never gets its Access-Control-Allow-Origin and a browser
+    # discards it as a CORS failure instead of showing the error.
+    application.add_middleware(ObservabilityMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[str(origin).rstrip("/") for origin in settings.backend_cors_origins],
@@ -32,7 +37,6 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
-    application.add_middleware(ObservabilityMiddleware)
     application.include_router(api_router, prefix=settings.api_v1_prefix)
     return application
 

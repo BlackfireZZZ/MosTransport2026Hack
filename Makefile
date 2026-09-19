@@ -9,7 +9,6 @@ SHELL := /bin/sh
 
 PYTHON_VERSION := $(shell tr -d '[:space:]' < .python-version)
 NODE_VERSION := $(shell tr -d '[:space:]' < .node-version)
-UV_VERSION ?= 0.12.13
 POSTGRES_PORT ?= 5432
 BACKEND_PORT ?= 8000
 FRONTEND_PORT ?= 8080
@@ -22,7 +21,7 @@ bootstrap: sync-backend sync-ml frontend-install
 setup: bootstrap
 
 doctor:
-	@PYTHON_VERSION=$(PYTHON_VERSION) NODE_VERSION=$(NODE_VERSION) UV_VERSION=$(UV_VERSION) ./scripts/doctor.sh
+	@PYTHON_VERSION=$(PYTHON_VERSION) NODE_VERSION=$(NODE_VERSION) ./scripts/doctor.sh
 
 sync-backend:
 	uv sync --package tramflow-backend --extra dev --locked

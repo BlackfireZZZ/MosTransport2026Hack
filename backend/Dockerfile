@@ -16,6 +16,14 @@ RUN uv sync --frozen --package tramflow-backend --no-dev --no-install-workspace
 COPY backend ./backend
 RUN uv sync --locked --package tramflow-backend --no-dev --no-editable
 
+# The tram graph is a read-only committed asset the API serves directly. The paths
+# are set explicitly rather than left to the settings default, which resolves them
+# relative to the source tree: `--no-editable` also installs `app` into the venv, and
+# the default would follow whichever copy of the package happened to be imported.
+COPY data ./data
+ENV TRAM_GRAPH_JSON=/workspace/data/tram_graph.json \
+    TRAM_GRAPH_GEOJSON=/workspace/data/tram_graph.geojson
+
 RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /workspace
 USER appuser
 

@@ -1,7 +1,13 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Module-relative, not cwd-relative: the container runs uvicorn from /workspace/backend
+# and a developer runs it from the checkout root.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+DATA_DIR = REPOSITORY_ROOT / "data"
 
 
 class Settings(BaseSettings):
@@ -18,6 +24,26 @@ class Settings(BaseSettings):
             AnyHttpUrl("http://localhost:8080"),
         ]
     )
+
+    # See docs/decisions/0003-tram-graph-file-repository.md.
+    tram_graph_json: Path = DATA_DIR / "tram_graph.json"
+    tram_graph_geojson: Path = DATA_DIR / "tram_graph.geojson"
+
+    # Self-hosted Overpass instance; HTTP only, no auth (docs/overpass-api.md).
+    # The base, not the interpreter: /interpreter and /status are siblings under it,
+    # so deriving both from one value leaves no way for them to disagree.
+    overpass_base_url: str = "http://204.168.155.177/api"
+    overpass_timeout: float = Field(default=60.0, gt=0)
+    overpass_health_timeout: float = Field(default=3.0, gt=0)
+    overpass_max_query_chars: int = Field(default=8000, gt=0)
+
+    @property
+    def overpass_interpreter_url(self) -> str:
+        return f"{self.overpass_base_url.rstrip('/')}/interpreter"
+
+    @property
+    def overpass_status_url(self) -> str:
+        return f"{self.overpass_base_url.rstrip('/')}/status"
 
 
 @lru_cache

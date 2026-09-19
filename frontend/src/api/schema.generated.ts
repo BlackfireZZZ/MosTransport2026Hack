@@ -55,6 +55,46 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/v1/overpass/query": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /** Run Query */
+        readonly post: operations["run_query_api_v1_overpass_query_post"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/overpass/status": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Probe the upstream instance.
+         *
+         *     Always 200: an unreachable Overpass is a fact for the dispatcher UI to display,
+         *     not a failure of this API. Readiness of the service itself is `/health/ready`.
+         */
+        readonly get: operations["get_status_api_v1_overpass_status_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/v1/routes": {
         readonly parameters: {
             readonly query?: never;
@@ -83,6 +123,152 @@ export interface paths {
         readonly put?: never;
         /** Evaluate Scenario */
         readonly post: operations["evaluate_scenario_api_v1_scenarios_evaluate_post"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/edges": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** List Edges */
+        readonly get: operations["list_edges_api_v1_tram_graph_edges_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/geojson": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Get Geojson
+         * @description The network as a GeoJSON FeatureCollection, stops as points and track as lines.
+         */
+        readonly get: operations["get_geojson_api_v1_tram_graph_geojson_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/path": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Find Path
+         * @description Cheapest ride between two stops by track distance.
+         *
+         *     An unreachable pair answers 200 with `found=false` and a `reason`. The network is
+         *     genuinely in two disconnected pieces and its edges are directed, so "no such ride"
+         *     is information about the city, not a client error.
+         */
+        readonly get: operations["find_path_api_v1_tram_graph_path_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/routes": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** List Routes */
+        readonly get: operations["list_routes_api_v1_tram_graph_routes_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/routes/{ref}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Get Route */
+        readonly get: operations["get_route_api_v1_tram_graph_routes__ref__get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/stats": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Get Stats */
+        readonly get: operations["get_stats_api_v1_tram_graph_stats_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/stops": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Search Stops */
+        readonly get: operations["search_stops_api_v1_tram_graph_stops_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/v1/tram-graph/stops/{stop_id}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Get Stop */
+        readonly get: operations["get_stop_api_v1_tram_graph_stops__stop_id__get"];
+        readonly put?: never;
+        readonly post?: never;
         readonly delete?: never;
         readonly options?: never;
         readonly head?: never;
@@ -134,10 +320,158 @@ export interface components {
             /** Stops */
             readonly stops: readonly components["schemas"]["StopLoadResponse"][];
         };
+        /** GeoJsonMetadataResponse */
+        readonly GeoJsonMetadataResponse: {
+            /** Area */
+            readonly area?: string | null;
+            /** Filtered To Route */
+            readonly filtered_to_route?: string | null;
+            /** Generated At */
+            readonly generated_at?: string | null;
+            /** License */
+            readonly license?: string | null;
+            /** Osm Data Timestamp */
+            readonly osm_data_timestamp?: string | null;
+            /** Route Relations */
+            readonly route_relations?: number | null;
+            /** Source */
+            readonly source?: string | null;
+        };
         /** HTTPValidationError */
         readonly HTTPValidationError: {
             /** Detail */
             readonly detail?: readonly components["schemas"]["ValidationError"][];
+        };
+        /** LineStringGeometry */
+        readonly LineStringGeometry: {
+            /** Coordinates */
+            readonly coordinates: readonly (readonly [
+                number,
+                number
+            ])[];
+            /**
+             * Type
+             * @default LineString
+             * @constant
+             */
+            readonly type: "LineString";
+        };
+        /**
+         * NeighbourDirection
+         * @enum {string}
+         */
+        readonly NeighbourDirection: "in" | "out";
+        /** NetworkComponentResponse */
+        readonly NetworkComponentResponse: {
+            /** Routes */
+            readonly routes: readonly string[];
+            /** Size */
+            readonly size: number;
+        };
+        /** NetworkStatsResponse */
+        readonly NetworkStatsResponse: {
+            /**
+             * Components
+             * @description Undirected components, largest first; the network really is in two pieces
+             */
+            readonly components: readonly components["schemas"]["NetworkComponentResponse"][];
+            /** Degree Histogram */
+            readonly degree_histogram: {
+                readonly [key: string]: number;
+            };
+            /**
+             * Edges
+             * @description Directed edges; a pair served both ways counts twice
+             */
+            readonly edges: number;
+            /** Generated At */
+            readonly generated_at?: string | null;
+            /** Osm Data Timestamp */
+            readonly osm_data_timestamp?: string | null;
+            /**
+             * Route Relations
+             * @description PTv2 route relations in the OSM extract, one per direction. A larger number than `routes`, and not interchangeable with it.
+             */
+            readonly route_relations?: number | null;
+            /**
+             * Routes
+             * @description Distinct route refs
+             */
+            readonly routes: number;
+            readonly segment_length_m: components["schemas"]["SegmentLengthSummaryResponse"];
+            /** Stops */
+            readonly stops: number;
+            /** Total Length Km */
+            readonly total_length_km: number;
+        };
+        /** OverpassQueryRequest */
+        readonly OverpassQueryRequest: {
+            /**
+             * Query
+             * @description Overpass QL. The length ceiling is a runtime setting, not part of this schema.
+             * @example [out:json][timeout:60];node(1);out;
+             */
+            readonly query: string;
+        };
+        /** OverpassQueryResponse */
+        readonly OverpassQueryResponse: {
+            /**
+             * Remark
+             * @description Set when Overpass answered 200 with a PARTIAL result because the query hit its own [timeout:]. Lifted out of `result` so it cannot be missed; treating such a response as complete is the easiest way to publish wrong numbers.
+             */
+            readonly remark?: string | null;
+            /**
+             * Result
+             * @description The Overpass JSON document, unmodified
+             */
+            readonly result: {
+                readonly [key: string]: unknown;
+            };
+        };
+        /** OverpassStatusResponse */
+        readonly OverpassStatusResponse: {
+            /**
+             * Detail
+             * @description Why the probe failed; null when the instance answered
+             */
+            readonly detail?: string | null;
+            /** Reachable */
+            readonly reachable: boolean;
+            /** Url */
+            readonly url: string;
+        };
+        /**
+         * PathAbsence
+         * @description Why no path was returned, in a form a client can branch on.
+         * @enum {string}
+         */
+        readonly PathAbsence: "unknown_stop" | "different_components" | "wrong_direction";
+        /** PointGeometry */
+        readonly PointGeometry: {
+            /** Coordinates */
+            readonly coordinates: readonly [
+                number,
+                number
+            ];
+            /**
+             * Type
+             * @default Point
+             * @constant
+             */
+            readonly type: "Point";
+        };
+        /** RouteDetailResponse */
+        readonly RouteDetailResponse: {
+            /** Component */
+            readonly component: number;
+            /** Edges */
+            readonly edges: readonly components["schemas"]["TramEdgeResponse"][];
+            /** Length M */
+            readonly length_m: number;
+            /** Ref */
+            readonly ref: string;
+            /** Stops */
+            readonly stops: readonly components["schemas"]["TramStopResponse"][];
         };
         /** RouteResponse */
         readonly RouteResponse: {
@@ -187,6 +521,77 @@ export interface components {
             /** Solver Version */
             readonly solver_version: string;
         };
+        /** SegmentFeature */
+        readonly SegmentFeature: {
+            readonly geometry: components["schemas"]["LineStringGeometry"];
+            readonly properties: components["schemas"]["SegmentFeatureProperties"];
+            /**
+             * Type
+             * @default Feature
+             * @constant
+             */
+            readonly type: "Feature";
+        };
+        /** SegmentFeatureProperties */
+        readonly SegmentFeatureProperties: {
+            /** Length M */
+            readonly length_m: number;
+            /** Routes */
+            readonly routes: readonly string[];
+            /** Source */
+            readonly source: number;
+            /** Target */
+            readonly target: number;
+        };
+        /** SegmentLengthSummaryResponse */
+        readonly SegmentLengthSummaryResponse: {
+            /** Max */
+            readonly max: number;
+            /** Mean */
+            readonly mean: number;
+            /** Median */
+            readonly median: number;
+            /** Min */
+            readonly min: number;
+        };
+        /** StopDetailResponse */
+        readonly StopDetailResponse: {
+            /**
+             * Id
+             * @description OSM stop_position node id
+             */
+            readonly id: number;
+            /** Latitude */
+            readonly latitude: number;
+            /** Longitude */
+            readonly longitude: number;
+            /** Name */
+            readonly name: string;
+            /** Neighbours */
+            readonly neighbours: readonly components["schemas"]["StopNeighbourResponse"][];
+            /** Routes */
+            readonly routes: readonly string[];
+        };
+        /** StopFeature */
+        readonly StopFeature: {
+            readonly geometry: components["schemas"]["PointGeometry"];
+            readonly properties: components["schemas"]["StopFeatureProperties"];
+            /**
+             * Type
+             * @default Feature
+             * @constant
+             */
+            readonly type: "Feature";
+        };
+        /** StopFeatureProperties */
+        readonly StopFeatureProperties: {
+            /** Id */
+            readonly id: number;
+            /** Name */
+            readonly name: string;
+            /** Routes */
+            readonly routes: readonly string[];
+        };
         /** StopLoadResponse */
         readonly StopLoadResponse: {
             /** Id */
@@ -203,6 +608,116 @@ export interface components {
             readonly predicted_passengers: number;
             /** Sequence */
             readonly sequence: number;
+        };
+        /** StopNeighbourResponse */
+        readonly StopNeighbourResponse: {
+            readonly direction: components["schemas"]["NeighbourDirection"];
+            /** Id */
+            readonly id: number;
+            /** Length M */
+            readonly length_m: number;
+            /** Name */
+            readonly name: string;
+            /** Routes */
+            readonly routes: readonly string[];
+        };
+        /** TramEdgeResponse */
+        readonly TramEdgeResponse: {
+            /**
+             * Length M
+             * @description Metres along the track, not as the crow flies
+             */
+            readonly length_m: number;
+            /** Routes */
+            readonly routes: readonly string[];
+            /** Source */
+            readonly source: number;
+            /** Target */
+            readonly target: number;
+        };
+        /**
+         * TramGraphGeoJson
+         * @description A GeoJSON FeatureCollection: stops as Points, track segments as LineStrings.
+         */
+        readonly TramGraphGeoJson: {
+            /** Features */
+            readonly features: readonly (components["schemas"]["StopFeature"] | components["schemas"]["SegmentFeature"])[];
+            readonly metadata: components["schemas"]["GeoJsonMetadataResponse"];
+            /**
+             * Type
+             * @default FeatureCollection
+             * @constant
+             */
+            readonly type: "FeatureCollection";
+        };
+        /** TramPathResponse */
+        readonly TramPathResponse: {
+            /** Found */
+            readonly found: boolean;
+            /**
+             * Geometry
+             * @description [lon, lat] pairs along the track
+             */
+            readonly geometry: readonly (readonly [
+                number,
+                number
+            ])[];
+            /**
+             * Reason
+             * @description The same cause in English prose, for a human reading the API directly.
+             */
+            readonly reason?: string | null;
+            /** @description Why there is no such ride, as a value a client can branch on. Present with `found=false`, which is a 200. Prefer this over `reason` for anything the user sees: `reason` is English prose. */
+            readonly reason_code?: components["schemas"]["PathAbsence"] | null;
+            /** Routes */
+            readonly routes: readonly string[];
+            /** Stops */
+            readonly stops: readonly components["schemas"]["TramStopResponse"][];
+            /** Total Length M */
+            readonly total_length_m: number;
+        };
+        /** TramRouteResponse */
+        readonly TramRouteResponse: {
+            /**
+             * Component
+             * @description 0 is the main network, 1 the northern one
+             */
+            readonly component: number;
+            /** Length M */
+            readonly length_m: number;
+            /**
+             * Ref
+             * @description Route ref as OSM carries it; not always numeric ("А", "т1")
+             */
+            readonly ref: string;
+            /** Stop Count */
+            readonly stop_count: number;
+        };
+        /**
+         * TramStopResponse
+         * @description `latitude`/`longitude`, matching the forecast slice's StopResponse.
+         *
+         *     The committed graph files call these `lat`/`lon`; that spelling stops at the
+         *     repository, so one API does not expose two names for one concept. Original
+         *     docstring follows.
+         *
+         *     These are the field names in
+         *     `docs/tram-graph.md`, the committed GeoJSON and every map library.
+         */
+        readonly TramStopResponse: {
+            /**
+             * Id
+             * @description OSM stop_position node id
+             */
+            readonly id: number;
+            /** Latitude */
+            readonly latitude: number;
+            /** Longitude */
+            readonly longitude: number;
+            /** Name */
+            readonly name: string;
+            /** Routes */
+            readonly routes: readonly string[];
         };
         /** ValidationError */
         readonly ValidationError: {
@@ -302,6 +817,59 @@ export interface operations {
             };
         };
     };
+    readonly run_query_api_v1_overpass_query_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["OverpassQueryRequest"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["OverpassQueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly get_status_api_v1_overpass_status_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["OverpassStatusResponse"];
+                };
+            };
+        };
+    };
     readonly list_routes_api_v1_routes_get: {
         readonly parameters: {
             readonly query?: never;
@@ -342,6 +910,239 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["ScenarioResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly list_edges_api_v1_tram_graph_edges_get: {
+        readonly parameters: {
+            readonly query?: {
+                /** @description Restrict to one route ref */
+                readonly route?: string | null;
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["TramEdgeResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly get_geojson_api_v1_tram_graph_geojson_get: {
+        readonly parameters: {
+            readonly query?: {
+                /** @description Restrict to one route ref */
+                readonly route?: string | null;
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["TramGraphGeoJson"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly find_path_api_v1_tram_graph_path_get: {
+        readonly parameters: {
+            readonly query: {
+                /** @description Source stop id */
+                readonly from: number;
+                /** @description Target stop id */
+                readonly to: number;
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["TramPathResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly list_routes_api_v1_tram_graph_routes_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["TramRouteResponse"][];
+                };
+            };
+        };
+    };
+    readonly get_route_api_v1_tram_graph_routes__ref__get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly ref: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["RouteDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly get_stats_api_v1_tram_graph_stats_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["NetworkStatsResponse"];
+                };
+            };
+        };
+    };
+    readonly search_stops_api_v1_tram_graph_stops_get: {
+        readonly parameters: {
+            readonly query?: {
+                readonly limit?: number;
+                /** @description Case-insensitive substring of the stop name */
+                readonly q?: string | null;
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["TramStopResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly get_stop_api_v1_tram_graph_stops__stop_id__get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly stop_id: number;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["StopDetailResponse"];
                 };
             };
             /** @description Validation Error */

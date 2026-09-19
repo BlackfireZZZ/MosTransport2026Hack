@@ -10,6 +10,13 @@ The root `AGENTS.md` and `DESIGN.md` are mandatory. This file only adds rules sp
 - A user-flow change covers loading, empty, error, stale/success, and keyboard-accessible paths.
 - Do not introduce a new visual pattern until it is aligned with `DESIGN.md`.
 
+## Dependencies
+
+Everything in `dependencies` ships to the browser. Establish the package's licence,
+open advisories and gzipped cost before installing, and surface them as a flagged item
+in the report — see "Dependencies and lock files" in the root `AGENTS.md`. No approval
+is required; silence is what is forbidden. Never hand-edit `package-lock.json`.
+
 ## Verification
 
 Run the closest Vitest test first, then:

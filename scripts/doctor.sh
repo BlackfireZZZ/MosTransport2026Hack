@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 set -eu
 
-expected_python="${PYTHON_VERSION:-3.13}"
-expected_node="${NODE_VERSION:-24}"
-expected_uv="${UV_VERSION:-0.12.13}"
+# Minimums, not pins. A newer runtime is fine; the tools below are asked to match
+# ">= this", so a machine is never wrong for being ahead of the lockfile.
+minimum_python="${PYTHON_VERSION:-3.13}"
+minimum_node="${NODE_VERSION:-24}"
 errors=0
 
 pass() {
@@ -29,31 +30,26 @@ for command_name in git uv node npm docker make; do
 done
 
 if command -v uv >/dev/null 2>&1; then
-    actual_uv="$(uv --version | awk '{print $2}')"
-    if [ "$actual_uv" = "$expected_uv" ]; then
-        pass "uv version is $actual_uv"
-    else
-        fail "uv $actual_uv found; expected $expected_uv"
-    fi
+    # No version arithmetic here: pyproject.toml declares `required-version`, so uv
+    # refuses to run at all when it is too old. Reporting the version is enough.
+    pass "uv is $(uv --version | awk '{print $2}')"
 
-    if python_path="$(uv python find "$expected_python" 2>/dev/null)"; then
-        actual_python="$($python_path -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-        if [ "$actual_python" = "$expected_python" ]; then
-            pass "Python version is $actual_python ($python_path)"
-        else
-            fail "Python $actual_python found at $python_path; expected $expected_python"
-        fi
+    # uv resolves the specifier itself, so ">=" needs no comparison in shell.
+    if python_path="$(uv python find ">=$minimum_python" 2>/dev/null)"; then
+        pass "Python $("$python_path" -c 'import platform; print(platform.python_version())') at $python_path"
     else
-        fail "Python $expected_python is not installed (run: uv python install $expected_python)"
+        fail "no Python >=$minimum_python (run: uv python install $minimum_python)"
     fi
 fi
 
 if command -v node >/dev/null 2>&1; then
+    # A major version is a single integer, so this is plain shell arithmetic
+    # rather than a version comparator.
     actual_node="$(node --version | sed 's/^v//' | cut -d. -f1)"
-    if [ "$actual_node" = "$expected_node" ]; then
-        pass "Node major version is $actual_node"
+    if [ "$actual_node" -ge "$minimum_node" ]; then
+        pass "Node major version is $actual_node (minimum $minimum_node)"
     else
-        fail "Node major version is $actual_node; expected $expected_node"
+        fail "Node major version is $actual_node; need >=$minimum_node"
     fi
 fi
 
