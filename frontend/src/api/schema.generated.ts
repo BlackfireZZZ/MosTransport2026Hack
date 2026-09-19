@@ -45,7 +45,14 @@ export interface paths {
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** Readiness */
+        /**
+         * Readiness
+         * @description Ready means every dependency needed to answer is in place, not just the database.
+         *
+         *     The graph is loaded here rather than on the first request that needs it, so a
+         *     deployment shipped without it reports unready instead of looking healthy and then
+         *     failing whichever request happens to arrive first.
+         */
         readonly get: operations["readiness_api_v1_health_ready_get"];
         readonly put?: never;
         readonly post?: never;

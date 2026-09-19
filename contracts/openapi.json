@@ -1206,6 +1206,7 @@
     },
     "/api/v1/health/ready": {
       "get": {
+        "description": "Ready means every dependency needed to answer is in place, not just the database.\n\nThe graph is loaded here rather than on the first request that needs it, so a\ndeployment shipped without it reports unready instead of looking healthy and then\nfailing whichever request happens to arrive first.",
         "operationId": "readiness_api_v1_health_ready_get",
         "responses": {
           "200": {

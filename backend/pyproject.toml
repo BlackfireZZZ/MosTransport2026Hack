@@ -11,6 +11,13 @@ dependencies = [
   "alembic==1.20.0",
   "asyncpg==0.31.0",
   "fastapi==0.141.1",
+  # SQLAlchemy asks for greenlet only where platform_machine is one of AMD64, WIN32,
+  # aarch64, amd64, ppc64le, win32 or x86_64. macOS on Apple Silicon reports arm64, which
+  # is in none of them, so async SQLAlchemy installs there without the runtime it needs
+  # and fails at the first await. Declared here so the platform stops deciding.
+  "greenlet>=3.2,<4",
+  # The Overpass client runs in the production image, which builds --no-dev.
+  "httpx>=0.28.1,<0.29",
   "pydantic-settings==2.15.0",
   "sqlalchemy==2.0.54",
   "uvicorn[standard]==0.53.0",
@@ -18,7 +25,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx>=0.28.1,<0.29",
   "mypy>=1.18,<2",
   "pytest>=9.0,<10",
   "pytest-asyncio>=1.2,<2",
