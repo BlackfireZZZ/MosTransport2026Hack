@@ -16,7 +16,7 @@ from app.domain.tram_graph import (
     route_sort_key,
     sorted_refs,
 )
-from app.domain.tram_pathfinding import find_path
+from app.domain.tram_pathfinding import PathAbsence, find_path
 
 
 def stop(stop_id: int, name: str, *routes: str) -> TramStop:
@@ -103,3 +103,23 @@ def test_geometry_falls_back_to_the_straight_line(network: TramNetwork) -> None:
 
     assert len(geometry.segments) == 5
     assert all(len(segment.coordinates) == 2 for segment in geometry.segments)
+
+
+def test_absence_reasons_carry_a_code_a_client_can_branch_on(network: TramNetwork) -> None:
+    """`reason` is English prose; a UI in another language needs the code instead."""
+    assert find_path(network, 999, 1).reason_code is PathAbsence.UNKNOWN_STOP
+    assert find_path(network, 1, 9).reason_code is PathAbsence.DIFFERENT_COMPONENTS
+    # 9 -> 10 is the only edge on the island, so the return leg has no track.
+    assert find_path(network, 10, 9).reason_code is PathAbsence.WRONG_DIRECTION
+    assert find_path(network, 1, 3).reason_code is None
+
+
+def test_every_absence_sets_both_code_and_prose(network: TramNetwork) -> None:
+    for path in (
+        find_path(network, 999, 1),
+        find_path(network, 1, 9),
+        find_path(network, 10, 9),
+    ):
+        assert path.found is False
+        assert path.reason_code is not None
+        assert path.reason

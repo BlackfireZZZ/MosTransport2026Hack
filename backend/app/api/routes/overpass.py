@@ -28,7 +28,6 @@ async def run_query(
     try:
         result = await service.run_query(request.query)
     except OverpassQueryTooLongError as error:
-        # Must precede OverpassError: it is a subclass, and this one never left the box.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)
         ) from error
@@ -36,4 +35,4 @@ async def run_query(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)
         ) from error
-    return OverpassQueryResponse(result=dict(result.payload), remark=result.remark)
+    return OverpassQueryResponse(result=result.payload, remark=result.remark)

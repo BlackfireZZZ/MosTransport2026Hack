@@ -94,9 +94,19 @@ class FileTramGraphRepository:
         )
 
     def _read_track_geometry(self) -> dict[tuple[int, int], tuple[Coordinate, ...]]:
-        """Per-edge polylines. Absent GeoJSON degrades to straight lines, not an error."""
+        """Per-edge polylines along the real track.
+
+        A missing file raises rather than degrading. Both graph files come out of the
+        same run of scripts/fetch_tram_graph.py, so one without the other is a broken
+        deployment -- and the degraded mode is invisible: every endpoint still answers
+        200 with plausible straight-line geometry, and the map quietly draws trams
+        through buildings with nothing in the response to say so.
+        """
         if not self._geojson_path.exists():
-            return {}
+            raise TramGraphDataError(
+                f"the tram graph geometry is missing at {self._geojson_path}; it is written "
+                "alongside the graph JSON by scripts/fetch_tram_graph.py"
+            )
         geometry: dict[tuple[int, int], tuple[Coordinate, ...]] = {}
         for feature in self._read_json(self._geojson_path).get("features", []):
             if feature.get("geometry", {}).get("type") != "LineString":

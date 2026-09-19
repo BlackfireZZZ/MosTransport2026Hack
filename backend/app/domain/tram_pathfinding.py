@@ -10,8 +10,17 @@ from __future__ import annotations
 
 import heapq
 from dataclasses import dataclass
+from enum import StrEnum
 
 from app.domain.tram_graph import Coordinate, TramEdge, TramNetwork, TramStop, sorted_refs
+
+
+class PathAbsence(StrEnum):
+    """Why no path was returned, in a form a client can branch on."""
+
+    UNKNOWN_STOP = "unknown_stop"
+    DIFFERENT_COMPONENTS = "different_components"
+    WRONG_DIRECTION = "wrong_direction"
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,39 +29,52 @@ class TramPath:
 
     `found=False` with a populated `reason` is a successful answer describing the
     absence of a route, not a failure: the network genuinely has unreachable pairs.
+
+    `reason` is English prose for a human reading the API directly. A client that
+    renders in another language should branch on `reason_code` and write its own text.
     """
 
     found: bool
     reason: str | None
+    reason_code: PathAbsence | None
     stops: tuple[TramStop, ...]
     total_length_m: float
     geometry: tuple[Coordinate, ...]
     routes: tuple[str, ...]
 
 
-def absent_path(reason: str) -> TramPath:
+def absent_path(code: PathAbsence, reason: str) -> TramPath:
     return TramPath(
-        found=False, reason=reason, stops=(), total_length_m=0.0, geometry=(), routes=()
+        found=False,
+        reason=reason,
+        reason_code=code,
+        stops=(),
+        total_length_m=0.0,
+        geometry=(),
+        routes=(),
     )
 
 
 def find_path(network: TramNetwork, source: int, target: int) -> TramPath:
     for label, stop_id in (("from", source), ("to", target)):
         if stop_id not in network.stops:
-            return absent_path(f"unknown stop id {stop_id} in '{label}'")
+            return absent_path(
+                PathAbsence.UNKNOWN_STOP, f"unknown stop id {stop_id} in '{label}'"
+            )
 
     if network.component_of[source] != network.component_of[target]:
         return absent_path(
+            PathAbsence.DIFFERENT_COMPONENTS,
             f"{network.stops[source].name} and {network.stops[target].name} are in different "
-            "parts of the tram network; there is no track connecting them"
+            "parts of the tram network; there is no track connecting them",
         )
 
     chain = _cheapest_chain(network, source, target)
     if chain is None:
-        # Same component, so the track exists; the direction of travel does not.
         return absent_path(
+            PathAbsence.WRONG_DIRECTION,
             f"no route from {network.stops[source].name} to {network.stops[target].name} in the "
-            "direction of travel; the track exists but only the other way round"
+            "direction of travel; the track exists but only the other way round",
         )
 
     stops = [network.stops[source]] + [network.stops[edge.target] for edge in chain]
@@ -72,6 +94,7 @@ def find_path(network: TramNetwork, source: int, target: int) -> TramPath:
     return TramPath(
         found=True,
         reason=None,
+        reason_code=None,
         stops=tuple(stops),
         total_length_m=round(total, 1),
         geometry=tuple(geometry),

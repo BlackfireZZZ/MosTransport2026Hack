@@ -27,7 +27,6 @@ from pathlib import Path
 
 DEFAULT_API = "http://204.168.155.177/api/interpreter"
 
-# Roles that mark a vehicle stopping point in a PTv2 route relation.
 STOP_ROLES = {"stop", "stop_entry_only", "stop_exit_only"}
 PLATFORM_ROLES = {"platform", "platform_entry_only", "platform_exit_only"}
 
@@ -52,7 +51,6 @@ def fetch(api_url: str, query: str, timeout: int) -> dict:
     with urllib.request.urlopen(req, timeout=timeout + 30) as resp:
         raw = resp.read().decode("utf-8")
     if not raw.lstrip().startswith("{"):
-        # Overpass reports runtime errors as an HTML page with HTTP 200.
         snippet = " ".join(raw.split())[:300]
         raise RuntimeError(f"Overpass did not return JSON: {snippet}")
     return json.loads(raw)
@@ -217,7 +215,6 @@ def build(payload: dict) -> tuple[OrderedDict, OrderedDict, dict]:
                 }
             else:
                 edge["routes"].add(route_label)
-                # Keep the tightest measurement seen for a shared track segment.
                 if length < edge["length_m"]:
                     edge["length_m"] = round(length, 1)
                     edge["geometry"] = geometry

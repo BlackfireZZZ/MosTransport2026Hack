@@ -113,6 +113,51 @@ A boundary exception requires an ADR, a rollback or migration plan, and a contra
 - Color is never the only carrier of meaning. Numbers use tabular numerals.
 - Add UI primitives through the shadcn CLI or official source and keep them local to the repository.
 
+## Dependencies and lock files
+
+Never edit a lock file by hand. `uv.lock` and `package-lock.json` are outputs: change
+the manifest and let the package manager regenerate them. A hand-written entry is
+unverifiable, and a lock that disagrees with its manifest fails `uv sync --locked` and
+`npm ci` in CI while still working on the machine that wrote it.
+
+A lock file changing on its own is therefore not a defect — adding a dependency must
+change it, and a diff of transitive packages the manager wrote is what correct looks
+like.
+
+Adding or upgrading a dependency does not need approval, but it may never be silent.
+Before running the install command, establish and record:
+
+- what the package is and the exact version;
+- why nothing already installed will do;
+- its licence;
+- its open advisories (`npm audit`, `uv pip audit` or equivalent) — and, if a range is
+  affected, which versions are safe;
+- what it costs where it lands: gzipped bundle size for the browser, image size for a
+  container.
+
+Report those facts back as a distinct, flagged item in the final message, not buried in
+a list of changed files. A dependency is a long-lived commitment that outlives the
+feature it arrived with, and the reader must be able to see it without reading a diff.
+Establish the facts first: an advisory or a licence found afterwards is found too late.
+
+## Comments and prose
+
+Do not write a comment that restates what the code does. Such a comment adds no
+information a reader cannot get from the line below it, and it rots: the code changes,
+the comment does not, and the stale description is then worse than no comment because
+it is believed.
+
+The one case that earns a comment is a genuine workaround — behaviour forced by an
+external constraint that the code cannot express, where the obvious implementation is
+wrong and a later reader would "fix" it back. State the constraint and what breaks
+without it. A bare "why" that is evident from the surrounding code is not a workaround.
+
+The same applies to documentation: delete prose that narrates the implementation.
+Document the contract, the constraint and the trap, not the steps.
+
+Delete comments of this kind when you touch the file, including ones you wrote
+earlier. Docstrings that state a contract are not comments in this sense and stay.
+
 ## Definition of done
 
 A change is complete only when acceptance criteria are met; tests and static checks pass; migrations and contracts are synchronized; documentation is updated; no hidden fallback masks an error; and the report includes commands with their observed results.

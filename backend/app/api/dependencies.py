@@ -39,8 +39,8 @@ TramNetworkServiceDep = Annotated[TramNetworkService, Depends(get_tram_network_s
 def get_overpass_service() -> OverpassService:
     return OverpassService(
         HttpOverpassGateway(
-            interpreter_url=settings.overpass_url,
-            status_url=settings.resolved_overpass_status_url,
+            interpreter_url=settings.overpass_interpreter_url,
+            status_url=settings.overpass_status_url,
             query_timeout=settings.overpass_timeout,
             health_timeout=settings.overpass_health_timeout,
         ),

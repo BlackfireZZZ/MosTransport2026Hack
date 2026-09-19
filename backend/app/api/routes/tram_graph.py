@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import Response
 
 from app.api.dependencies import TramNetworkServiceDep
 from app.schemas.tram_graph import (
@@ -12,10 +13,11 @@ from app.schemas.tram_graph import (
     TramStopResponse,
 )
 
-# Mounted under its own prefix because `/routes` already belongs to forecast routes,
-# which are a different concept: a forecast route is a dispatcher-facing service with
-# a numeric id, a tram-graph route is an OSM `ref` over the physical network.
 router = APIRouter(prefix="/tram-graph", tags=["tram-graph"])
+
+# Safe only because the graph is immutable for the life of the process; a reloadable
+# graph would have to invalidate this.
+_geojson_cache: dict[str | None, bytes] = {}
 
 
 def _unknown_route(ref: str) -> HTTPException:
@@ -84,11 +86,16 @@ async def list_edges(
 async def get_geojson(
     service: TramNetworkServiceDep,
     route: str | None = Query(default=None, description="Restrict to one route ref"),
-) -> TramGraphGeoJson:
-    geometry = await service.geometry(route)
-    if geometry is None:
-        raise _unknown_route(route or "")
-    return TramGraphGeoJson.from_domain(geometry)
+) -> Response:
+    """The network as a GeoJSON FeatureCollection, stops as points and track as lines."""
+    cached = _geojson_cache.get(route)
+    if cached is None:
+        geometry = await service.geometry(route)
+        if geometry is None:
+            raise _unknown_route(route or "")
+        cached = TramGraphGeoJson.from_domain(geometry).model_dump_json().encode("utf-8")
+        _geojson_cache[route] = cached
+    return Response(content=cached, media_type="application/json")
 
 
 @router.get("/path", response_model=TramPathResponse)

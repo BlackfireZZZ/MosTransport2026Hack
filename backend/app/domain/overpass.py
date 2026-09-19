@@ -7,7 +7,6 @@ own `[timeout:]` answers HTTP 200 with valid JSON and a `remark` key holding
 See `docs/overpass-api.md`.
 """
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,10 +15,11 @@ class OverpassError(RuntimeError):
     """The upstream Overpass server did not answer with a usable result."""
 
 
-class OverpassQueryTooLongError(OverpassError):
+class OverpassQueryTooLongError(ValueError):
     """The query exceeds the configured budget, so it is rejected before it is sent.
 
-    The instance is shared by the whole team; an oversized query is refused locally
+    Not an OverpassError: nothing was sent, so there is no upstream failure to report.
+    The instance is shared by the whole team, and an oversized query is refused locally
     rather than spending a slot of the dispatcher's time pool on it.
     """
 
@@ -33,5 +33,5 @@ class OverpassStatus:
 
 @dataclass(frozen=True, slots=True)
 class OverpassResult:
-    payload: Mapping[str, Any]
+    payload: dict[str, Any]
     remark: str | None = None

@@ -7,13 +7,19 @@ the same code under test would prove nothing.
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_tram_graph_repository
+from app.core.config import settings
 from app.domain.tram_graph import TramNetwork
+from app.infrastructure.repositories.tram_graph import (
+    FileTramGraphRepository,
+    TramGraphDataError,
+)
 from app.main import app
 
 BASE = "/api/v1/tram-graph"
@@ -188,3 +194,18 @@ def test_path_to_self_is_a_zero_length_ride(client: TestClient) -> None:
     assert body["total_length_m"] == 0
     assert [stop["id"] for stop in body["stops"]] == [472373305]
     assert len(body["geometry"]) == 1
+
+
+def test_missing_geometry_file_is_an_error_not_straight_lines(tmp_path: Path) -> None:
+    """Both graph files come from one script run; one without the other is broken.
+
+    The old behaviour returned 200 with straight-line geometry, so a deployment
+    missing the GeoJSON looked healthy while drawing trams through buildings.
+    """
+    graph_json = settings.tram_graph_json
+    repository = FileTramGraphRepository(graph_json, tmp_path / "absent.geojson")
+
+    with pytest.raises(TramGraphDataError) as error:
+        repository.load()
+
+    assert "absent.geojson" in str(error.value)

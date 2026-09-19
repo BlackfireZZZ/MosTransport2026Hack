@@ -106,7 +106,7 @@ class UrllibTransport:
 
     @staticmethod
     def _fetch(url: str, data: bytes | None, read_timeout: float) -> RawResponse:
-        # The URL is operator-configured (OVERPASS_URL), never caller-supplied.
+        # The URL is operator-configured (OVERPASS_BASE_URL), never caller-supplied.
         request = urllib.request.Request(
             url,
             data=data,
@@ -119,8 +119,7 @@ class UrllibTransport:
             # Deliberately not re-raised: 400 and 504 carry the HTML error page, and
             # the page body is the only description of the failure.
             return RawResponse(int(error.code), error.read().decode("utf-8", "replace"))
-        # URLError and TimeoutError are both OSError; one clause covers refused
-        # connections, DNS failures and read timeouts alike.
+        # URLError and TimeoutError are both OSError, so one clause covers both.
         except OSError as error:
             raise OverpassTransportError(f"{type(error).__name__}: {error}") from error
 
@@ -156,7 +155,8 @@ class HttpOverpassGateway:
             raise OverpassError(
                 f"upstream returned HTTP {response.status}" + (f": {detail}" if detail else "")
             )
-        return parse_body(response.body)
+        # Megabyte answers: decoding on the event loop would stall every other request.
+        return await asyncio.to_thread(parse_body, response.body)
 
     async def check_status(self) -> OverpassStatus:
         """Short-timeout probe of `/api/status`. Never raises."""

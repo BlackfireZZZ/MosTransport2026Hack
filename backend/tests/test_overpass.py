@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_overpass_service
 from app.application.services.overpass import OverpassService
+from app.core.config import Settings
 from app.domain.overpass import OverpassError, OverpassQueryTooLongError
 from app.infrastructure.overpass import (
     HttpOverpassGateway,
@@ -259,3 +260,28 @@ def test_status_endpoint_stays_200_when_the_instance_is_down() -> None:
     assert body["reachable"] is False
     assert "ConnectError" in body["detail"]
     assert body["url"] == "http://overpass.test/api/status"
+
+
+def test_too_long_query_is_not_an_upstream_error() -> None:
+    """A query rejected before it is sent must not look like an upstream failure.
+
+    While it subclassed OverpassError, any `except OverpassError` catch-all turned a
+    local 400 into a 502, and swapping the two except clauses in the route would have
+    done the same with every test still green.
+    """
+    assert not issubclass(OverpassQueryTooLongError, OverpassError)
+    assert issubclass(OverpassQueryTooLongError, ValueError)
+
+
+def test_interpreter_and_status_urls_are_siblings() -> None:
+    """Both derive from one base, so they cannot drift apart.
+
+    The previous shape chopped "/interpreter" off the configured URL and fell back to
+    that URL unchanged when the suffix was absent — so a trailing slash silently
+    pointed the health probe at the interpreter, which answers 400 without a `data`
+    parameter and reports a live upstream as dead forever.
+    """
+    for base in ("http://example.test/api", "http://example.test/api/"):
+        settings = Settings(overpass_base_url=base)
+        assert settings.overpass_interpreter_url == "http://example.test/api/interpreter"
+        assert settings.overpass_status_url == "http://example.test/api/status"

@@ -1,9 +1,13 @@
 """The backend and the extraction script must order route refs identically.
 
-`scripts/fetch_tram_graph.py` is deliberately standard-library-only and lives
-outside the uv workspace, so it cannot import the domain and the rule is written
-twice. Nothing but this test stops the two copies drifting -- and the drift
-would be silent, surfacing only as the committed CSVs disagreeing with the API.
+The rule is written twice on purpose. `scripts/fetch_tram_graph.py` runs on a bare
+interpreter -- verified against macOS's system Python 3.9 -- while the domain needs
+3.11+ for `enum.StrEnum`, so importing `app.domain.tram_graph` from the script would
+cost it exactly the property that makes it useful: run it anywhere, install nothing.
+
+That leaves two copies, and nothing but this test stops them drifting. The drift
+would be silent: it would surface only as the committed CSVs ordering refs
+differently from the API.
 """
 
 from __future__ import annotations

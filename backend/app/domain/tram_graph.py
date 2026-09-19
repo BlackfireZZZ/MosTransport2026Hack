@@ -214,8 +214,6 @@ def _index_routes(
             stop_ids=tuple(sorted(stop_ids)),
             edges=ref_edges,
             length_m=round(sum(edge.length_m for edge in ref_edges), 1),
-            # A route lives in one component in practice; report the main one rather
-            # than pretending a split route is impossible.
             component=min(components) if components else -1,
         )
     return routes
@@ -268,8 +266,7 @@ class TramNetwork:
 
     def stats(self) -> NetworkStats:
         lengths = [edge.length_m for edge in self.edges]
-        # Undirected degree: a pair served both ways is one neighbour, not two, which
-        # is what the 665/136/40/15 breakdown in docs/tram-graph.md counts.
+        # Undirected on purpose: a pair served both ways is one neighbour, not two.
         degrees: Counter[int] = Counter(
             len(
                 {edge.target for edge in self.outgoing.get(stop_id, ())}

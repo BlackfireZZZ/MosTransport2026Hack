@@ -419,6 +419,16 @@
         "title": "OverpassStatusResponse",
         "type": "object"
       },
+      "PathAbsence": {
+        "description": "Why no path was returned, in a form a client can branch on.",
+        "enum": [
+          "unknown_stop",
+          "different_components",
+          "wrong_direction"
+        ],
+        "title": "PathAbsence",
+        "type": "string"
+      },
       "PointGeometry": {
         "properties": {
           "coordinates": {
@@ -953,8 +963,19 @@
                 "type": "null"
               }
             ],
-            "description": "Why there is no such ride. Present with `found=false`, which is a 200.",
+            "description": "The same cause in English prose, for a human reading the API directly.",
             "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PathAbsence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why there is no such ride, as a value a client can branch on. Present with `found=false`, which is a 200. Prefer this over `reason` for anything the user sees: `reason` is English prose."
           },
           "routes": {
             "items": {
@@ -1394,6 +1415,7 @@
     },
     "/api/v1/tram-graph/geojson": {
       "get": {
+        "description": "The network as a GeoJSON FeatureCollection, stops as points and track as lines.",
         "operationId": "get_geojson_api_v1_tram_graph_geojson_get",
         "parameters": [
           {

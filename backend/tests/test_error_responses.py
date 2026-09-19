@@ -1,7 +1,11 @@
-"""Every failure must be JSON, whatever produced it.
+"""Every failure must be JSON, whatever produced it -- and reach the browser.
 
-A client that calls .json() on every response should never have to special-case
-a content type. The 500 path is the one FastAPI does not cover by itself.
+A client that calls .json() on every response should never have to special-case a
+content type. The 500 path is the one FastAPI does not cover by itself, and the
+CORS test below is not decoration: an `Exception` handler registered on the app
+runs outside CORSMiddleware, so its response has no Access-Control-Allow-Origin
+and a browser rejects it before the body is ever read. TestClient does not enforce
+CORS, so only an explicit header assertion catches that.
 """
 
 from collections.abc import Iterator
@@ -57,6 +61,15 @@ def test_unhandled_exception_is_traceable(client: TestClient) -> None:
     # 500 can be found in the logs.
     assert response.json()["request_id"] == supplied
     assert response.headers["X-Request-ID"] == supplied
+
+
+def test_error_response_is_readable_cross_origin(client: TestClient) -> None:
+    origin = "http://localhost:5173"
+    response = client.get(_BOOM, headers={"Origin": origin})
+
+    # Without this header the browser discards the 500 as a CORS failure and the
+    # frontend reports a network error instead of the backend's message.
+    assert response.headers.get("access-control-allow-origin") == origin
 
 
 def test_unknown_route_is_json(client: TestClient) -> None:

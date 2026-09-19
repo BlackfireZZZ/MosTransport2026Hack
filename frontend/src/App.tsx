@@ -25,6 +25,27 @@ const ForecastChart = lazy(() =>
   })),
 )
 
+// maplibre-gl is ~1 MB of WebGL renderer; the forecast screen must not pay for it.
+const TramNetworkView = lazy(() =>
+  import("@/features/tram-network/components/tram-network-view").then((module) => ({
+    default: module.TramNetworkView,
+  })),
+)
+
+type Section = "forecast" | "network" | "scenario" | "data"
+
+const sections: ReadonlyArray<{
+  id: Section
+  label: string
+  icon: typeof Activity
+  anchor?: string
+}> = [
+  { id: "forecast", label: "Прогноз", icon: Activity, anchor: "forecast" },
+  { id: "network", label: "Граф сети", icon: GitBranch },
+  { id: "scenario", label: "Сценарии", icon: Settings2, anchor: "scenario" },
+  { id: "data", label: "Данные", icon: Database, anchor: "data" },
+]
+
 function DashboardSkeleton() {
   return (
     <div className="dashboard-skeleton" aria-label="Загрузка прогноза">
@@ -37,6 +58,7 @@ function DashboardSkeleton() {
 
 function App() {
   const routes = useRoutes()
+  const [section, setSection] = useState<Section>("forecast")
   const [routeId, setRouteId] = useState(1)
   const [horizon, setHorizon] = useState<ForecastHorizon>("day")
   const selectedRouteId = routes.data?.some((route) => route.id === routeId)
@@ -59,10 +81,26 @@ function App() {
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark"><TramFront /></span><span><b>TramFlow</b><small>ЕДЦ · Москва</small></span></div>
         <nav aria-label="Основная навигация">
-          <a className="active" href="#forecast"><Activity />Прогноз</a>
-          <a href="#network"><GitBranch />Граф сети</a>
-          <a href="#scenario"><Settings2 />Сценарии</a>
-          <a href="#data"><Database />Данные</a>
+          {sections.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={section === item.id ? "active" : undefined}
+              aria-current={section === item.id ? "page" : undefined}
+              onClick={() => {
+                setSection(item.id)
+                const anchor = item.anchor
+                if (anchor) {
+                  requestAnimationFrame(() =>
+                    document.getElementById(anchor)?.scrollIntoView({ block: "start" }),
+                  )
+                }
+              }}
+            >
+              <item.icon />
+              {item.label}
+            </button>
+          ))}
         </nav>
         <div className="sidebar-foot">
           <span className="status-dot" />
@@ -72,11 +110,17 @@ function App() {
 
       <main>
         <header className="topbar">
-          <div><p className="eyebrow">ДИСПЕТЧЕРСКИЙ ЦЕНТР</p><h1>Пассажиропоток трамвайной сети</h1></div>
-          <div className="topbar-actions"><Badge>Демо-данные</Badge><Button variant="ghost" size="icon" aria-label="Уведомления"><Bell /></Button></div>
+          <div><p className="eyebrow">ДИСПЕТЧЕРСКИЙ ЦЕНТР</p><h1>{section === "network" ? "Граф трамвайной сети Москвы" : "Пассажиропоток трамвайной сети"}</h1></div>
+          <div className="topbar-actions"><Badge>{section === "network" ? "Данные OpenStreetMap" : "Демо-данные"}</Badge><Button variant="ghost" size="icon" aria-label="Уведомления"><Bell /></Button></div>
         </header>
 
-        <div className="workspace" id="forecast">
+        {section === "network" && (
+          <Suspense fallback={<div className="workspace"><Skeleton className="h-[640px]" /></div>}>
+            <TramNetworkView />
+          </Suspense>
+        )}
+
+        <div className="workspace" id="forecast" hidden={section === "network"}>
           <section className="filters" aria-label="Параметры прогноза">
             <div className="filter-field">
               <label htmlFor="route-select">Маршрут</label>
@@ -123,7 +167,7 @@ function App() {
               <Suspense fallback={<Skeleton className="h-[360px]" />}>
                 <ForecastChart points={data.points} horizon={horizon} />
               </Suspense>
-              <section className="lower-grid" id="network">
+              <section className="lower-grid">
                 <NetworkMap stops={data.stops} />
                 <div id="scenario"><ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} /></div>
               </section>

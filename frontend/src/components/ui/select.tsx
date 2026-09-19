@@ -51,6 +51,21 @@ export function SelectContent({
   )
 }
 
+export function SelectLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Label>) {
+  return (
+    <SelectPrimitive.Label
+      className={cn(
+        "px-3 py-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 export function SelectItem({
   className,
   children,

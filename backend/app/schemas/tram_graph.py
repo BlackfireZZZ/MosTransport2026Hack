@@ -9,6 +9,7 @@ from app.domain.tram_graph import (
     StopDetail,
     TramRoute,
 )
+from app.domain.tram_pathfinding import PathAbsence
 
 
 class TramStopResponse(BaseModel):
@@ -143,9 +144,17 @@ class TramPathResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     found: bool
+    reason_code: PathAbsence | None = Field(
+        default=None,
+        description=(
+            "Why there is no such ride, as a value a client can branch on. Present with "
+            "`found=false`, which is a 200. Prefer this over `reason` for anything the "
+            "user sees: `reason` is English prose."
+        ),
+    )
     reason: str | None = Field(
         default=None,
-        description="Why there is no such ride. Present with `found=false`, which is a 200.",
+        description="The same cause in English prose, for a human reading the API directly.",
     )
     stops: list[TramStopResponse]
     total_length_m: float = Field(ge=0)
