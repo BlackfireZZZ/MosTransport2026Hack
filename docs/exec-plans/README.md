@@ -1,19 +1,22 @@
 # Execution plans
 
-ExecPlan — versioned living document только для крупной задачи по критериям
-корневого `AGENTS.md`: изменения API/БД/ML-контракта, параллельная запись или
-работа дольше 90 минут. Обычной hackathon-задаче достаточно
-`docs/agentic/TASK_SPEC.md`. Активные планы хранятся в `active/`, завершённые —
-в `completed/`. Один план имеет одного владельца интеграции.
+An ExecPlan is a versioned living document used only for a large task under the
+criteria in the root `AGENTS.md`: an API, database, or ML contract change,
+parallel writes, or work expected to exceed 90 minutes. A normal hackathon task
+only needs `docs/agentic/TASK_SPEC.md`. Active plans live in `active/` and
+completed plans in `completed/`. Each plan has exactly one integration owner.
 
-## Обязательная структура плана
+## Required plan structure
 
-1. **Purpose / observable result** — пользовательский результат и способ увидеть его.
-2. **Context** — текущее состояние, контракты, полные пути и определения терминов.
-3. **Scope / non-goals** — границы изменения.
-4. **Acceptance** — конкретные inputs, outputs и сохраняемое поведение.
-5. **Progress / decisions** — milestones, принятые решения и обнаруженные риски.
-6. **Research evidence** — источники только для действительно нового решения.
-7. **Validation / recovery** — команды, фактический результат и rollback/forward-fix.
+1. **Purpose / observable result** — the user outcome and how to observe it.
+2. **Context** — current state, contracts, full paths, and term definitions.
+3. **Scope / non-goals** — the change boundaries.
+4. **Acceptance** — specific inputs, outputs, and behavior that must remain unchanged.
+5. **Progress / decisions** — milestones, decisions, and discovered risks.
+6. **Research evidence** — sources only for a genuinely new solution.
+7. **Validation / recovery** — commands, observed results, and rollback or forward-fix strategy.
 
-План самодостаточен: продолжение возможно по текущему checkout и одному plan-файлу. Прототип явно помечается и содержит критерий принятия или удаления. После завершения открытые компромиссы переносятся в `tech-debt.md`, а не теряются в чате.
+The plan is self-contained: work can continue from the current checkout and the
+single plan file. A prototype is explicitly marked and includes a criterion for
+adoption or removal. After completion, move open compromises to `tech-debt.md`
+instead of leaving them in chat history.

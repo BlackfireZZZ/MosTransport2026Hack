@@ -1,19 +1,19 @@
-# Матрица проверки изменений
+# Change verification matrix
 
-Выберите все подходящие строки. Узкие проверки запускаются до полного gate; фактический exit code/результат попадает в отчёт.
+Select every applicable row. Run focused checks before the full gate and include the observed exit code or result in the report.
 
-| Изменение | Минимальное опровержение | Обязательный gate |
+| Change | Minimum falsifying check | Required gate |
 |---|---|---|
-| Документация | ссылки и команды существуют | `git diff --check` + просмотр diff |
-| Backend domain/application | unit-тест правила/use case | Ruff, mypy, backend pytest |
-| HTTP API | тест success + validation/error + совместимость schema | backend gate + smoke затронутого endpoint |
-| SQL/repository | integration-тест с PostgreSQL, диапазон/агрегация | backend gate; для тяжёлого запроса `EXPLAIN (ANALYZE, BUFFERS)` |
-| Alembic | upgrade на чистой временной БД; стратегия rollback/forward-fix | `alembic check`, backend gate, Compose smoke |
-| Frontend logic | ближайший Vitest/component test | `npm run lint`, `npm run test -- --run`, `npm run build` |
-| UI-сценарий | критический happy/error/what-if, keyboard | frontend gate + `make e2e` |
-| ML feature/data | schema, boundary time/timezone и leakage test | Ruff, mypy, ML pytest |
-| ML model | одинаковые temporal splits, baseline и несколько slices | ML gate + `make ml-eval` |
-| Compose/runtime | `docker compose config --quiet` | чистый `up --build --wait`, `make smoke`, logs при ошибке |
-| Несколько контуров | contract/integration test на границе | все затронутые gates, затем `make verify-fast` |
+| Documentation | referenced links, paths, and commands exist | `git diff --check` + diff review |
+| Backend domain/application | unit test for the rule or use case | Ruff, mypy, backend pytest |
+| HTTP API | success + validation/error tests + schema compatibility | backend gate + smoke test for the affected endpoint |
+| SQL/repository | PostgreSQL integration test for the range and aggregation | backend gate; for an expensive query, `EXPLAIN (ANALYZE, BUFFERS)` |
+| Alembic | upgrade on a clean temporary database; rollback/forward-fix strategy | `alembic check`, backend gate, Compose smoke test |
+| Frontend logic | closest Vitest or component test | `npm run lint`, `npm run test -- --run`, `npm run build` |
+| UI flow | critical happy, error, and what-if paths plus keyboard access | frontend gate + `make e2e` |
+| ML feature/data | schema, time/timezone boundaries, and leakage test | Ruff, mypy, ML pytest |
+| ML model | identical temporal splits, baseline, and multiple slices | ML gate + `make ml-eval` |
+| Compose/runtime | `docker compose config --quiet` | clean `up --build --wait`, `make smoke`, and logs on failure |
+| Multiple areas | boundary contract or integration test | every affected gate, then `make verify-fast` |
 
-Команды контуров описаны в ближайших `AGENTS.md`. Нельзя заменять требуемую проверку более широкой, если её результат не локализует нарушение. Если проверка недоступна, изменение не объявляется готовым.
+Area-specific commands are defined in the nearest `AGENTS.md`. Do not replace a required check with a broader one if the broader result cannot localize a failure. If a required check is unavailable, the change is not ready.

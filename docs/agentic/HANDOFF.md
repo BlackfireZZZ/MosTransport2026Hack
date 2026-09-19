@@ -1,27 +1,27 @@
-# Контракт передачи работы
+# Work handoff contract
 
-Субагент возвращает краткое резюме, а не сырой transcript. Следующий исполнитель должен продолжить без устного контекста.
+A subagent returns a concise summary, not a raw transcript. The next contributor must be able to continue without verbal context.
 
-## Обязательные поля
+## Required fields
 
 ```text
-Цель и фактический статус:
+Objective and actual status:
 Worktree / branch / base SHA:
-Владелец изменённых файлов:
-Изменённые контракты и файлы:
-Принятые решения и ссылки на evidence:
-Команды проверки и фактический результат:
-Что не проверено и почему:
-Риски / открытые вопросы:
-Следующий точный шаг:
-Cleanup: выполнен либо почему среда сохранена:
+Owner of changed files:
+Changed contracts and files:
+Decisions and supporting evidence:
+Verification commands and observed results:
+What remains unverified and why:
+Risks and open questions:
+Exact next step:
+Cleanup completed, or why the environment was retained:
 ```
 
-## Правила
+## Rules
 
-- Не писать «готово» или «тесты прошли» без команды и наблюдаемого результата.
-- Отделять факт от предположения и рекомендацию от уже применённого изменения.
-- Указывать незакоммиченные/чужие изменения и не включать их в свой результат.
-- Передача write-задачи включает чистый ownership boundary; два агента не редактируют один файл/контракт одновременно.
-- Root-agent проверяет diff, интегрирует результаты и лично запускает финальный gate.
-- При остановке обновить active ExecPlan, если он создавался, и обязательно указать следующий шаг в handoff.
+- Do not write “done” or “tests pass” without the command and its observed result.
+- Separate facts from assumptions and recommendations from already applied changes.
+- Identify uncommitted or third-party changes and do not include them in your result.
+- A write-task handoff includes a clear ownership boundary; two agents must not edit the same file or contract at the same time.
+- The root agent reviews the diff, integrates the results, and personally runs the final gate.
+- When stopping, update the active ExecPlan if one exists and always state the exact next step in the handoff.

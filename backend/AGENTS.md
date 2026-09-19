@@ -1,18 +1,18 @@
-# Backend: локальные правила
+# Backend: local rules
 
-Корневой `AGENTS.md` обязателен. Здесь находятся только уточнения для `backend/`.
+The root `AGENTS.md` is mandatory. This file only adds rules specific to `backend/`.
 
-## Границы
+## Boundaries
 
-- Направление зависимостей: `api → application → domain`; `infrastructure` реализует порты application/domain и подключается в composition root.
-- Pydantic-схемы описывают HTTP-контракт, SQLAlchemy-модели — хранение; не использовать их как domain-типы.
-- Endpoint валидирует запрос, вызывает use case и отображает результат/ошибку. SQL и бизнес-решения в handler запрещены.
-- Схема БД меняется только новой Alembic-миграцией. Не переписывать уже применённую миграцию.
-- Новые production dependencies, breaking API и разрушительные миграции относятся к крупным задачам.
+- Dependencies flow `api → application → domain`; `infrastructure` implements application/domain ports and is wired in the composition root.
+- Pydantic schemas define the HTTP contract and SQLAlchemy models define persistence. Do not use either as domain types.
+- An endpoint validates the request, invokes a use case, and maps the result or error. SQL and business decisions are forbidden in handlers.
+- Change the database schema only through a new Alembic migration. Never rewrite a migration that may already have been applied.
+- New production dependencies, breaking API changes, and destructive migrations are large tasks.
 
-## Проверка
+## Verification
 
-Сначала запустить тест изменённого use case/endpoint, затем:
+Run the closest test for the changed use case or endpoint first, then:
 
 ```bash
 uv run --package tramflow-backend ruff check backend
@@ -20,4 +20,4 @@ uv run --package tramflow-backend mypy backend/app
 uv run --package tramflow-backend pytest backend/tests
 ```
 
-Для миграции дополнительно нужны upgrade на чистой временной БД, `alembic check` и документированный rollback/forward-fix. Матрица: `docs/agentic/VERIFICATION_MATRIX.md`.
+For a migration, also run the upgrade against a clean temporary database and `alembic check`, and document the rollback or forward-fix strategy. See `docs/agentic/VERIFICATION_MATRIX.md`.

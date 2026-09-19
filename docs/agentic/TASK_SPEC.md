@@ -1,43 +1,43 @@
-# Шаблон agent-ready задачи
+# Agent-ready task template
 
-Скопируйте разделы в issue или `docs/exec-plans/active/<slug>.md`. Не заполняйте неизвестное догадками.
+Copy these sections into an issue or `docs/exec-plans/active/<slug>.md`. Do not fill unknowns with guesses.
 
-## Результат для пользователя
+## User outcome
 
-Какое наблюдаемое поведение появится или изменится?
+What observable behavior will be introduced or changed?
 
-## Контекст и доказательства
+## Context and evidence
 
-- Текущий контракт/пример в репозитории:
-- Официальные источники или аналоги для нового сложного решения:
-- Проверяемая гипотеза:
+- Current repository contract or example:
+- Official sources or comparable implementations for a new complex solution:
+- Falsifiable hypothesis:
 
 ## Scope
 
-- В scope:
-- Не входит:
-- Предполагаемые файлы/контуры:
+- In scope:
+- Out of scope:
+- Expected files or areas:
 
-## Критерии приёмки
+## Acceptance criteria
 
-- [ ] Конкретный input приводит к конкретному observable output.
-- [ ] Существующее поведение, которое обязано сохраниться, проверено.
-- [ ] Ошибочные и граничные случаи определены.
+- [ ] A specific input produces a specific observable output.
+- [ ] Existing behavior that must remain unchanged has been verified.
+- [ ] Error and boundary cases are defined.
 
-## Риски и полномочия
+## Risks and authority
 
-- Уровень из `PERMISSIONS.md`:
-- Breaking/data/security/deployment последствия:
-- Нужен ли отдельный worktree/ExecPlan и почему:
+- Risk level from `PERMISSIONS.md`:
+- Breaking, data, security, or deployment impact:
+- Whether a dedicated worktree or ExecPlan is required, and why:
 
-## Проверка
+## Verification
 
-- Узкая проверка, способная опровергнуть решение:
-- Обязательный набор из `VERIFICATION_MATRIX.md`:
-- Ожидаемый наблюдаемый результат:
+- Smallest check capable of disproving the solution:
+- Required checks from `VERIFICATION_MATRIX.md`:
+- Expected observable result:
 
 ## Handoff
 
-- Владелец файлов/контрактов:
-- Зависимости от других задач:
-- Условие остановки или эскалации:
+- Owner of files and contracts:
+- Dependencies on other tasks:
+- Stop or escalation condition:

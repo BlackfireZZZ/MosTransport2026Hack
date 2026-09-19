@@ -1,18 +1,18 @@
-# ML: локальные правила
+# ML: local rules
 
-Корневой `AGENTS.md` обязателен. Здесь находятся только уточнения для `ml/`.
+The root `AGENTS.md` is mandatory. This file only adds rules specific to `ml/`.
 
-## Экспериментальный контракт
+## Experiment contract
 
-- До обучения зафиксировать цель, baseline, метрики, временные срезы и критерий принятия.
-- Dataset manifest содержит источник/версию, диапазон дат, timezone, feature version, target definition и правила исключения leakage.
-- Результат воспроизводим из конфигурации и seed; артефакт модели не коммитится без явного решения о registry/storage.
-- Сравнивать модели на одинаковых временных split и сегментах маршрутов/остановок/горизонтов; средняя метрика не скрывает худшие срезы.
-- Training/batch код не импортируется online backend worker. Интеграция идёт через версионируемый контракт публикации прогноза.
+- Before training, record the objective, baseline, metrics, temporal slices, and acceptance threshold.
+- A dataset manifest records the source and version, date range, timezone, feature version, target definition, and leakage-prevention rules.
+- Results must be reproducible from configuration and seed. Do not commit a model artifact without an explicit registry or storage decision.
+- Compare models on identical temporal splits and route, stop, and horizon segments; an average metric must not hide the worst slices.
+- Training and batch code must not be imported by the online backend worker. Integrate through a versioned forecast-publication contract.
 
-## Проверка
+## Verification
 
-Сначала запустить тест изменённого преобразования/метрики, затем:
+Run the closest test for the changed transformation or metric first, then:
 
 ```bash
 uv run --package tramflow-ml ruff check ml
@@ -20,4 +20,4 @@ uv run --package tramflow-ml mypy ml/src
 uv run --package tramflow-ml pytest ml/tests
 ```
 
-Изменение признака требует schema/boundary tests и отчёта о leakage; изменение модели — сравнения с baseline на нескольких временных срезах.
+A feature change requires schema and boundary tests plus a leakage report; a model change requires comparison with the baseline across multiple temporal slices.

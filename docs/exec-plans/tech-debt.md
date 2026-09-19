@@ -1,7 +1,7 @@
-# Реестр технического долга
+# Technical debt register
 
-Записывается только конкретный компромисс с доказуемым эффектом и условием закрытия. «Улучшить код» задачей не является.
+Record only a concrete compromise with a demonstrable effect and a closure condition. “Improve the code” is not a task.
 
-| ID | Область | Наблюдаемый риск/стоимость | Evidence | Условие закрытия | Приоритет | Владелец |
+| ID | Area | Observable risk/cost | Evidence | Closure condition | Priority | Owner |
 |---|---|---|---|---|---|---|
-| — | — | Реестр пока пуст | — | — | — | — |
+| — | — | The register is currently empty | — | — | — | — |

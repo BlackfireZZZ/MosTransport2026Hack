@@ -1,18 +1,18 @@
-# Frontend: локальные правила
+# Frontend: local rules
 
-Корневой `AGENTS.md` и `DESIGN.md` обязательны. Здесь находятся только уточнения для `frontend/`.
+The root `AGENTS.md` and `DESIGN.md` are mandatory. This file only adds rules specific to `frontend/`.
 
-## Границы
+## Boundaries
 
-- HTTP проходит через `src/api`; feature components не вызывают `fetch` и не знают base URL.
-- Серверное состояние живёт в query hooks, отображение — в components, транспортные типы — у API-границы.
-- `src/components/ui` содержит локальные shadcn primitives без продуктовых текстов и бизнес-логики.
-- Изменение пользовательского сценария включает loading, empty, error, stale/success и keyboard path.
-- Не вводить новый визуальный паттерн, пока он не согласован с `DESIGN.md`.
+- All HTTP access goes through `src/api`; feature components must not call `fetch` or know the base URL.
+- Server state lives in query hooks, rendering lives in components, and transport types stay at the API boundary.
+- `src/components/ui` contains local shadcn primitives without product copy or business logic.
+- A user-flow change covers loading, empty, error, stale/success, and keyboard-accessible paths.
+- Do not introduce a new visual pattern until it is aligned with `DESIGN.md`.
 
-## Проверка
+## Verification
 
-Сначала запустить ближайший Vitest-тест, затем:
+Run the closest Vitest test first, then:
 
 ```bash
 cd frontend
@@ -21,4 +21,4 @@ npm run test -- --run
 npm run build
 ```
 
-Для UI-изменения приложить фактическую проверку целевых viewport и доступности; если автоматизации нет, явно описать ручной сценарий и остаточный риск.
+For a UI change, provide observed viewport and accessibility checks. If automation is unavailable, explicitly document the manual scenario and residual risk.
