@@ -101,6 +101,89 @@
         "title": "ForecastResponse",
         "type": "object"
       },
+      "GeoJsonMetadataResponse": {
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "filtered_to_route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filtered To Route"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          },
+          "osm_data_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Data Timestamp"
+          },
+          "route_relations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Relations"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "title": "GeoJsonMetadataResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -112,6 +195,298 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LineStringGeometry": {
+        "properties": {
+          "coordinates": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Coordinates",
+            "type": "array"
+          },
+          "type": {
+            "const": "LineString",
+            "default": "LineString",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "coordinates"
+        ],
+        "title": "LineStringGeometry",
+        "type": "object"
+      },
+      "NeighbourDirection": {
+        "enum": [
+          "in",
+          "out"
+        ],
+        "title": "NeighbourDirection",
+        "type": "string"
+      },
+      "NetworkComponentResponse": {
+        "properties": {
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "size": {
+            "minimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size",
+          "routes"
+        ],
+        "title": "NetworkComponentResponse",
+        "type": "object"
+      },
+      "NetworkStatsResponse": {
+        "properties": {
+          "components": {
+            "description": "Undirected components, largest first; the network really is in two pieces",
+            "items": {
+              "$ref": "#/components/schemas/NetworkComponentResponse"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "degree_histogram": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Degree Histogram",
+            "type": "object"
+          },
+          "edges": {
+            "description": "Directed edges; a pair served both ways counts twice",
+            "title": "Edges",
+            "type": "integer"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "osm_data_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Data Timestamp"
+          },
+          "route_relations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PTv2 route relations in the OSM extract, one per direction. A larger number than `routes`, and not interchangeable with it.",
+            "title": "Route Relations"
+          },
+          "routes": {
+            "description": "Distinct route refs",
+            "title": "Routes",
+            "type": "integer"
+          },
+          "segment_length_m": {
+            "$ref": "#/components/schemas/SegmentLengthSummaryResponse"
+          },
+          "stops": {
+            "title": "Stops",
+            "type": "integer"
+          },
+          "total_length_km": {
+            "title": "Total Length Km",
+            "type": "number"
+          }
+        },
+        "required": [
+          "stops",
+          "edges",
+          "routes",
+          "total_length_km",
+          "components",
+          "degree_histogram",
+          "segment_length_m"
+        ],
+        "title": "NetworkStatsResponse",
+        "type": "object"
+      },
+      "OverpassQueryRequest": {
+        "properties": {
+          "query": {
+            "description": "Overpass QL. The length ceiling is a runtime setting, not part of this schema.",
+            "examples": [
+              "[out:json][timeout:60];node(1);out;"
+            ],
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "OverpassQueryRequest",
+        "type": "object"
+      },
+      "OverpassQueryResponse": {
+        "properties": {
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when Overpass answered 200 with a PARTIAL result because the query hit its own [timeout:]. Lifted out of `result` so it cannot be missed; treating such a response as complete is the easiest way to publish wrong numbers.",
+            "title": "Remark"
+          },
+          "result": {
+            "additionalProperties": true,
+            "description": "The Overpass JSON document, unmodified",
+            "title": "Result",
+            "type": "object"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "OverpassQueryResponse",
+        "type": "object"
+      },
+      "OverpassStatusResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the probe failed; null when the instance answered",
+            "title": "Detail"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "reachable"
+        ],
+        "title": "OverpassStatusResponse",
+        "type": "object"
+      },
+      "PointGeometry": {
+        "properties": {
+          "coordinates": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Coordinates",
+            "type": "array"
+          },
+          "type": {
+            "const": "Point",
+            "default": "Point",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "coordinates"
+        ],
+        "title": "PointGeometry",
+        "type": "object"
+      },
+      "RouteDetailResponse": {
+        "properties": {
+          "component": {
+            "minimum": 0.0,
+            "title": "Component",
+            "type": "integer"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/TramEdgeResponse"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "length_m": {
+            "minimum": 0.0,
+            "title": "Length M",
+            "type": "number"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/TramStopResponse"
+            },
+            "title": "Stops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ref",
+          "stops",
+          "edges",
+          "length_m",
+          "component"
+        ],
+        "title": "RouteDetailResponse",
         "type": "object"
       },
       "RouteResponse": {
@@ -222,6 +597,180 @@
         "title": "ScenarioResponse",
         "type": "object"
       },
+      "SegmentFeature": {
+        "properties": {
+          "geometry": {
+            "$ref": "#/components/schemas/LineStringGeometry"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/SegmentFeatureProperties"
+          },
+          "type": {
+            "const": "Feature",
+            "default": "Feature",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "geometry",
+          "properties"
+        ],
+        "title": "SegmentFeature",
+        "type": "object"
+      },
+      "SegmentFeatureProperties": {
+        "properties": {
+          "length_m": {
+            "title": "Length M",
+            "type": "number"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "length_m",
+          "routes"
+        ],
+        "title": "SegmentFeatureProperties",
+        "type": "object"
+      },
+      "SegmentLengthSummaryResponse": {
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "min": {
+            "title": "Min",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min",
+          "median",
+          "mean",
+          "max"
+        ],
+        "title": "SegmentLengthSummaryResponse",
+        "type": "object"
+      },
+      "StopDetailResponse": {
+        "properties": {
+          "id": {
+            "description": "OSM stop_position node id",
+            "title": "Id",
+            "type": "integer"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "neighbours": {
+            "items": {
+              "$ref": "#/components/schemas/StopNeighbourResponse"
+            },
+            "title": "Neighbours",
+            "type": "array"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "routes",
+          "neighbours"
+        ],
+        "title": "StopDetailResponse",
+        "type": "object"
+      },
+      "StopFeature": {
+        "properties": {
+          "geometry": {
+            "$ref": "#/components/schemas/PointGeometry"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/StopFeatureProperties"
+          },
+          "type": {
+            "const": "Feature",
+            "default": "Feature",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "geometry",
+          "properties"
+        ],
+        "title": "StopFeature",
+        "type": "object"
+      },
+      "StopFeatureProperties": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "routes"
+        ],
+        "title": "StopFeatureProperties",
+        "type": "object"
+      },
       "StopLoadResponse": {
         "properties": {
           "id": {
@@ -266,6 +815,246 @@
           "sequence"
         ],
         "title": "StopLoadResponse",
+        "type": "object"
+      },
+      "StopNeighbourResponse": {
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/NeighbourDirection"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "length_m": {
+            "minimum": 0.0,
+            "title": "Length M",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "length_m",
+          "routes",
+          "direction"
+        ],
+        "title": "StopNeighbourResponse",
+        "type": "object"
+      },
+      "TramEdgeResponse": {
+        "properties": {
+          "length_m": {
+            "description": "Metres along the track, not as the crow flies",
+            "minimum": 0.0,
+            "title": "Length M",
+            "type": "number"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "length_m",
+          "routes"
+        ],
+        "title": "TramEdgeResponse",
+        "type": "object"
+      },
+      "TramGraphGeoJson": {
+        "description": "A GeoJSON FeatureCollection: stops as Points, track segments as LineStrings.",
+        "properties": {
+          "features": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/StopFeature"
+                },
+                {
+                  "$ref": "#/components/schemas/SegmentFeature"
+                }
+              ]
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GeoJsonMetadataResponse"
+          },
+          "type": {
+            "const": "FeatureCollection",
+            "default": "FeatureCollection",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "features"
+        ],
+        "title": "TramGraphGeoJson",
+        "type": "object"
+      },
+      "TramPathResponse": {
+        "properties": {
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "geometry": {
+            "description": "[lon, lat] pairs along the track",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Geometry",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why there is no such ride. Present with `found=false`, which is a 200.",
+            "title": "Reason"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/TramStopResponse"
+            },
+            "title": "Stops",
+            "type": "array"
+          },
+          "total_length_m": {
+            "minimum": 0.0,
+            "title": "Total Length M",
+            "type": "number"
+          }
+        },
+        "required": [
+          "found",
+          "stops",
+          "total_length_m",
+          "geometry",
+          "routes"
+        ],
+        "title": "TramPathResponse",
+        "type": "object"
+      },
+      "TramRouteResponse": {
+        "properties": {
+          "component": {
+            "description": "0 is the main network, 1 the northern one",
+            "minimum": 0.0,
+            "title": "Component",
+            "type": "integer"
+          },
+          "length_m": {
+            "minimum": 0.0,
+            "title": "Length M",
+            "type": "number"
+          },
+          "ref": {
+            "description": "Route ref as OSM carries it; not always numeric (\"А\", \"т1\")",
+            "title": "Ref",
+            "type": "string"
+          },
+          "stop_count": {
+            "minimum": 0.0,
+            "title": "Stop Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ref",
+          "stop_count",
+          "length_m",
+          "component"
+        ],
+        "title": "TramRouteResponse",
+        "type": "object"
+      },
+      "TramStopResponse": {
+        "description": "`latitude`/`longitude`, matching the forecast slice's StopResponse.\n\nThe committed graph files call these `lat`/`lon`; that spelling stops at the\nrepository, so one API does not expose two names for one concept. Original\ndocstring follows.\n\nThese are the field names in\n`docs/tram-graph.md`, the committed GeoJSON and every map library.",
+        "properties": {
+          "id": {
+            "description": "OSM stop_position node id",
+            "title": "Id",
+            "type": "integer"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Routes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "routes"
+        ],
+        "title": "TramStopResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -419,6 +1208,69 @@
         ]
       }
     },
+    "/api/v1/overpass/query": {
+      "post": {
+        "operationId": "run_query_api_v1_overpass_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverpassQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverpassQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Query",
+        "tags": [
+          "overpass"
+        ]
+      }
+    },
+    "/api/v1/overpass/status": {
+      "get": {
+        "description": "Probe the upstream instance.\n\nAlways 200: an unreachable Overpass is a fact for the dispatcher UI to display,\nnot a failure of this API. Readiness of the service itself is `/health/ready`.",
+        "operationId": "get_status_api_v1_overpass_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverpassStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "overpass"
+        ]
+      }
+    },
     "/api/v1/routes": {
       "get": {
         "operationId": "list_routes_api_v1_routes_get",
@@ -482,6 +1334,365 @@
         "summary": "Evaluate Scenario",
         "tags": [
           "forecast"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/edges": {
+      "get": {
+        "operationId": "list_edges_api_v1_tram_graph_edges_get",
+        "parameters": [
+          {
+            "description": "Restrict to one route ref",
+            "in": "query",
+            "name": "route",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict to one route ref",
+              "title": "Route"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TramEdgeResponse"
+                  },
+                  "title": "Response List Edges Api V1 Tram Graph Edges Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Edges",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/geojson": {
+      "get": {
+        "operationId": "get_geojson_api_v1_tram_graph_geojson_get",
+        "parameters": [
+          {
+            "description": "Restrict to one route ref",
+            "in": "query",
+            "name": "route",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict to one route ref",
+              "title": "Route"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TramGraphGeoJson"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Geojson",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/path": {
+      "get": {
+        "description": "Cheapest ride between two stops by track distance.\n\nAn unreachable pair answers 200 with `found=false` and a `reason`. The network is\ngenuinely in two disconnected pieces and its edges are directed, so \"no such ride\"\nis information about the city, not a client error.",
+        "operationId": "find_path_api_v1_tram_graph_path_get",
+        "parameters": [
+          {
+            "description": "Source stop id",
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "description": "Source stop id",
+              "title": "From",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Target stop id",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "description": "Target stop id",
+              "title": "To",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TramPathResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Find Path",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/routes": {
+      "get": {
+        "operationId": "list_routes_api_v1_tram_graph_routes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TramRouteResponse"
+                  },
+                  "title": "Response List Routes Api V1 Tram Graph Routes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Routes",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/routes/{ref}": {
+      "get": {
+        "operationId": "get_route_api_v1_tram_graph_routes__ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Route",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/stats": {
+      "get": {
+        "operationId": "get_stats_api_v1_tram_graph_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Stats",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/stops": {
+      "get": {
+        "operationId": "search_stops_api_v1_tram_graph_stops_get",
+        "parameters": [
+          {
+            "description": "Case-insensitive substring of the stop name",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive substring of the stop name",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TramStopResponse"
+                  },
+                  "title": "Response Search Stops Api V1 Tram Graph Stops Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Stops",
+        "tags": [
+          "tram-graph"
+        ]
+      }
+    },
+    "/api/v1/tram-graph/stops/{stop_id}": {
+      "get": {
+        "operationId": "get_stop_api_v1_tram_graph_stops__stop_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "stop_id",
+            "required": true,
+            "schema": {
+              "title": "Stop Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Stop",
+        "tags": [
+          "tram-graph"
         ]
       }
     }

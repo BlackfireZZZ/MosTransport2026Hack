@@ -3,7 +3,11 @@ set -eu
 
 expected_python="${PYTHON_VERSION:-3.13}"
 expected_node="${NODE_VERSION:-24}"
-expected_uv="${UV_VERSION:-0.12.13}"
+# A floor, not a pin. CI installs an exact uv so its runs are reproducible, but a
+# developer machine only needs a uv new enough to read uv.lock -- and Homebrew
+# ships a newer one than the CI pin, so demanding equality here fails every brew
+# install forever. Python and Node below are already checked loosely; this matches.
+minimum_uv="${UV_VERSION:-0.12.13}"
 errors=0
 
 pass() {
@@ -13,6 +17,25 @@ pass() {
 fail() {
     printf 'ERR %s\n' "$1" >&2
     errors=$((errors + 1))
+}
+
+# True when $1 is an older version than $2, comparing dot-separated numbers.
+# Field-by-field, so 0.12.9 correctly sorts before 0.12.13 where a string
+# comparison would not. Missing trailing fields count as zero.
+version_lt() {
+    awk -v have="$1" -v want="$2" '
+        BEGIN {
+            n_have = split(have, a, ".")
+            n_want = split(want, b, ".")
+            n = (n_have > n_want ? n_have : n_want)
+            for (i = 1; i <= n; i++) {
+                x = (i <= n_have ? a[i] + 0 : 0)
+                y = (i <= n_want ? b[i] + 0 : 0)
+                if (x < y) exit 0
+                if (x > y) exit 1
+            }
+            exit 1
+        }'
 }
 
 require_command() {
@@ -30,10 +53,10 @@ done
 
 if command -v uv >/dev/null 2>&1; then
     actual_uv="$(uv --version | awk '{print $2}')"
-    if [ "$actual_uv" = "$expected_uv" ]; then
-        pass "uv version is $actual_uv"
+    if version_lt "$actual_uv" "$minimum_uv"; then
+        fail "uv $actual_uv is older than the required $minimum_uv (run: uv self update)"
     else
-        fail "uv $actual_uv found; expected $expected_uv"
+        pass "uv version is $actual_uv (minimum $minimum_uv)"
     fi
 
     if python_path="$(uv python find "$expected_python" 2>/dev/null)"; then

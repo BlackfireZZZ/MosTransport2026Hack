@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.errors import register_exception_handlers
 from app.api.middleware.observability import ObservabilityMiddleware
 from app.api.router import api_router
 from app.core.config import settings
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     application.add_middleware(ObservabilityMiddleware)
+    register_exception_handlers(application)
     application.include_router(api_router, prefix=settings.api_v1_prefix)
     return application
 
