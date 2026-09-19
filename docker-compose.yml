@@ -1,0 +1,40 @@
+# The tram graph app: FastAPI serving both the JSON API and the built React SPA.
+#
+#   docker compose up --build       ->  http://localhost:8080
+#
+# The Overpass API this reads from is a separate deployment with its own
+# lifecycle and a 12 GB database; it is not part of this stack. See
+# infra/overpass/docker-compose.yml and docs/deployment.md.
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: mostransport-tram-app
+    container_name: tram-app
+    restart: unless-stopped
+    ports:
+      # 8080 on the host: 8000 is routinely taken by another local service.
+      - "${APP_PORT:-8080}:8000"
+    environment:
+      # Upstream Overpass. Override to point at a local instance.
+      OVERPASS_URL: "${OVERPASS_URL:-http://204.168.155.177/api/interpreter}"
+    volumes:
+      # Read-only: the API never writes the graph, and re-running
+      # scripts/fetch_tram_graph.py should not need an image rebuild.
+      - ./data:/data:ro
+    healthcheck:
+      # /api/health also probes Overpass, but reports it as a field rather than
+      # failing on it -- a dead upstream must not mark this container unhealthy.
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

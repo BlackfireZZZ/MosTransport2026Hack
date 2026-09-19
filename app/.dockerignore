@@ -1,0 +1,10 @@
+# Never ship a host-built venv or node_modules -- wrong platform, and they defeat
+# the cached install layers.
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/.env.local
+**/.env
