@@ -18,9 +18,68 @@ A routable graph of the Moscow tram network, extracted from our
 python3 scripts/fetch_tram_graph.py --out-dir data
 ```
 
-Standard library only, no dependencies. Roughly 20 seconds, almost all of it the
-Overpass query. Useful flags: `--area` / `--admin-level` to target somewhere else,
+Use the repository's Python 3.13; only the standard library is needed, with no
+package installation. The script and the API share the graph validation and
+publication helpers in `backend/app/infrastructure/`. Useful flags:
+`--area` / `--admin-level` to target somewhere else,
 `--api-url` to point at a different instance.
+
+An HTTP-200 response carrying any `remark` is rejected, as are malformed payloads
+and missing referenced nodes/ways. Such responses do not modify the current set.
+Tests use mocked transport and committed data, never live Overpass load.
+
+## Versioned publication and rollback
+
+New exports produce `data/graph-store/tram_graph.manifest.json` and immutable
+`data/graph-store/snapshots/<version>/` directories. Each snapshot includes the
+five files below plus its manifest. The manifest schema is version 1; `source`
+contains common extraction metadata (including source timestamp), `files` maps
+the five fixed names to `sha256` and `size_bytes`, and `version` is the SHA-256
+of the canonical manifest body without its own version field.
+
+All graph values, geometry endpoints, metadata, CSV and GraphML projections must
+match before activation. Files are staged and synchronized before the active
+manifest changes atomically. First publication atomically installs the whole
+store so an interrupted migration cannot disable the old flat files. Once a
+store exists, missing or corrupt manifests/files are errors; the reader does not
+silently select stale legacy files. See [ADR-0004](decisions/0004-atomic-graph-snapshots.md)
+for local POSIX filesystem assumptions and the final-fsync durability limitation.
+
+The existing `TRAM_GRAPH_JSON`/`TRAM_GRAPH_GEOJSON` settings and repository
+constructor still work. With conventional filenames in one directory, the API
+discovers its `graph-store/`, validates every file hash and loads one complete
+snapshot. Before first publication, the existing committed flat files work as
+before. Explicit alternate filenames load the supplied legacy pair directly.
+The API caches its first valid network; restart API processes after activation
+to serve the new snapshot. No public graph API fields change.
+
+List saved versions and activate one without an Overpass request:
+
+```bash
+ls data/graph-store/snapshots
+python3 scripts/fetch_tram_graph.py --out-dir data --rollback <version>
+```
+
+Rollback revalidates the selected set and changes the manifest; no versions are
+deleted. Failed writes before the commit point leave the prior selection intact.
+Interrupted processes can leave staging directories or unselected sealed sets;
+these are never read as active. Inspect them before any manual cleanup.
+
+To load the active JSON with an external tool, capture the manifest once:
+
+```python
+import json
+from pathlib import Path
+
+store = Path("data/graph-store")
+manifest = json.loads((store / "tram_graph.manifest.json").read_text())
+snapshot = store / "snapshots" / manifest["version"]
+doc = json.loads((snapshot / "tram_graph.json").read_text())
+```
+
+For checksum/projection verification as well, use
+`app.infrastructure.graph_artifacts.load_active_graph(Path("data"))` from the
+backend workspace. Raw readers must verify the declared hashes themselves.
 
 ## Files
 
@@ -31,6 +90,10 @@ Overpass query. Useful flags: `--area` / `--admin-level` to target somewhere els
 | `data/tram_graph.geojson` | GeoJSON | drop on a map — stops as points, tracks as lines with real geometry |
 | `data/tram_stops.csv` | CSV | spreadsheets, pandas |
 | `data/tram_edges.csv` | CSV | spreadsheets, pandas |
+
+These paths describe the committed legacy set. After regeneration, use the
+selected snapshot directory instead of the legacy `data/` prefix; the old flat
+files are retained, not refreshed individually.
 
 GraphML and node-link JSON carry the same graph. GeoJSON additionally carries the
 full track polyline per edge, which is what makes it several times larger.

@@ -85,8 +85,8 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-008 | [Keep the local network usable without a remote basemap](#task-008) | bug | frontend | P1 | R1 | ready | unassigned | UI-MAP | none | A | M |
 | TASK-009 | [Expose partial network query failures and scoped retries](#task-009) | bug | frontend | P1 | R1 | backlog | unassigned | UI-MAP | TASK-008 | B | S |
 | TASK-010 | [Build internally consistent browser forecast fixtures](#task-010) | maintenance | frontend | P1 | R1 | ready | unassigned | QA-UI | none | A | S |
-| TASK-011 | [Reject incomplete Overpass extracts before writing outputs](#task-011) | bug | data | P1 | R1 | ready | unassigned | GRAPH-EXPORT | none | A | S |
-| TASK-012 | [Validate graph structures and numerical invariants strictly](#task-012) | bug | backend,data | P1 | R1 | ready | unassigned | GRAPH-LOAD | none | A | M |
+| TASK-011 | [Reject incomplete Overpass extracts before writing outputs](#task-011) | bug | data | P1 | R1 | done | Codex lead | GRAPH-EXPORT | none | A | S |
+| TASK-012 | [Validate graph structures and numerical invariants strictly](#task-012) | bug | backend,data | P1 | R1 | done | Codex lead | GRAPH-LOAD | none | A | M |
 | TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | ready | unassigned | OBSERVABILITY | none | A | S |
 | TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | ready | unassigned | API-TEST | none | A | S |
 | TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | backlog | unassigned | CONTRACT | TASK-003 | B | M |
@@ -104,7 +104,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-025, TASK-026 | D | L |
 | TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-027, TASK-015 | E | L |
 | TASK-029 | [Publish validated batch artifacts atomically and idempotently](#task-029) | feature | backend,ml | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-025, TASK-027 | G | M |
-| TASK-030 | [Publish graph artifacts as a validated versioned set](#task-030) | feature | data,backend | P1 | R2 | backlog | unassigned | GRAPH-EXPORT | TASK-011, TASK-012 | B | M |
+| TASK-030 | [Publish graph artifacts as a validated versioned set](#task-030) | feature | data,backend | P1 | R2 | done | Codex lead | GRAPH-EXPORT | TASK-011, TASK-012 | B | M |
 | TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | backlog | unassigned | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
 | TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-018, TASK-030 | D | M |
 | TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | backlog | unassigned | UI-SHELL | TASK-028, TASK-010 | F | M |
@@ -317,6 +317,15 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Reject incomplete Overpass extracts before writing outputs** — RQ-04.
 
+- **Implementation / handoff:** Terminal 5, Codex lead; isolated worktree
+  `/home/blackfire/Hackatons/MosTransport2026Hack-worktrees/prep-graph-integrity`,
+  branch `agent/prep-graph-integrity`, base `b026e532acc91ce6bb6f13642401c899793a852d`.
+  Owns extractor, graph domain/repository, related tests/docs only. Parallel agent
+  commit `7be660c` integrated as `6eebe78`; lead added missing-reference validation
+  and versioned publication integration. Mocked failures preserve old output bytes.
+  Final extractor suite: 31 tests passed, including standalone no-packages rollback
+  and byte-preserved legacy/versioned outputs. Final integrated gate and handoff
+  are recorded in the [ExecPlan](../exec-plans/completed/prep-graph-integrity.md).
 - **Evidence / scope:** [scripts/fetch_tram_graph.py](../../scripts/fetch_tram_graph.py). The API client handles HTTP-200 remark errors; make the standalone extractor reject partial/error payloads before replacing any output.
 - **Acceptance:** HTTP-200 JSON with remark exits nonzero and preserves existing files byte-for-byte; valid fixture still exports; no live shared-server stress.
 - **Focused verification:** New extractor tests under backend/tests with mocked transport; make backend-check.
@@ -326,6 +335,15 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Validate graph structures and numerical invariants strictly** — RQ-04.
 
+- **Implementation / handoff:** Same Terminal 5 branch/base/worktree as TASK-011.
+  Agent commit `7efa8fe` integrated as `e1c60af`; shared stdlib parser plus domain
+  guards reject malformed shapes, duplicates, nonfinite/range/type errors and
+  unknown endpoints as `TramGraphDataError`. Existing geometry fallback remains.
+  Agent focused 91 tests and backend gate 149 tests passed. Lead added regression
+  guards for very long numeric refs and malformed direct-domain geometry. Final
+  integrated `make check` passed: 220 backend, 48 ML and 23 frontend tests;
+  architecture, Ruff, mypy, golden evaluation, build, OpenAPI and Compose passed.
+  No public API changes. Shared ExecPlan records review and integration status.
 - **Evidence / scope:** [backend/app/infrastructure/repositories/tram_graph.py](../../backend/app/infrastructure/repositories/tram_graph.py). Reject duplicate IDs, malformed roots, invalid coordinates, nonfinite/negative lengths and unknown endpoints through consistent graph-data errors.
 - **Acceptance:** Committed graph loads; corrupt fixture matrix fails deterministically; readiness reports unavailable instead of accidental 500 or silent node collapse; valid path semantics preserved.
 - **Focused verification:** Graph repository/domain/readiness tests; make backend-check.
@@ -488,6 +506,21 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Publish graph artifacts as a validated versioned set** — RQ-04.
 
+- **Implementation / handoff:** Same Terminal 5 branch/base/worktree as TASK-011.
+  Lead owns stdlib graph artifact publisher, manifest-aware repository integration,
+  failure/rollback/concurrency tests, documentation and final verification.
+  [ADR-0004](../decisions/0004-atomic-graph-snapshots.md) records primary-source
+  research and the versioned artifact contract; the
+  [ExecPlan](../exec-plans/completed/prep-graph-integrity.md) records acceptance and review.
+  Independent review identified the first-adoption failure case; the revised
+  protocol atomically installs the first complete store and preserves legacy
+  availability until that commit point. Final publication suite: 36 tests passed;
+  full lead-owned `make check` passed (220 backend, 48 ML, 23 frontend tests).
+  Independent reviews approved after failure-path and GraphML direction fixes.
+  Result is committed in `agent/prep-graph-integrity`; main is owned by the parallel
+  integration lane and was not changed. Next: merge this branch into the current
+  integration branch, preserving other tracker updates, then run its combined gate.
+  Worktrees/branches retained for that handoff; no runtime stack was created.
 - **Evidence / scope:** [scripts/fetch_tram_graph.py](../../scripts/fetch_tram_graph.py). Stage JSON/GeoJSON/CSV/GraphML together, validate checksums/source version, and expose only a complete matching set through a manifest.
 - **Acceptance:** Interrupted export or mismatched JSON/GeoJSON cannot replace last good snapshot; committed topology and two components preserved; rollback selects prior complete set.
 - **Focused verification:** Injected write-failure and manifest mismatch tests; make backend-check.

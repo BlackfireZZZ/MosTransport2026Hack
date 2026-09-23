@@ -40,7 +40,11 @@ def _finite_number(value: object) -> bool:
 
 
 def _validate_coordinate(coordinate: Coordinate) -> None:
-    if len(coordinate) != 2 or not all(_finite_number(value) for value in coordinate):
+    if (
+        not isinstance(coordinate, (tuple, list))
+        or len(coordinate) != 2
+        or not all(_finite_number(value) for value in coordinate)
+    ):
         raise TramGraphDataError("coordinates must contain two finite numbers")
     longitude, latitude = coordinate
     if not -180 <= longitude <= 180 or not -90 <= latitude <= 90:
@@ -58,7 +62,10 @@ def route_sort_key(ref: str) -> tuple[int, int, str]:
     The same ordering `scripts/fetch_tram_graph.py` uses, so refs read the same way
     in the API as in the committed CSVs. Never `int(ref)` without the digit guard.
     """
-    return (0, int(ref), "") if ref.isdecimal() else (1, 0, ref)
+    try:
+        return (0, int(ref), "") if ref.isdecimal() else (1, 0, ref)
+    except ValueError as exc:
+        raise TramGraphDataError("numeric route reference is too long") from exc
 
 
 def sorted_refs(refs: Iterable[str]) -> tuple[str, ...]:
@@ -291,9 +298,11 @@ class TramNetwork:
         if not _finite_number(sum(edge.length_m for edge in edges)):
             raise TramGraphDataError("total edge length must be finite")
         for key, coordinates in track_geometry.items():
+            if not isinstance(key, tuple) or len(key) != 2 or any(type(k) is not int for k in key):
+                raise TramGraphDataError("geometry endpoints must be a pair of integers")
             if key not in edge_keys:
                 raise TramGraphDataError("geometry references an unknown directed edge")
-            if len(coordinates) < 2:
+            if not isinstance(coordinates, (tuple, list)) or len(coordinates) < 2:
                 raise TramGraphDataError("track geometry requires at least two positions")
             for coordinate in coordinates:
                 _validate_coordinate(coordinate)

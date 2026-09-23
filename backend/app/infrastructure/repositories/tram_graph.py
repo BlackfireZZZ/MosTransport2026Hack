@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from app.domain.tram_graph import TramGraphDataError, TramNetwork
+from app.infrastructure.graph_artifacts import STORE_NAME, load_active_graph
 from app.infrastructure.tram_graph_validation import parse_network
 
 
@@ -28,6 +29,14 @@ class FileTramGraphRepository:
         return self._network
 
     def load(self) -> TramNetwork:
+        root = self._graph_path.parent
+        if (
+            self._geojson_path.parent == root
+            and self._graph_path.name == "tram_graph.json"
+            and self._geojson_path.name == "tram_graph.geojson"
+            and ((root / STORE_NAME).exists() or (root / STORE_NAME).is_symlink())
+        ):
+            return parse_network(*load_active_graph(root))
         return parse_network(self._read_json(self._graph_path), self._read_json(self._geojson_path))
 
     @staticmethod

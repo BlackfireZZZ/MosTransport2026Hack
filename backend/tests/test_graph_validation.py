@@ -169,6 +169,27 @@ def test_nondecimal_digit_route_ref_is_valid_text() -> None:
     assert "²" in parse_network(graph, geojson).routes
 
 
+def test_extremely_long_numeric_route_ref_is_a_graph_data_error() -> None:
+    graph, geojson = documents()
+    graph["nodes"][0]["routes"] = ["1" * 5000]
+    with pytest.raises(TramGraphDataError, match="numeric route reference"):
+        parse_network(graph, geojson)
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        {(True, 2): ((37, 55), (38, 56))},
+        {(1, 2): None},
+        {(1, 2): (None, None)},
+    ],
+)
+def test_domain_rejects_malformed_geometry(geometry: Any) -> None:
+    stops = [TramStop(1, "A", 55, 37, ("1",)), TramStop(2, "B", 56, 38, ("1",))]
+    with pytest.raises(TramGraphDataError):
+        TramNetwork.build(GraphMetadata(), stops, [TramEdge(1, 2, 5, ("1",))], geometry)
+
+
 @pytest.mark.parametrize("content", [b"\xff", b"{", b"null", b"[]"])
 def test_repository_translates_invalid_files(tmp_path: Path, content: bytes) -> None:
     graph_path, geojson_path = tmp_path / "graph.json", tmp_path / "graph.geojson"

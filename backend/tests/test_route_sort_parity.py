@@ -1,13 +1,7 @@
 """The backend and the extraction script must order route refs identically.
 
-The rule is written twice on purpose. `scripts/fetch_tram_graph.py` runs on a bare
-interpreter -- verified against macOS's system Python 3.9 -- while the domain needs
-3.11+ for `enum.StrEnum`, so importing `app.domain.tram_graph` from the script would
-cost it exactly the property that makes it useful: run it anywhere, install nothing.
-
-That leaves two copies, and nothing but this test stops them drifting. The drift
-would be silent: it would surface only as the committed CSVs ordering refs
-differently from the API.
+The exporter and the domain must give identical ordering to both decimal refs
+and nondecimal route labels, including Unicode digit-like characters.
 """
 
 from __future__ import annotations
@@ -22,12 +16,10 @@ from app.domain.tram_graph import route_sort_key, sorted_refs
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "fetch_tram_graph.py"
 
-# Numeric refs, refs with a Cyrillic suffix, and bare-letter refs. All of these
-# exist in the Moscow network; "А" and "т2" are why neither copy may use int().
 REFS = [
     "1", "2", "4", "10", "16", "50",
     "1а", "39а", "47а",
-    "А", "т1", "т2",
+    "А", "т1", "т2", "²",
 ]
 
 
@@ -46,7 +38,6 @@ def test_script_and_domain_agree_on_order() -> None:
 
 
 def test_numeric_refs_are_not_sorted_as_strings() -> None:
-    # The trap: "10" < "2" as text. Both copies must order these numerically.
     assert list(sorted_refs(["10", "2", "1"])) == ["1", "2", "10"]
     assert list(load_script().sorted_routes({"10", "2", "1"})) == ["1", "2", "10"]
 
@@ -59,6 +50,5 @@ def test_non_numeric_refs_sort_after_numeric_ones() -> None:
 
 
 def test_sort_key_never_calls_int_on_a_letter() -> None:
-    # A regression guard: route_sort_key must not raise on any real ref.
     for ref in REFS:
         route_sort_key(ref)
