@@ -90,7 +90,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | done | safe-error-diagnostics lead | OBSERVABILITY | none | A | S |
 | TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | done | integration lead | API-TEST | none | A | S |
 | TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-003 | B | M |
-| TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-015 | B | M |
+| TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | in_progress | synthetic-transport-data lead | DATA | TASK-015 | B | M |
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-016 | C | L |
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-015, TASK-016 | C | M |
 | TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-FEATURES | TASK-017, TASK-018 | D | L |
@@ -394,6 +394,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Internal normalized contract only: organizer column names, protocol and final target definition remain unknown. Provisional choices are configurable and versioned.
 
 ## TASK-016
+
+- **Paused checkpoint (2026-09-23):** Implementation in `agent/synthetic-transport-data` at `65f455c`, not merged or complete. Focused 20 tests and full `make check` pass; independent review, million-event measurement and documentation remain. [Resume state](../exec-plans/active/session-handoff.md).
 
 **Generate reproducible multiyear synthetic transport datasets** — RQ-01–03.
 
