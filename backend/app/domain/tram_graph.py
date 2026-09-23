@@ -16,6 +16,7 @@ and 919 edges do not justify a new production dependency, and the domain layer m
 stay importable without one.
 """
 
+import math
 import statistics
 from collections import Counter, deque
 from collections.abc import Iterable, Mapping, Sequence
@@ -29,13 +30,35 @@ class TramGraphDataError(RuntimeError):
     """The stored graph could not be turned into a usable network."""
 
 
+def _finite_number(value: object) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
+def _validate_coordinate(coordinate: Coordinate) -> None:
+    if len(coordinate) != 2 or not all(_finite_number(value) for value in coordinate):
+        raise TramGraphDataError("coordinates must contain two finite numbers")
+    longitude, latitude = coordinate
+    if not -180 <= longitude <= 180 or not -90 <= latitude <= 90:
+        raise TramGraphDataError("coordinates are outside WGS84 ranges")
+
+
+def _validate_routes(routes: tuple[str, ...]) -> None:
+    if not isinstance(routes, tuple) or any(not isinstance(ref, str) for ref in routes):
+        raise TramGraphDataError("routes must be a tuple of strings")
+
+
 def route_sort_key(ref: str) -> tuple[int, int, str]:
     """Order refs 1, 2, 10 rather than 1, 10, 2, with the non-numeric ones last.
 
     The same ordering `scripts/fetch_tram_graph.py` uses, so refs read the same way
     in the API as in the committed CSVs. Never `int(ref)` without the digit guard.
     """
-    return (0, int(ref), "") if ref.isdigit() else (1, 0, ref)
+    return (0, int(ref), "") if ref.isdecimal() else (1, 0, ref)
 
 
 def sorted_refs(refs: Iterable[str]) -> tuple[str, ...]:
@@ -163,7 +186,6 @@ class NetworkGeometry:
     segments: tuple[TrackSegment, ...]
 
 
-
 def _connected_components(
     stops: Mapping[int, TramStop],
     outgoing: Mapping[int, list[TramEdge]],
@@ -245,7 +267,36 @@ class TramNetwork:
         edges: Sequence[TramEdge],
         track_geometry: Mapping[tuple[int, int], tuple[Coordinate, ...]],
     ) -> "TramNetwork":
+        for stop in stops:
+            if type(stop.id) is not int or not isinstance(stop.name, str):
+                raise TramGraphDataError("stop id must be an integer and name must be text")
+            _validate_coordinate((stop.longitude, stop.latitude))
+            _validate_routes(stop.routes)
         stops_by_id = {stop.id: stop for stop in stops}
+        if len(stops_by_id) != len(stops):
+            raise TramGraphDataError("duplicate stop id")
+        edge_keys: set[tuple[int, int]] = set()
+        for edge in edges:
+            key = (edge.source, edge.target)
+            if type(edge.source) is not int or type(edge.target) is not int:
+                raise TramGraphDataError("edge endpoints must be integers")
+            if edge.source not in stops_by_id or edge.target not in stops_by_id:
+                raise TramGraphDataError("edge references an unknown stop")
+            if key in edge_keys:
+                raise TramGraphDataError("duplicate directed edge")
+            edge_keys.add(key)
+            if not _finite_number(edge.length_m) or edge.length_m < 0:
+                raise TramGraphDataError("edge length must be finite and nonnegative")
+            _validate_routes(edge.routes)
+        if not _finite_number(sum(edge.length_m for edge in edges)):
+            raise TramGraphDataError("total edge length must be finite")
+        for key, coordinates in track_geometry.items():
+            if key not in edge_keys:
+                raise TramGraphDataError("geometry references an unknown directed edge")
+            if len(coordinates) < 2:
+                raise TramGraphDataError("track geometry requires at least two positions")
+            for coordinate in coordinates:
+                _validate_coordinate(coordinate)
         outgoing: dict[int, list[TramEdge]] = {stop.id: [] for stop in stops}
         incoming: dict[int, list[TramEdge]] = {stop.id: [] for stop in stops}
         for edge in edges:
@@ -270,7 +321,6 @@ class TramNetwork:
 
     def stats(self) -> NetworkStats:
         lengths = [edge.length_m for edge in self.edges]
-        # Undirected on purpose: a pair served both ways is one neighbour, not two.
         degrees: Counter[int] = Counter(
             len(
                 {edge.target for edge in self.outgoing.get(stop_id, ())}
@@ -307,7 +357,6 @@ class TramNetwork:
     def search_stops(self, query: str | None, limit: int) -> tuple[TramStop, ...]:
         if not query:
             return tuple(self.stops.values())[:limit]
-        # casefold, not lower: the names are Cyrillic and mixed case.
         needle = query.casefold()
         found: list[TramStop] = []
         for stop in self.stops.values():

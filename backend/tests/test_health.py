@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_tram_graph_repository
@@ -66,3 +67,16 @@ def test_readiness_passes_with_the_committed_graph() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ready"}
+
+
+@pytest.mark.parametrize("content", ["null", "[]", '{"nodes": [{}], "links": []}'])
+def test_readiness_reports_corrupt_graph_as_unavailable(tmp_path: Path, content: str) -> None:
+    graph, geometry = tmp_path / "graph.json", tmp_path / "graph.geojson"
+    graph.write_text(content)
+    geometry.write_text('{"type": "FeatureCollection", "features": []}')
+    repository = FileTramGraphRepository(graph, geometry)
+    with _overrides(session=_StubSession(), repository=repository):
+        with TestClient(app) as client:
+            response = client.get("/api/v1/health/ready")
+    assert response.status_code == 503
+    assert "Tram graph is not ready" in response.json()["detail"]
