@@ -42,7 +42,7 @@ CI installs the existing backend toolchain before it.
 
 - Worktree created from requested base; primary checkout initially clean.
 - HTTP and lifecycle tests delegated in non-overlapping files.
-- SQL fixtures and lifecycle implemented; required stack smoke still in progress.
+- SQL fixtures and lifecycle implemented; all required local checks completed.
 
 ## Validation and recovery
 
@@ -59,6 +59,11 @@ for integrator, no merge/push/removal authorized. Final evidence follows here.
   Alembic upgrade and drift check passed; owned resources removed.
 - Lifecycle pytest: 18 passed. Includes setup/migration/test errors, signal exit,
   environment poisoning, diagnostic failures and cleanup failures.
+- `make migration-verify compose-check stack-verify`: clean migration and schema
+  drift checks passed, Compose configuration validated, and the built isolated
+  stack reported `Smoke checks passed: database, API, forecast and frontend are
+  reachable.` Its containers, network and volume were removed. No hosted CI run
+  is claimed; the branch was not pushed.
 - Real fault injection: a temporary PATH wrapper made the migration subprocess
   exit 37 after PostgreSQL startup. Runner returned 37; Docker label queries
   found zero owned containers, volumes and networks. An inherited invalid working
@@ -79,7 +84,8 @@ for integrator, no merge/push/removal authorized. Final evidence follows here.
 
 ## Integrator handoff
 
-Proposed tracker changes: TASK-014 and TASK-026 ready for review after commit;
+Implementation commit: `50258ff4903b0a3cbdbed430f99b880eef20d45e`.
+Proposed tracker changes: TASK-014 and TASK-026 ready for integration review;
 tracker intentionally untouched. Integrator owns merge/cherry-pick and status
 updates. Next serving block (TASK-027/028) can reuse `sql_session`/`sql_engine` for
 run/window invariants; these new invariants must not be inferred from seed tests.
