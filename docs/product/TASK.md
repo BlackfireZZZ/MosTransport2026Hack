@@ -59,6 +59,9 @@ These identifiers support traceability; they do not add organizer requirements.
   and automatic fleet optimization are team hypotheses/extensions. They must not
   displace RQ-01 through RQ-05 or be presented as validated capabilities.
 
+The [acceptance and question register](ACCEPTANCE.md) separates measurable
+synthetic cases from unresolved real-data acceptance gates.
+
 Implementation priorities and verification criteria live in the
 [agent task tracker](../agentic/TASK_TRACKER.md); the evidence review and dependency
 plan live in [PRE_HACKATHON_ANALYSIS.md](PRE_HACKATHON_ANALYSIS.md).
