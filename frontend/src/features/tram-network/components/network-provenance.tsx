@@ -1,12 +1,16 @@
+import { Button } from "@/components/ui/button"
 import { formatTimestamp, OSM_ATTRIBUTION } from "@/features/tram-network/lib/network"
 import type { GeoJsonMetadata, OverpassStatus } from "@/features/tram-network/types"
 
 interface NetworkProvenanceProps {
   readonly metadata: GeoJsonMetadata | undefined
   readonly overpass: OverpassStatus | undefined
+  readonly isError: boolean
+  readonly isFetching: boolean
+  readonly onRetry: () => void
 }
 
-export function NetworkProvenance({ metadata, overpass }: NetworkProvenanceProps) {
+export function NetworkProvenance({ metadata, overpass, isError, isFetching, onRetry }: NetworkProvenanceProps) {
   return (
     <footer className="provenance">
       <dl>
@@ -29,11 +33,16 @@ export function NetworkProvenance({ metadata, overpass }: NetworkProvenanceProps
               className={overpass?.reachable ? "provenance-dot is-up" : "provenance-dot is-down"}
               aria-hidden="true"
             />
-            {overpass === undefined
+            {isError
+              ? "проверка недоступна; работа с локальным графом не требует Overpass"
+              : overpass === undefined
               ? "проверяется"
               : overpass.reachable
                 ? "доступен"
                 : `недоступен — ${overpass.detail ?? "причина не указана"}`}
+            {(isError || overpass?.reachable === false) && (
+              <Button variant="ghost" disabled={isFetching} onClick={onRetry}>Повторить: Overpass</Button>
+            )}
           </dd>
         </div>
       </dl>

@@ -39,7 +39,7 @@ export function ForecastChart({ points, horizon }: ForecastChartProps) {
       <CardHeader className="chart-header">
         <div>
           <CardTitle>{horizonTitles[horizon]}</CardTitle>
-          <CardDescription>Поток по сети после распределения на маршрут</CardDescription>
+          <CardDescription>Демонстрационный поток по маршруту · синтетические данные</CardDescription>
         </div>
         <div className="chart-legend" aria-label="Легенда графика">
           <span><i className="legend-line legend-forecast" />Прогноз</span>

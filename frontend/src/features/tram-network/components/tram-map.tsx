@@ -13,6 +13,8 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css"
 import { useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+
 import {
   asFeatureCollection,
   boundsOfCoordinates,
@@ -28,7 +30,6 @@ import {
 } from "@/features/tram-network/lib/network"
 import type { StopRef, TramGraphGeoJson, TramPath } from "@/features/tram-network/types"
 
-/** Keyless vector basemap: no token, no account, works from a clean checkout. */
 const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
 
 /**
@@ -106,7 +107,8 @@ export function TramMap(props: TramMapProps) {
   const framedRef = useRef(false)
   const graphBoundsRef = useRef<Bounds | null>(null)
   const [ready, setReady] = useState(false)
-  const [styleError, setStyleError] = useState<string | null>(null)
+  const [styleError, setStyleError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   const onStopClickRef = useRef(onStopClick)
   useEffect(() => {
@@ -117,13 +119,19 @@ export function TramMap(props: TramMapProps) {
     const container = containerRef.current
     if (!container) return undefined
 
-    const map = new MapLibreMap({
-      container,
-      style: BASEMAP_STYLE,
-      center: MOSCOW_CENTER,
-      zoom: MOSCOW_ZOOM,
-      attributionControl: false,
-    })
+    let map: MapLibreMap
+    try {
+      map = new MapLibreMap({
+        container,
+        style: BASEMAP_STYLE,
+        center: MOSCOW_CENTER,
+        zoom: MOSCOW_ZOOM,
+        attributionControl: false,
+      })
+    } catch {
+      const failure = window.setTimeout(() => setStyleError(true), 0)
+      return () => window.clearTimeout(failure)
+    }
     mapRef.current = map
 
     map.addControl(new NavigationControl({ showCompass: false }), "top-right")
@@ -136,10 +144,9 @@ export function TramMap(props: TramMapProps) {
       "bottom-right",
     )
 
-    map.on("error", (event) => {
-      const message = event.error?.message ?? "неизвестная ошибка карты"
-      if (/style|sprite|glyphs|tiles/i.test(message)) setStyleError(message)
-    })
+    map.on("error", () => setStyleError(true))
+    const handleContextLost = () => setStyleError(true)
+    map.getCanvas().addEventListener("webglcontextlost", handleContextLost)
 
     map.on("load", () => {
       map.addSource("network", { type: "geojson", data: EMPTY_COLLECTION })
@@ -255,12 +262,13 @@ export function TramMap(props: TramMapProps) {
 
     return () => {
       popup.remove()
+      map.getCanvas().removeEventListener("webglcontextlost", handleContextLost)
       map.remove()
       mapRef.current = null
       framedRef.current = false
       setReady(false)
     }
-  }, [])
+  }, [attempt])
 
   useEffect(() => {
     const map = mapRef.current
@@ -308,7 +316,7 @@ export function TramMap(props: TramMapProps) {
     void source?.setData(routeGeoJson ? asFeatureCollection(routeGeoJson) : EMPTY_COLLECTION)
 
     const bounds = boundsOfGraph(routeGeoJson)
-    if (bounds) map.fitBounds(bounds as LngLatBoundsLike, { padding: 56, duration: 600 })
+    if (bounds) map.fitBounds(bounds as LngLatBoundsLike, { padding: 56, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 600 })
   }, [routeGeoJson, ready])
 
   useEffect(() => {
@@ -319,7 +327,7 @@ export function TramMap(props: TramMapProps) {
 
     if (!path?.found) return
     const bounds = boundsOfCoordinates(path.geometry)
-    if (bounds) map.fitBounds(bounds as LngLatBoundsLike, { padding: 72, duration: 600 })
+    if (bounds) map.fitBounds(bounds as LngLatBoundsLike, { padding: 72, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 600 })
   }, [path, ready])
 
   useEffect(() => {
@@ -331,12 +339,48 @@ export function TramMap(props: TramMapProps) {
 
   return (
     <div className="tram-map-wrap">
-      <div className="tram-map" ref={containerRef} data-testid="tram-map" />
+      <div className="relative">
+      <div className="tram-map" ref={containerRef} data-testid="tram-map"
+        data-state={styleError ? "unavailable" : ready ? "ready" : "loading"}
+        aria-label="Карта трамвайной сети" />
       {styleError && (
-        <p className="tram-map-overlay" role="status">
-          Подложка карты не загрузилась — сеть отрисована поверх пустого фона. ({styleError})
-        </p>
+        <div className="tram-map-overlay" role="status">
+          <p>Карта недоступна. Используйте список остановок и участков сети ниже.</p>
+          <Button onClick={() => {
+            setStyleError(false)
+            setReady(false)
+            setAttempt((value) => value + 1)
+          }}>Повторить загрузку карты</Button>
+        </div>
       )}
+      </div>
+      <details>
+        <summary>Остановки и участки сети</summary>
+        <div className="max-h-80 overflow-auto">
+          {!network ? <p>Список появится после загрузки графа сети.</p> : (
+            <ul aria-label="Объекты локального графа">
+              {(routeGeoJson ?? network).features.map((feature, index) => (
+                <li key={index}>
+                  {"id" in feature.properties ? (
+                    <>
+                      <Button variant="ghost" onClick={() => {
+                        const id = featureStopId(feature.properties)
+                        if (id !== null) onStopClick(id)
+                      }}>
+                        {feature.properties.name} · OSM {feature.properties.id}
+                      </Button>
+                      <span> · {feature.geometry.coordinates.join(", ")}</span>
+                    </>
+                  ) : (
+                    <span>OSM {feature.properties.source} → OSM {feature.properties.target} · {feature.properties.length_m} м</span>
+                  )}
+                  <span> · маршруты: {feature.properties.routes.join(", ") || "не указаны"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </details>
     </div>
   )
 }
