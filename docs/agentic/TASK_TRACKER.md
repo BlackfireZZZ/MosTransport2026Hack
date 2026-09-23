@@ -79,16 +79,16 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-002 | [Analyze and populate the pre-hackathon backlog](#task-002) | docs | docs | P1 | R1 | done | Codex lead | CONTRACT | TASK-001 | A | M |
 | TASK-003 | [Freeze acceptance assumptions and organizer questions](#task-003) | research | docs | P1 | R1 | done | Codex lead | CONTRACT | none | A | S |
 | TASK-004 | [Reject invalid evaluation inputs and gate every horizon](#task-004) | bug | ml | P1 | R1 | done | Codex lead | ML-EVAL | none | A | S |
-| TASK-005 | [Make demonstration and model capability labels truthful](#task-005) | bug | frontend | P1 | R1 | ready | unassigned | UI-SHELL | none | A | S |
-| TASK-006 | [Bind scenario output to the submitted parameter snapshot](#task-006) | bug | frontend | P2 | R1 | ready | unassigned | UI-SCENARIO | none | A | S |
-| TASK-007 | [Preserve stale forecasts and gate queries on valid selection](#task-007) | bug | frontend | P1 | R1 | backlog | unassigned | UI-SHELL | TASK-005 | B | S |
-| TASK-008 | [Keep the local network usable without a remote basemap](#task-008) | bug | frontend | P1 | R1 | ready | unassigned | UI-MAP | none | A | M |
-| TASK-009 | [Expose partial network query failures and scoped retries](#task-009) | bug | frontend | P1 | R1 | backlog | unassigned | UI-MAP | TASK-008 | B | S |
-| TASK-010 | [Build internally consistent browser forecast fixtures](#task-010) | maintenance | frontend | P1 | R1 | ready | unassigned | QA-UI | none | A | S |
+| TASK-005 | [Make demonstration and model capability labels truthful](#task-005) | bug | frontend | P1 | R1 | done | integration lead | UI-SHELL | none | A | S |
+| TASK-006 | [Bind scenario output to the submitted parameter snapshot](#task-006) | bug | frontend | P2 | R1 | done | integration lead | UI-SCENARIO | none | A | S |
+| TASK-007 | [Preserve stale forecasts and gate queries on valid selection](#task-007) | bug | frontend | P1 | R1 | done | integration lead | UI-SHELL | TASK-005 | B | S |
+| TASK-008 | [Keep the local network usable without a remote basemap](#task-008) | bug | frontend | P1 | R1 | done | integration lead | UI-MAP | none | A | M |
+| TASK-009 | [Expose partial network query failures and scoped retries](#task-009) | bug | frontend | P1 | R1 | done | integration lead | UI-MAP | TASK-008 | B | S |
+| TASK-010 | [Build internally consistent browser forecast fixtures](#task-010) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | none | A | S |
 | TASK-011 | [Reject incomplete Overpass extracts before writing outputs](#task-011) | bug | data | P1 | R1 | ready | unassigned | GRAPH-EXPORT | none | A | S |
 | TASK-012 | [Validate graph structures and numerical invariants strictly](#task-012) | bug | backend,data | P1 | R1 | ready | unassigned | GRAPH-LOAD | none | A | M |
 | TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | ready | unassigned | OBSERVABILITY | none | A | S |
-| TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | ready | unassigned | API-TEST | none | A | S |
+| TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | done | integration lead | API-TEST | none | A | S |
 | TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | Codex lead | CONTRACT | TASK-003 | B | M |
 | TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-015 | B | M |
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-016 | C | L |
@@ -100,7 +100,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-023 | [Add a reproducible lag/calendar boosting candidate](#task-023) | feature | ml | P2 | R2 | backlog | unassigned | ML-MODEL | TASK-021, TASK-022 | F | M |
 | TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
 | TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | Codex lead | CONTRACT | TASK-015 | C | M |
-| TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | ready | unassigned | INFRA | none | A | M |
+| TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | done | integration lead | INFRA | none | A | M |
 | TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-025, TASK-026 | D | L |
 | TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-027, TASK-015 | E | L |
 | TASK-029 | [Publish validated batch artifacts atomically and idempotently](#task-029) | feature | backend,ml | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-025, TASK-027 | G | M |
@@ -111,7 +111,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | unassigned | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
 | TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | unassigned | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
 | TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | unassigned | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
-| TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | backlog | unassigned | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
+| TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
 | TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | unassigned | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
 | TASK-039 | [Build a first-data profiling and adaptation toolkit](#task-039) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-017, TASK-018, TASK-019 | E | M |
 | TASK-040 | [Observe batch quality, publication and forecast freshness](#task-040) | feature | backend,ml | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-029, TASK-035, TASK-013 | I | M |
@@ -268,6 +268,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Focused verification:** Frontend component state fixtures and existing dashboard E2E; make frontend-check; make e2e.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
+
 ## TASK-006
 
 **Bind scenario output to the submitted parameter snapshot** — EXT: existing what-if demo.
@@ -276,6 +278,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Acceptance:** Edit-after-submit, reset-while-pending, failure/retry and route/horizon change fixtures never display results as belonging to new inputs.
 - **Focused verification:** Focused scenario component tests; scenario Playwright flow; make frontend-check; make e2e.
 - **Pre-data boundary / risk:** Fix existing behavior if capacity permits; optional what-if must not delay mandatory forecasting.
+
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
 
 ## TASK-007
 
@@ -286,6 +290,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Focused verification:** Fake-clock/query tests and retry/filter E2E; make frontend-check; make e2e.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
+
 ## TASK-008
 
 **Keep the local network usable without a remote basemap** — RQ-04.
@@ -294,6 +300,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Acceptance:** Blocked external style cannot leave a message falsely claiming a rendered graph; committed graph can be inspected through map or accessible alternative; retries and reduced motion work.
 - **Focused verification:** Deterministic blocked-style Playwright test; make frontend-check; make e2e.
 - **Pre-data boundary / risk:** Research the official MapLibre style lifecycle before changing it; no live Overpass dependency in tests.
+
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
 
 ## TASK-009
 
@@ -304,6 +312,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Focused verification:** Network component state tests plus browser fault injection; make frontend-check; make e2e.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
+
 ## TASK-010
 
 **Build internally consistent browser forecast fixtures** — RQ-02–04.
@@ -312,6 +322,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Acceptance:** Peak equals maximum point value; all buckets ordered and aligned; intervals enclose predictions; route/stop/window fixtures can be added after contract freeze.
 - **Focused verification:** Fixture invariant unit tests and existing three Playwright flows; make frontend-check; make e2e.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
 
 ## TASK-011
 
@@ -348,6 +360,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Acceptance:** All three horizons, missing route/snapshot, invalid input, zero-change scenario and baseline immutability are covered; valid response shape is unchanged.
 - **Focused verification:** New forecast API test module plus test_forecast_service.py; make backend-check.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
 
 ## TASK-015
 
@@ -476,6 +490,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Focused verification:** New PostgreSQL test command, make migration-verify, Compose config and isolated smoke; make check.
 - **Pre-data boundary / risk:** One owner of Makefile/CI/runtime scripts; no competing test stack.
 
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
+
 ## TASK-027
 
 **Persist coherent forecast runs and enforce value invariants** — RQ-02–03.
@@ -574,6 +590,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Acceptance:** Keyboard search, endpoint swap/reset, unreachable path, offline basemap, retries and empty results pass without live Overpass.
 - **Focused verification:** New network Playwright suite; make frontend-check e2e.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+- **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
 
 ## TASK-038
 
