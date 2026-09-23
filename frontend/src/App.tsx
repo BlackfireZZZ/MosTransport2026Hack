@@ -25,7 +25,6 @@ const ForecastChart = lazy(() =>
   })),
 )
 
-// maplibre-gl is ~1 MB of WebGL renderer; the forecast screen must not pay for it.
 const TramNetworkView = lazy(() =>
   import("@/features/tram-network/components/tram-network-view").then((module) => ({
     default: module.TramNetworkView,
@@ -59,11 +58,11 @@ function DashboardSkeleton() {
 function App() {
   const routes = useRoutes()
   const [section, setSection] = useState<Section>("forecast")
-  const [routeId, setRouteId] = useState(1)
+  const [routeId, setRouteId] = useState<number | null>(null)
   const [horizon, setHorizon] = useState<ForecastHorizon>("day")
-  const selectedRouteId = routes.data?.some((route) => route.id === routeId)
-    ? routeId
-    : (routes.data?.[0]?.id ?? routeId)
+  const selectedRouteId = routeId === null
+    ? (routes.data?.[0]?.id ?? null)
+    : routes.data?.some((route) => route.id === routeId) ? routeId : null
   const forecast = useForecast(selectedRouteId, horizon)
 
   const data = forecast.data
@@ -73,7 +72,7 @@ function App() {
   const reserve = data ? 100 - data.peak_load_percent : 0
   const reserveLabel = reserve >= 0 ? "до расчётной вместимости" : "дефицит вместимости"
   const generatedAt = data
-    ? new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(data.generated_at))
+    ? new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(data.generated_at))
     : "—"
 
   return (
@@ -103,8 +102,8 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <span className="status-dot" />
-          <span>Модель доступна<small>{data ? `срез ${generatedAt}` : "ожидание данных"}</small></span>
+          {data && <span className="status-dot" aria-hidden="true" />}
+          <span>{data ? "Демонстрационный прогноз" : forecast.isError ? "Демопрогноз недоступен" : "Ожидание демоданных"}<small>{data ? `сформирован ${generatedAt} МСК` : "качество модели не подтверждено"}</small></span>
         </div>
       </aside>
 
@@ -124,8 +123,8 @@ function App() {
           <section className="filters" aria-label="Параметры прогноза">
             <div className="filter-field">
               <label htmlFor="route-select">Маршрут</label>
-              <Select value={String(selectedRouteId)} onValueChange={(value) => setRouteId(Number(value))}>
-                <SelectTrigger id="route-select"><SelectValue placeholder="Выберите маршрут" /></SelectTrigger>
+              <Select value={selectedRouteId === null ? "" : String(selectedRouteId)} onValueChange={(value) => setRouteId(Number(value))}>
+                <SelectTrigger id="route-select" disabled={!routes.data?.length}><SelectValue placeholder="Выберите маршрут" /></SelectTrigger>
                 <SelectContent>
                   {routes.data?.map((route) => <SelectItem key={route.id} value={String(route.id)}>{route.number} · {route.name}</SelectItem>)}
                 </SelectContent>
@@ -142,20 +141,24 @@ function App() {
                 ))}
               </Tabs>
             </div>
-            <div className="freshness"><span>Срез данных</span><strong>{generatedAt}</strong></div>
+            <div className="freshness"><span>Прогноз сформирован · МСК</span><strong>{generatedAt}</strong></div>
+            <Button variant="secondary" disabled={selectedRouteId === null || forecast.isFetching} onClick={() => void forecast.refetch()}>Обновить прогноз</Button>
           </section>
 
           {(routes.isLoading || forecast.isLoading) && <DashboardSkeleton />}
-          {(routes.isError || forecast.isError) && (
-            <Card className="error-state"><CardContent><h2>Прогноз временно недоступен</h2><p>Проверьте соединение с API и повторите запрос.</p><Button onClick={() => { void routes.refetch(); void forecast.refetch() }}>Повторить</Button></CardContent></Card>
+          {routes.isError && (
+            <Card className="error-state"><CardContent><h2>{routes.data ? "Список маршрутов не обновлён" : "Маршруты временно недоступны"}</h2><p>Повторите загрузку списка маршрутов.</p><Button onClick={() => void routes.refetch()}>Повторить загрузку маршрутов</Button></CardContent></Card>
+          )}
+          {forecast.isError && selectedRouteId !== null && (
+            <Card className="error-state"><CardContent><h2>{data ? "Показан сохранённый демопрогноз" : "Прогноз временно недоступен"}</h2><p>{data ? `Не удалось обновить данные. Прогноз сформирован ${generatedAt} МСК; данные могут быть устаревшими.` : "Проверьте соединение с API и повторите запрос."}</p><Button onClick={() => void forecast.refetch()}>Повторить прогноз</Button></CardContent></Card>
           )}
           {routes.data?.length === 0 && !routes.isLoading && (
             <Card className="error-state"><CardContent><h2>Маршруты не найдены</h2><p>Загрузите сетевой граф и опубликуйте прогноз.</p></CardContent></Card>
           )}
-          {data && data.points.length === 0 && !forecast.isError && (
+          {data && data.points.length === 0 && (
             <Card className="error-state"><CardContent><h2>Нет точек прогноза</h2><p>Для выбранного маршрута и горизонта опубликованный срез пуст.</p></CardContent></Card>
           )}
-          {data && data.points.length > 0 && !routes.isError && !forecast.isError && (
+          {data && data.points.length > 0 && (
             <>
               <section className="kpi-grid" aria-label="Ключевые показатели">
                 <article className="kpi"><span>Пиковый поток</span><strong>{formatPassengers(data.peak_passengers)}</strong><small>пассажиров / интервал</small></article>
@@ -169,9 +172,9 @@ function App() {
               </Suspense>
               <section className="lower-grid">
                 <NetworkMap stops={data.stops} />
-                <div id="scenario"><ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} /></div>
+                <div id="scenario">{selectedRouteId !== null && <ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} />}</div>
               </section>
-              <footer className="data-note" id="data"><Map />Прогноз построен для потока на графе сети и затем распределён на маршрут · модель {data.model_version}</footer>
+              <footer className="data-note" id="data"><Map />Синтетические демоданные · качество модели на реальных данных не подтверждено · версия {data.model_version}</footer>
             </>
           )}
         </div>

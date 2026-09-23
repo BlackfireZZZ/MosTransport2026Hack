@@ -40,22 +40,22 @@ export function ScenarioPanel({ routeId, horizon }: ScenarioPanelProps) {
           <span className="scenario-mark"><Sparkles /></span>
           <div>
             <CardTitle>Что будет, если?</CardTitle>
-            <CardDescription>Измените сеть и сравните с базовым прогнозом</CardDescription>
+            <CardDescription>Демонстрационный расчёт · не подтверждён на реальных данных</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="scenario-content">
         <label>
           <span>Дополнительные трамваи <b>{formatSigned(vehicles)}</b></span>
-          <input type="range" min="-3" max="10" value={vehicles} onChange={(event) => setVehicles(Number(event.target.value))} />
+          <input type="range" min="-3" max="10" value={vehicles} onChange={(event) => { scenario.reset(); setVehicles(Number(event.target.value)) }} />
         </label>
         <label>
           <span>Изменение интервала <b>{formatSigned(interval, "%")}</b></span>
-          <input type="range" min="-50" max="100" step="5" value={interval} onChange={(event) => setInterval(Number(event.target.value))} />
+          <input type="range" min="-50" max="100" step="5" value={interval} onChange={(event) => { scenario.reset(); setInterval(Number(event.target.value)) }} />
         </label>
         <label>
           <span>Импульс спроса / событие <b>{formatSigned(demand, "%")}</b></span>
-          <input type="range" min="-50" max="200" step="5" value={demand} onChange={(event) => setDemand(Number(event.target.value))} />
+          <input type="range" min="-50" max="200" step="5" value={demand} onChange={(event) => { scenario.reset(); setDemand(Number(event.target.value)) }} />
         </label>
 
         {scenario.data && (

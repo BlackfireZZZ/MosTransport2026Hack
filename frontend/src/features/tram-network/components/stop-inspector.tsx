@@ -43,7 +43,7 @@ export function StopInspector({ stopId, onSelect, onSetEndpoint }: StopInspector
   const [query, setQuery] = useState("")
   const search = useStopSearch(query)
   const detail = useStopDetail(stopId)
-  const stop = detail.data
+  const stop = detail.isError ? undefined : detail.data
 
   return (
     <Card className="stop-inspector">
@@ -68,12 +68,13 @@ export function StopInspector({ stopId, onSelect, onSetEndpoint }: StopInspector
 
         {query.trim().length >= 2 && search.isPending && <Skeleton className="h-20" />}
         {search.isError && (
-          <p className="inline-error">Поиск недоступен. Повторите запрос позже.</p>
+          <div role="status"><p className="inline-error">Поиск остановок недоступен.</p>
+            <Button disabled={search.isFetching} onClick={() => void search.refetch()}>Повторить: поиск остановок</Button></div>
         )}
-        {search.data?.length === 0 && (
+        {!search.isError && search.data?.length === 0 && (
           <p className="stop-empty">Ничего не найдено — попробуйте другую часть названия.</p>
         )}
-        {search.data && search.data.length > 0 && (
+        {!search.isError && search.data && search.data.length > 0 && (
           <ul className="stop-results" aria-label="Результаты поиска">
             {search.data.map((result) => (
               <li key={result.id}>
@@ -88,7 +89,8 @@ export function StopInspector({ stopId, onSelect, onSetEndpoint }: StopInspector
 
         {stopId !== null && detail.isPending && <Skeleton className="h-40" />}
         {detail.isError && (
-          <p className="inline-error">Не удалось загрузить остановку. Повторите запрос.</p>
+          <div role="status"><p className="inline-error">Не удалось загрузить остановку.</p>
+            <Button disabled={detail.isFetching} onClick={() => void detail.refetch()}>Повторить: остановка</Button></div>
         )}
         {stop && (
           <div className="stop-detail">

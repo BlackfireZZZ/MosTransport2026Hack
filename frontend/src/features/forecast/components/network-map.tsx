@@ -19,7 +19,7 @@ export function NetworkMap({ stops }: NetworkMapProps) {
   if (stops.length === 0) {
     return (
       <Card className="map-card">
-        <CardHeader><CardTitle>Поток по транспортному графу</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Демонстрационная схема остановок</CardTitle></CardHeader>
         <CardContent><p className="inline-error">Для выбранного среза нет узлов сети.</p></CardContent>
       </Card>
     )
@@ -44,10 +44,10 @@ export function NetworkMap({ stops }: NetworkMapProps) {
     <Card className="map-card">
       <CardHeader className="map-header">
         <div>
-          <CardTitle>Поток по транспортному графу</CardTitle>
-          <CardDescription>Узлы связаны, нагрузка соседних участков учитывается совместно</CardDescription>
+          <CardTitle>Демонстрационная схема остановок</CardTitle>
+          <CardDescription>Синтетические значения · линия показывает порядок остановок</CardDescription>
         </div>
-        <Badge>географический граф</Badge>
+        <Badge>демо-схема</Badge>
       </CardHeader>
       <CardContent className="map-content">
         <div className="network-canvas">

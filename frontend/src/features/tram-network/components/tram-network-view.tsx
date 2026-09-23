@@ -58,7 +58,9 @@ export function TramNetworkView() {
   }, [])
 
   const activeRoute = routes.data?.find((route) => route.ref === selectedRoute)
-  const metadata = (routeGeoJson.data ?? network.data)?.metadata
+  const currentRouteGeometry = routeGeoJson.isError ? undefined : routeGeoJson.data
+  const currentPath = path.isError ? undefined : path.data
+  const metadata = (currentRouteGeometry ?? network.data)?.metadata
 
   return (
     <div className="workspace" id="network">
@@ -91,79 +93,83 @@ export function TramNetworkView() {
       )}
       {stats.data && <NetworkStats stats={stats.data} />}
 
-      {(network.isError || routes.isError || stats.isError) && (
-        <Card className="error-state">
+      {[
+        { name: "Граф сети", query: network },
+        { name: "Список маршрутов", query: routes },
+        { name: "Статистика сети", query: stats },
+        ...(selectedRoute === null ? [] : [{ name: "Геометрия маршрута", query: routeGeoJson }]),
+      ].map(({ name, query }) => query.isError && (
+        <Card className="error-state" key={name}>
           <CardContent>
-            <h2>Граф сети недоступен</h2>
-            <p>Проверьте соединение с API и повторите запрос.</p>
-            <Button
-              onClick={() => {
-                void network.refetch()
-                void routes.refetch()
-                void stats.refetch()
-              }}
-            >
-              Повторить
+            <h2>{name}: ошибка загрузки</h2>
+            <p>{query.data ? "Сохранённые данные могут быть неактуальны." : "Повторите запрос этой части данных."}</p>
+            <Button disabled={query.isFetching} onClick={() => void query.refetch()}>
+              Повторить: {name.toLowerCase()}
             </Button>
           </CardContent>
         </Card>
-      )}
+      ))}
+      {routes.data?.length === 0 && <p role="status">В графе нет маршрутов.</p>}
+      {selectedRoute !== null && routeGeoJson.isPending && <p role="status">Загружаем геометрию маршрута…</p>}
+      {selectedRoute !== null && currentRouteGeometry?.features.length === 0 && <p role="status">Для маршрута нет объектов геометрии.</p>}
 
-      {!network.isError && (
-        <div className="tram-grid">
-          <Card className="tram-map-card">
-            <CardContent>
-              <TramMap
-                network={network.data}
-                routeGeoJson={selectedRoute === null ? undefined : routeGeoJson.data}
-                selectedRoute={selectedRoute}
-                path={path.data}
-                fromStop={fromStop}
-                toStop={toStop}
-                selectedStop={selectedStop.data ?? null}
-                onStopClick={handleStopClick}
-              />
-              <div className="tram-legend">
-                <span className="legend-swatch legend-track" />
-                Пути сети
-                <span className="legend-swatch legend-route" />
-                Выбранный маршрут
-                <span className="legend-swatch legend-path" />
-                Кратчайший путь
-                <span className="legend-swatch legend-from" />
-                Откуда
-                <span className="legend-swatch legend-to" />
-                Куда
-              </div>
-              <p className="tram-map-status" role="status">
-                {network.isPending
-                  ? "Загружаем граф сети…"
-                  : `${formatCount(network.data?.features.length ?? 0)} объектов на карте`}
-              </p>
-            </CardContent>
-          </Card>
-
-          <div className="tram-side">
-            <StopInspector
-              stopId={selectedStopId}
-              onSelect={handleStopClick}
-              onSetEndpoint={handleSetEndpoint}
-            />
-            <PathPanel
+      <div className="tram-grid">
+        <Card className="tram-map-card">
+          <CardContent>
+            <TramMap
+              network={network.data}
+              routeGeoJson={selectedRoute === null ? undefined : currentRouteGeometry}
+              selectedRoute={selectedRoute}
+              path={currentPath}
               fromStop={fromStop}
               toStop={toStop}
-              path={path.data}
-              isPending={path.isPending && path.fetchStatus !== "idle"}
-              isError={path.isError}
-              onSwap={swapEndpoints}
-              onClear={clearEndpoints}
-              onRetry={() => void path.refetch()}
+              selectedStop={selectedStop.isError ? null : selectedStop.data ?? null}
+              onStopClick={handleStopClick}
             />
-          </div>
-        </div>
-      )}
+            <div className="tram-legend">
+              <span className="legend-swatch legend-track" />
+              Пути сети
+              <span className="legend-swatch legend-route" />
+              Выбранный маршрут
+              <span className="legend-swatch legend-path" />
+              Кратчайший путь
+              <span className="legend-swatch legend-from" />
+              Откуда
+              <span className="legend-swatch legend-to" />
+              Куда
+            </div>
+            <p className="tram-map-status" role="status">
+              {network.isPending
+                ? "Загружаем граф сети…"
+                : network.data?.features.length === 0
+                  ? "В графе нет объектов."
+                  : `${formatCount(network.data?.features.length ?? 0)} объектов в данных сети`}
+            </p>
+          </CardContent>
+        </Card>
 
-      <NetworkProvenance metadata={metadata} overpass={overpass.data} />
+        <div className="tram-side">
+          <StopInspector
+            stopId={selectedStopId}
+            onSelect={handleStopClick}
+            onSetEndpoint={handleSetEndpoint}
+          />
+          <PathPanel
+            fromStop={fromStop}
+            toStop={toStop}
+            path={currentPath}
+            isPending={path.isPending && path.fetchStatus !== "idle"}
+            isError={path.isError}
+            onSwap={swapEndpoints}
+            onClear={clearEndpoints}
+            onRetry={() => void path.refetch()}
+          />
+        </div>
+      </div>
+
+      <NetworkProvenance metadata={metadata} overpass={overpass.data}
+        isError={overpass.isError} isFetching={overpass.isFetching}
+        onRetry={() => void overpass.refetch()} />
     </div>
   )
 }

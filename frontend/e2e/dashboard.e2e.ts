@@ -3,58 +3,11 @@ import { expect, test, type Page, type Route } from "@playwright/test"
 
 import type {
   ForecastHorizon,
-  ForecastResponse,
-  RouteSummary,
   ScenarioRequest,
   ScenarioResponse,
 } from "../src/features/forecast/types"
 
-const routes: readonly RouteSummary[] = [
-  { id: 1, number: "Т1", name: "Белорусский вокзал — Каланчёвская", color: "#d9342b" },
-  { id: 2, number: "Т2", name: "Черёмушки — Университет", color: "#246b88" },
-]
-
-function forecastResponse(routeId: number, horizon: ForecastHorizon): ForecastResponse {
-  const route = routes.find((candidate) => candidate.id === routeId) ?? routes[0]
-  const peak = route.id === 2 ? 820 : horizon === "month" ? 710 : horizon === "year" ? 760 : 600
-  const timestamp = horizon === "day" ? "2026-09-19T06:00:00Z" : "2026-10-01T00:00:00Z"
-
-  return {
-    generated_at: "2026-09-19T06:00:00Z",
-    horizon,
-    model_version: "e2e-fixture-v1",
-    peak_load_percent: peak / 10,
-    peak_passengers: peak,
-    points: [
-      {
-        capacity: 1_000,
-        lower_bound: peak - 80,
-        predicted_passengers: peak,
-        timestamp,
-        upper_bound: peak + 90,
-      },
-      {
-        capacity: 1_000,
-        lower_bound: peak - 40,
-        predicted_passengers: peak + 20,
-        timestamp: "2026-09-19T07:00:00Z",
-        upper_bound: peak + 110,
-      },
-    ],
-    route,
-    stops: [
-      {
-        id: route.id * 10 + 1,
-        latitude: 55.776,
-        load_percent: peak / 10,
-        longitude: 37.583,
-        name: "Тестовая остановка",
-        predicted_passengers: peak,
-        sequence: 1,
-      },
-    ],
-  }
-}
+import { forecastResponse, routes } from "./forecast-fixtures"
 
 function scenarioResponse(): ScenarioResponse {
   return {
@@ -158,7 +111,61 @@ test("shows an API error and recovers through retry", async ({ page }) => {
   await page.goto("/")
 
   await expect(page.getByRole("heading", { name: "Прогноз временно недоступен" })).toBeVisible()
-  await page.getByRole("button", { name: "Повторить" }).click()
+  await page.getByRole("button", { name: "Повторить прогноз" }).click()
   await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
   expect(attempts).toBeGreaterThanOrEqual(3)
 })
+
+test("retains the last forecast after a failed refresh and recovers", async ({ page }) => {
+  let unavailable = false
+  await mockDashboardApi(page, { forecastHandler: (route) => unavailable
+    ? fulfillJson(route, { detail: "refresh outage" }, 503)
+    : fulfillJson(route, forecastResponse(1, "day")) })
+  await page.goto("/")
+  await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
+  unavailable = true
+  await page.getByRole("button", { name: "Обновить прогноз" }).click()
+  await expect(page.getByRole("heading", { name: "Показан сохранённый демопрогноз" })).toBeVisible()
+  await expect(page.locator("article.kpi", { hasText: "Пиковый поток" })).toContainText("600")
+  await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
+  unavailable = false
+  await page.getByRole("button", { name: "Повторить прогноз" }).click()
+  await expect(page.getByRole("heading", { name: "Показан сохранённый демопрогноз" })).toHaveCount(0)
+})
+
+test("does not request forecasts while routes are loading or empty", async ({ page }) => {
+  const requests: string[] = []
+  let release!: () => void
+  const pending = new Promise<void>((resolve) => { release = resolve })
+  await page.route("**/api/v1/routes", async (route) => {
+    await pending
+    await fulfillJson(route, [])
+  })
+  page.on("request", (request) => {
+    if (/\/forecasts\?|\/scenarios\//.test(request.url())) requests.push(request.url())
+  })
+  await page.goto("/")
+  await expect(page.getByRole("heading", { name: "Пассажиропоток трамвайной сети" })).toBeVisible()
+  expect(requests).toEqual([])
+  release()
+  await expect(page.getByRole("heading", { name: "Маршруты не найдены" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Обновить прогноз" })).toBeDisabled()
+  expect(requests).toEqual([])
+})
+
+for (const width of [390, 768, 1440]) {
+  test(`saved forecast is accessible at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 })
+    let offline = false
+    await mockDashboardApi(page, { forecastHandler: (route) => fulfillJson(route,
+      offline ? { detail: "offline" } : forecastResponse(1, "day"), offline ? 503 : 200) })
+    await page.goto("/")
+    await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
+    offline = true
+    await page.getByRole("button", { name: "Обновить прогноз" }).click()
+    await expect(page.getByRole("heading", { name: "Показан сохранённый демопрогноз" })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.screenshot({ path: testInfo.outputPath(`saved-forecast-${width}.png`), fullPage: true })
+  })
+}
