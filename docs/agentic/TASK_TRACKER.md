@@ -2,7 +2,7 @@
 
 This is the repository-local index of agent work. Read it before selecting a task
 and update it when ownership, status, blockers, or verification evidence changes.
-All entries and task specifications use English. An entry records work; it does
+All entries and task specifications use English. The [authoritative task](../product/TASK.md) governs scope; [the analysis and execution plan](../product/PRE_HACKATHON_ANALYSIS.md) explains priorities, evidence, and parallel lanes. An entry records work; it does
 not authorize actions outside the user's scope or [permission boundaries](PERMISSIONS.md).
 
 ## Classification
@@ -47,14 +47,92 @@ not authorize actions outside the user's scope or [permission boundaries](PERMIS
 - If an external issue exists, link it as the canonical specification. This index
   owns the local status and ownership; do not maintain two competing specifications.
 
+## Execution metadata
+
+The table is the status/ownership source of truth. Every future task is `unassigned`;
+lanes describe file ownership boundaries, not assigned people. `A`–`J` are dependency
+waves, not calendar dates. A task may start as soon as all listed prerequisites are
+`done` and its contract/authority is confirmed; the dependency list overrides wave
+labels. `OPTIONAL` is outside the mandatory delivery path; `DATA` requires organizer
+inputs. Dependencies include contract-freeze tasks; implementation agents may draft
+against reviewed fixtures, but must not mark dependent tasks ready early.
+
+Size is a rough planning estimate for one contributor with tooling available:
+`S` up to half a day, `M` roughly 1–2 days, `L` roughly 2–4 days. These are not delivery
+promises or a claim all tasks fit the hackathon. Split an L task into linked milestones
+before implementation. Follow root worktree/ExecPlan criteria regardless of size label.
+
+Each card supplies the outcome/hypothesis, code evidence, scope, acceptance and
+smallest check. Before claiming it, record the actual owner, branch/base/worktree,
+file boundaries, dated results and next step using [TASK_SPEC.md](TASK_SPEC.md).
+All implementation tasks also run `make check` after focused checks. API/schema/data/
+model/runtime changes require R2 review, isolated worktrees and all applicable rows
+of [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md). New complex mechanisms require
+primary-source research; a list entry is not an architectural decision or permission
+to install dependencies. Do not silently weaken existing contracts.
+
 ## Task index
 
-| ID | Outcome / specification | Type | Area | Priority | Risk | Status | Owner | Dependencies |
-|---|---|---|---|---|---|---|---|---|
-| TASK-001 | [Create a discoverable agent task tracker](#task-001) | docs | docs | P2 | R1 | done | Codex (lead) | none |
-
-No additional product backlog has been inferred from architecture aspirations.
-Add concrete tasks when their intended outcome is established.
+| ID | Outcome / specification | Type | Area | Priority | Risk | Status | Owner | Lane | Dependencies | Wave | Size |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| TASK-001 | [Create a discoverable agent task tracker](#task-001) | docs | docs | P2 | R1 | done | Codex lead | CONTRACT | none | A | S |
+| TASK-002 | [Analyze and populate the pre-hackathon backlog](#task-002) | docs | docs | P1 | R1 | done | Codex lead | CONTRACT | TASK-001 | A | M |
+| TASK-003 | [Freeze acceptance assumptions and organizer questions](#task-003) | research | docs | P1 | R1 | ready | unassigned | CONTRACT | none | A | S |
+| TASK-004 | [Reject invalid evaluation inputs and gate every horizon](#task-004) | bug | ml | P1 | R1 | ready | unassigned | ML-EVAL | none | A | S |
+| TASK-005 | [Make demonstration and model capability labels truthful](#task-005) | bug | frontend | P1 | R1 | ready | unassigned | UI-SHELL | none | A | S |
+| TASK-006 | [Bind scenario output to the submitted parameter snapshot](#task-006) | bug | frontend | P2 | R1 | ready | unassigned | UI-SCENARIO | none | A | S |
+| TASK-007 | [Preserve stale forecasts and gate queries on valid selection](#task-007) | bug | frontend | P1 | R1 | backlog | unassigned | UI-SHELL | TASK-005 | B | S |
+| TASK-008 | [Keep the local network usable without a remote basemap](#task-008) | bug | frontend | P1 | R1 | ready | unassigned | UI-MAP | none | A | M |
+| TASK-009 | [Expose partial network query failures and scoped retries](#task-009) | bug | frontend | P1 | R1 | backlog | unassigned | UI-MAP | TASK-008 | B | S |
+| TASK-010 | [Build internally consistent browser forecast fixtures](#task-010) | maintenance | frontend | P1 | R1 | ready | unassigned | QA-UI | none | A | S |
+| TASK-011 | [Reject incomplete Overpass extracts before writing outputs](#task-011) | bug | data | P1 | R1 | ready | unassigned | GRAPH-EXPORT | none | A | S |
+| TASK-012 | [Validate graph structures and numerical invariants strictly](#task-012) | bug | backend,data | P1 | R1 | ready | unassigned | GRAPH-LOAD | none | A | M |
+| TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | ready | unassigned | OBSERVABILITY | none | A | S |
+| TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | ready | unassigned | API-TEST | none | A | S |
+| TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | backlog | unassigned | CONTRACT | TASK-003 | B | M |
+| TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-015 | B | M |
+| TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-016 | C | L |
+| TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-015, TASK-016 | C | M |
+| TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-FEATURES | TASK-017, TASK-018 | D | L |
+| TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-004, TASK-019 | D | M |
+| TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | backlog | unassigned | ML-MODEL | TASK-020 | E | M |
+| TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-020 | E | M |
+| TASK-023 | [Add a reproducible lag/calendar boosting candidate](#task-023) | feature | ml | P2 | R2 | backlog | unassigned | ML-MODEL | TASK-021, TASK-022 | F | M |
+| TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
+| TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | backlog | unassigned | CONTRACT | TASK-015 | C | M |
+| TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | ready | unassigned | INFRA | none | A | M |
+| TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-025, TASK-026 | D | L |
+| TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-027, TASK-015 | E | L |
+| TASK-029 | [Publish validated batch artifacts atomically and idempotently](#task-029) | feature | backend,ml | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-025, TASK-027 | G | M |
+| TASK-030 | [Publish graph artifacts as a validated versioned set](#task-030) | feature | data,backend | P1 | R2 | backlog | unassigned | GRAPH-EXPORT | TASK-011, TASK-012 | B | M |
+| TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | backlog | unassigned | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
+| TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-018, TASK-030 | D | M |
+| TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | backlog | unassigned | UI-SHELL | TASK-028, TASK-010 | F | M |
+| TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | unassigned | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
+| TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | unassigned | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
+| TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | unassigned | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
+| TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | backlog | unassigned | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
+| TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | unassigned | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
+| TASK-039 | [Build a first-data profiling and adaptation toolkit](#task-039) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-017, TASK-018, TASK-019 | E | M |
+| TASK-040 | [Observe batch quality, publication and forecast freshness](#task-040) | feature | backend,ml | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-029, TASK-035, TASK-013 | I | M |
+| TASK-041 | [Measure million-row ingestion and bounded query/UI budgets](#task-041) | research | data,backend,frontend | P1 | R1 | backlog | unassigned | PERFORMANCE | TASK-017, TASK-028, TASK-034, TASK-026 | H | M |
+| TASK-042 | [Verify offline synthetic data-to-map integration](#task-042) | maintenance | backend,frontend,ml,infra | P1 | R2 | backlog | unassigned | INTEGRATION | TASK-058, TASK-034, TASK-035, TASK-036, TASK-037 | I | L |
+| TASK-043 | [Rehearse first-data arrival and freeze a reviewable demo](#task-043) | maintenance | docs,infra | P1 | R2 | backlog | unassigned | INTEGRATION | TASK-038, TASK-039, TASK-041, TASK-042, TASK-040 | J | M |
+| TASK-044 | [Preserve directional ordered route patterns for assignment](#task-044) | feature | data | P3 | R2 | backlog | unassigned | GRAPH-EXPORT | TASK-030, TASK-032 | OPTIONAL | M |
+| TASK-045 | [Define a unit-consistent capacity model and solver port](#task-045) | feature | backend | P3 | R2 | backlog | unassigned | SCENARIO | TASK-015, TASK-025 | OPTIONAL | M |
+| TASK-046 | [Prototype demand-conserving assignment and graph overlays](#task-046) | feature | backend,ml | P3 | R2 | backlog | unassigned | SCENARIO | TASK-016, TASK-044, TASK-045 | OPTIONAL | L |
+| TASK-047 | [Persist reproducible scenario runs without overwriting forecasts](#task-047) | feature | backend | P3 | R2 | backlog | unassigned | SCENARIO | TASK-027, TASK-046 | OPTIONAL | M |
+| TASK-048 | [Show optional scenario deltas and reproducible comparisons](#task-048) | feature | frontend | P3 | R2 | backlog | unassigned | UI-SCENARIO | TASK-006, TASK-034, TASK-047 | OPTIONAL | M |
+| TASK-049 | [Inspect organizer data and confirm the measurable target](#task-049) | research | data,ml | P1 | R2 | blocked | unassigned | DATA | TASK-039 | DATA | M |
+| TASK-050 | [Implement and certify real adapters and map crosswalks](#task-050) | feature | data,ml | P1 | R2 | blocked | unassigned | DATA-MAPPING | TASK-049, TASK-018, TASK-032 | DATA | L |
+| TASK-051 | [Evaluate and promote models on untouched real temporal slices](#task-051) | research | ml | P1 | R2 | blocked | unassigned | ML-MODEL | TASK-021, TASK-022, TASK-024, TASK-050 | DATA | L |
+| TASK-052 | [Establish whether occupancy and OD are identifiable](#task-052) | research | data,ml | P2 | R2 | blocked | unassigned | CONTRACT | TASK-050 | DATA | M |
+| TASK-053 | [Gate spatial or graph-model experiments on measured baseline failures](#task-053) | research | ml | P3 | R2 | backlog | unassigned | ML-MODEL | TASK-051, TASK-052 | OPTIONAL | L |
+| TASK-054 | [Assess multimodal expansion only after tram acceptance](#task-054) | research | data,ml | P3 | R2 | backlog | unassigned | CONTRACT | TASK-044, TASK-052 | OPTIONAL | M |
+| TASK-055 | [Bound shared Overpass requests and failure resource usage](#task-055) | maintenance | backend,infra | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-003 | B | M |
+| TASK-056 | [Export a self-describing dispatcher forecast report](#task-056) | feature | frontend | P2 | R1 | backlog | unassigned | UI-CHART | TASK-035, TASK-036 | I | S |
+| TASK-057 | [Explain model behavior and compare baseline errors](#task-057) | feature | ml,frontend | P2 | R2 | backlog | unassigned | ML-EVAL | TASK-023, TASK-022 | G | M |
+| TASK-058 | [Run an evaluation-gated offline forecasting pipeline](#task-058) | feature | ml,backend | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-019, TASK-020, TASK-021, TASK-022, TASK-024, TASK-029 | H | M |
 
 ## TASK-001
 
@@ -85,6 +163,536 @@ Add concrete tasks when their intended outcome is established.
   a local checkpoint records this completed setup before the expanded backlog task.
 - **Next action:** Populate a separately tracked pre-hackathon backlog from the
   concept and verified code gaps, as requested by the user.
+
+## TASK-002
+
+- **Outcome:** Fill the tracker with evidence-backed pre-data preparation, dependencies,
+  parallel ownership and external gates aligned to the corrected official brief.
+- **Scope:** Documentation only: authoritative task, root/subtree entry links,
+  concept/architecture/design scope notes, analysis, tracker and execution plan.
+- **Evidence:** Three read-only audits of backend/data, ML and frontend; lead inspected
+  consumers and ran the baseline gate. Superseded delay/NDTP recommendations discarded.
+- **Acceptance:** Every task has classification, code evidence, outcome, tests,
+  dependencies and data boundary; task graph acyclic; official requirements traceable;
+  optional OD/scenarios cannot block the core pipeline; local references valid.
+- **Location:** `agent/pre-hackathon-backlog` at
+  `/home/blackfire/Hackatons/MosTransport2026Hack-worktrees/pre-hackathon-backlog`,
+  base `790f006898ab954dd06316d8574b843341228dc7`.
+- **Verification (2026-09-23):** 170 local links/anchors validated; 58 unique cards
+  and rows; acyclic dependencies and correct ready states; required tasks do not
+  depend on optional extensions. Three independent read-only reviews completed.
+  Removed boosting as a hard prerequisite for real baseline evaluation.
+  `git diff --check` and lead-run `make check` passed (exit 0): 61 backend, 3 ML,
+  23 frontend tests, static checks, build, OpenAPI drift and Compose config.
+- **Result / integration:** Verified documentation is integrated by local fast-forward
+  into `main`; no push. Worktree retained with its unpushed branch for review.
+- **Next action:** Claim an authorized ready task; start with TASK-003/004/008/011
+  in separate ownership areas. Product tasks remain unimplemented.
+- **Execution record:** [Completed plan](../exec-plans/completed/pre-hackathon-backlog.md).
+
+## TASK-003
+
+**Freeze acceptance assumptions and organizer questions** — RQ-01–05.
+
+- **Evidence / scope:** [docs/product/TASK.md](../../docs/product/TASK.md). Record target/unit choices, provisional bucket cadence, scoring/format unknowns, permitted pre-event reuse, and real-time meaning; distinguish known requirements from assumptions.
+- **Acceptance:** Every RQ has a measurable synthetic acceptance case and an explicit real-data acceptance gate; unanswered questions remain unresolved rather than guessed.
+- **Focused verification:** Documentation link/requirement review; git diff --check.
+- **Pre-data boundary / risk:** Can finish the question/assumption register now; organizer answers remain external gates for certification, not blockers to reversible scaffolding.
+
+## TASK-004
+
+**Reject invalid evaluation inputs and gate every horizon** — RQ-02.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/evaluation.py](../../ml/src/tramflow_ml/evaluation.py). Fix demonstrated acceptance of NaN and coverage checks that only gate the overall score; document zero-demand, duplicate-ID and required-horizon policies.
+- **Acceptance:** NaN/Inf and invalid thresholds fail; a year slice with 0% coverage cannot pass behind good day coverage; all-zero demand is reported explicitly; valid golden fixtures still pass.
+- **Focused verification:** uv run --package tramflow-ml pytest ml/tests/test_evaluation.py; make ml-eval.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-005
+
+**Make demonstration and model capability labels truthful** — RQ-04–05.
+
+- **Evidence / scope:** [frontend/src/App.tsx](../../frontend/src/App.tsx). Label seed forecasts and prototype scenarios consistently; replace unconditional model availability and unsupported graph-learning claims with actual state.
+- **Acceptance:** Loading/error/demo states never claim a validated or live model; generated-at time is identified; existing route/horizon navigation remains usable.
+- **Focused verification:** Frontend component state fixtures and existing dashboard E2E; make frontend-check; make e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-006
+
+**Bind scenario output to the submitted parameter snapshot** — EXT: existing what-if demo.
+
+- **Evidence / scope:** [frontend/src/features/forecast/components/scenario-panel.tsx](../../frontend/src/features/forecast/components/scenario-panel.tsx). Invalidate or explicitly mark previous output after slider edits; prevent reset and pending requests from restoring obsolete results.
+- **Acceptance:** Edit-after-submit, reset-while-pending, failure/retry and route/horizon change fixtures never display results as belonging to new inputs.
+- **Focused verification:** Focused scenario component tests; scenario Playwright flow; make frontend-check; make e2e.
+- **Pre-data boundary / risk:** Fix existing behavior if capacity permits; optional what-if must not delay mandatory forecasting.
+
+## TASK-007
+
+**Preserve stale forecasts and gate queries on valid selection** — RQ-03–04.
+
+- **Evidence / scope:** [frontend/src/features/forecast/hooks/use-forecast.ts](../../frontend/src/features/forecast/hooks/use-forecast.ts). Keep previous successful data on refresh failure with explicit stale state; avoid requests for default route 1 before routes load; handle empty route lists.
+- **Acceptance:** First-load error differs from stale refresh; empty routes issue no forecast request; late responses from old selections never relabel current data.
+- **Focused verification:** Fake-clock/query tests and retry/filter E2E; make frontend-check; make e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-008
+
+**Keep the local network usable without a remote basemap** — RQ-04.
+
+- **Evidence / scope:** [frontend/src/features/tram-network/components/tram-map.tsx](../../frontend/src/features/tram-network/components/tram-map.tsx). Reproduce blocked style/tiles and WebGL failure; implement a verified local blank-style fallback or a truthful unavailable state with recovery.
+- **Acceptance:** Blocked external style cannot leave a message falsely claiming a rendered graph; committed graph can be inspected through map or accessible alternative; retries and reduced motion work.
+- **Focused verification:** Deterministic blocked-style Playwright test; make frontend-check; make e2e.
+- **Pre-data boundary / risk:** Research the official MapLibre style lifecycle before changing it; no live Overpass dependency in tests.
+
+## TASK-009
+
+**Expose partial network query failures and scoped retries** — RQ-04.
+
+- **Evidence / scope:** [frontend/src/features/tram-network/components/tram-network-view.tsx](../../frontend/src/features/tram-network/components/tram-network-view.tsx). Handle selected-route geometry, stop search/detail and Overpass status failures without indefinite checking or stale overlays masquerading as current.
+- **Acceptance:** Each query has loading/empty/error/retry behavior; remote Overpass outage does not prevent use of committed local topology.
+- **Focused verification:** Network component state tests plus browser fault injection; make frontend-check; make e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-010
+
+**Build internally consistent browser forecast fixtures** — RQ-02–04.
+
+- **Evidence / scope:** [frontend/e2e/dashboard.e2e.ts](../../frontend/e2e/dashboard.e2e.ts). Replace contradictory peaks and month/year dates in fixtures with one deterministic factory using current contracts.
+- **Acceptance:** Peak equals maximum point value; all buckets ordered and aligned; intervals enclose predictions; route/stop/window fixtures can be added after contract freeze.
+- **Focused verification:** Fixture invariant unit tests and existing three Playwright flows; make frontend-check; make e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-011
+
+**Reject incomplete Overpass extracts before writing outputs** — RQ-04.
+
+- **Evidence / scope:** [scripts/fetch_tram_graph.py](../../scripts/fetch_tram_graph.py). The API client handles HTTP-200 remark errors; make the standalone extractor reject partial/error payloads before replacing any output.
+- **Acceptance:** HTTP-200 JSON with remark exits nonzero and preserves existing files byte-for-byte; valid fixture still exports; no live shared-server stress.
+- **Focused verification:** New extractor tests under backend/tests with mocked transport; make backend-check.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-012
+
+**Validate graph structures and numerical invariants strictly** — RQ-04.
+
+- **Evidence / scope:** [backend/app/infrastructure/repositories/tram_graph.py](../../backend/app/infrastructure/repositories/tram_graph.py). Reject duplicate IDs, malformed roots, invalid coordinates, nonfinite/negative lengths and unknown endpoints through consistent graph-data errors.
+- **Acceptance:** Committed graph loads; corrupt fixture matrix fails deterministically; readiness reports unavailable instead of accidental 500 or silent node collapse; valid path semantics preserved.
+- **Focused verification:** Graph repository/domain/readiness tests; make backend-check.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-013
+
+**Keep exception diagnostics free of raw secrets and identifiers** — RQ-01.
+
+- **Evidence / scope:** [backend/app/infrastructure/observability.py](../../backend/app/infrastructure/observability.py). Define allowed diagnostic fields and test nested exceptions; current traceback formatter can expose driver text.
+- **Acceptance:** Injected synthetic secret/passenger markers never reach logs or responses; request ID, safe error category and useful context remain available.
+- **Focused verification:** Captured-log and error-response tests; make backend-check.
+- **Pre-data boundary / risk:** Do not inspect actual credentials or passenger data to construct tests.
+
+## TASK-014
+
+**Cover current forecast HTTP and numerical boundary behavior** — RQ-02–03.
+
+- **Evidence / scope:** [backend/tests/test_forecast_service.py](../../backend/tests/test_forecast_service.py). Add focused endpoint/validation tests using dependency overrides before contract expansion; existing service tests cover only two happy paths.
+- **Acceptance:** All three horizons, missing route/snapshot, invalid input, zero-change scenario and baseline immutability are covered; valid response shape is unchanged.
+- **Focused verification:** New forecast API test module plus test_forecast_service.py; make backend-check.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-015
+
+**Define canonical targets, entities, calendar and dataset manifests** — RQ-01–03, RQ-05.
+
+- **Evidence / scope:** [docs/product/CONCEPT.md](../../docs/product/CONCEPT.md). Specify boardings versus occupancy, route/direction/stop identifiers, event/availability time, service day, half-open windows, units, missing versus zero, and versioned source/feature manifests.
+- **Acceptance:** Schema fixtures cover duplicate stop names, UTC/Moscow midnight, leap year and variable months; aggregation rules prohibit summing incompatible quantities; unsupported occupancy/OD is explicit.
+- **Focused verification:** New schema and time-boundary tests in ml/tests and backend/tests; contract review; make ml-check backend-check.
+- **Pre-data boundary / risk:** Internal normalized contract only: organizer column names, protocol and final target definition remain unknown. Provisional choices are configurable and versioned.
+
+## TASK-016
+
+**Generate reproducible multiyear synthetic transport datasets** — RQ-01–03.
+
+- **Evidence / scope:** [ml/evals/golden_cases.json](../../ml/evals/golden_cases.json). Add configurable raw validation and telemetry fixture generation with seeded peaks, directions, gaps, late/duplicate rows and known totals; include tiny and million-row modes.
+- **Acceptance:** Same config/seed yields same content hash; synthetic provenance travels with outputs; known counts and month/year boundaries are independently checked.
+- **Focused verification:** Generator schema/count/determinism tests in ml/tests; make ml-check.
+- **Pre-data boundary / risk:** Synthetic patterns test mechanics, not Moscow demand accuracy; generate large artifacts outside git.
+
+## TASK-017
+
+**Implement bounded historical ingestion with restart and quarantine** — RQ-01.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/cli.py](../../ml/src/tramflow_ml/cli.py). Add offline chunked readers and configurable fixture-column adapters; preserve immutable input hash, versioned normalization, checkpoints, deduplication and quarantine counts.
+- **Acceptance:** Valid + quarantined + policy-accounted duplicates reconcile to input; interrupted/resumed and uninterrupted runs agree; memory is bounded by configured chunk/state, not total rows.
+- **Focused verification:** Ingestion/restart tests, million-row synthetic run with peak-memory/throughput record; make ml-check.
+- **Pre-data boundary / risk:** Implement supported fixture CSV/JSONL first; actual organizer adapters wait for samples. No distributed stack commitment before measurement.
+
+## TASK-018
+
+**Align validations and telemetry with explicit identity rules** — RQ-01, RQ-03–04.
+
+- **Evidence / scope:** [backend/app/infrastructure/db/models.py](../../backend/app/infrastructure/db/models.py). Implement versioned source-to-canonical crosswalks and configurable event-time alignment; preserve unmatched/ambiguous results and source quality.
+- **Acceptance:** Duplicate names, opposite directions, repeated stops, stale GPS, clock offsets and vehicle route changes never silently join to the wrong entity; unmatched rates reported.
+- **Focused verification:** Hand-calculated join fixtures and availability/time-boundary tests; make ml-check.
+- **Pre-data boundary / risk:** Real source mapping and matching tolerances cannot be certified before organizer samples; no invented NDTP dependency.
+
+## TASK-019
+
+**Build leakage-safe aggregates and horizon-specific features** — RQ-01–03.
+
+- **Evidence / scope:** [docs/architecture/README.md](../../docs/architecture/README.md). Create route/stop/direction buckets, calendar features, lags/rolling statistics and explicit availability cutoffs for day/hour, month/day and year/month policies.
+- **Acceptance:** Fixture sums match independently computed totals; future data perturbation cannot change past features; missing differs from zero; year/month boundaries use calendar periods rather than 30-day steps.
+- **Focused verification:** Aggregation oracle, leakage and timezone tests in ml/tests; make ml-check.
+- **Pre-data boundary / risk:** Bucket policy is the team proposal; actual historical weather/events unavailable at cutoff cannot become features.
+
+## TASK-020
+
+**Implement history-aware rolling-origin backtesting** — RQ-02.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/evaluation.py](../../ml/src/tramflow_ml/evaluation.py). Add chronological train/validation/test folds, full-horizon labels, configurable gaps and experiment manifests; candidate and baseline share identical folds.
+- **Acceptance:** No overlap/leakage; year evaluation requires complete future year and minimum eligible origins; insufficient history returns an explicit non-passing state; fold/config/version hashes reproducible.
+- **Focused verification:** Fold index and future-availability tests; make ml-check ml-eval.
+- **Pre-data boundary / risk:** Synthetic history exercises the runner; number of viable real yearly folds remains unknown.
+
+## TASK-021
+
+**Implement executable seasonal and simple-regression baselines** — RQ-02.
+
+- **Evidence / scope:** [ml/evals/golden_cases.json](../../ml/evals/golden_cases.json). Generate seasonal-naive, historical-profile and simple regularized-regression forecasts with installed tooling for each horizon; define adapter boundary for an organizer incumbent.
+- **Acceptance:** Expected seasonal fixtures pass; train only before origin; insufficient history/cold start explicit; same folds and slices compare all baselines; each horizon has a real prediction method.
+- **Focused verification:** Baseline known-value and reproducible train/predict tests; make ml-check ml-eval.
+- **Pre-data boundary / risk:** Current hand-authored baseline arrays are not an executable model or the organizer incumbent; real incumbent comparison is deferred.
+
+## TASK-022
+
+**Report operational slices and interval quality without hiding failures** — RQ-02, RQ-05.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/evaluation.py](../../ml/src/tramflow_ml/evaluation.py). Add route/stop/direction/horizon and event slices, peak error, support counts, coverage and interval width/score; define zero-demand and small-sample handling.
+- **Acceptance:** Bad required slice cannot disappear in overall mean; giant intervals are penalized; each metric includes unit/sample/fold count; overload metrics only appear with compatible ground truth.
+- **Focused verification:** Hand-computed metrics fixtures and gate-failure tests; make ml-check ml-eval.
+- **Pre-data boundary / risk:** Thresholds are provisional until agreed; synthetic success is not evidence of model superiority.
+
+## TASK-023
+
+**Add a reproducible lag/calendar boosting candidate** — RQ-02.
+
+- **Evidence / scope:** [ml/pyproject.toml](../../ml/pyproject.toml). Use already installed scikit-learn for a first nonlinear model and train/predict CLI; compare to every executable baseline on the same folds.
+- **Acceptance:** Synthetic smoke training is deterministic; unknown/cold-start policy explicit; model may lose and is not automatically promoted; online worker never imports training code.
+- **Focused verification:** CLI reproducibility, fold-parity and model-contract tests; make ml-check ml-eval.
+- **Pre-data boundary / risk:** No CatBoost/PyTorch/GNN installation by default; real gains require TASK-051.
+
+## TASK-024
+
+**Produce calibrated-interval scaffolding with past-only calibration** — RQ-02, RQ-05.
+
+- **Evidence / scope:** [backend/app/domain/forecast.py](../../backend/app/domain/forecast.py). Add interval estimator with disjoint historical calibration and explicit nominal level/method/sample support for each horizon.
+- **Acceptance:** Bounds finite, nonnegative and ordered; future outcomes never used; coverage and width evaluated by horizon/slice; insufficient support produces an explicit unavailable interval state.
+- **Focused verification:** Interval ordering, calibration split and leakage tests; make ml-check ml-eval.
+- **Pre-data boundary / risk:** Prepare algorithm and metadata now; do not call synthetic intervals calibrated for real Moscow demand.
+
+## TASK-025
+
+**Freeze the versioned offline forecast publication contract** — RQ-02–04.
+
+- **Evidence / scope:** [backend/app/ml/protocols.py](../../backend/app/ml/protocols.py). Define shared artifact and validation fixtures: run/origin, entity/target/unit, buckets, interval level, source/feature/model/graph versions, generated-at, data cutoff and synthetic status.
+- **Acceptance:** Reject mixed-run, nonfinite, misaligned or inconsistent artifacts; explicit schema compatibility policy; ML producer and backend consumer validate identical fixtures without backend training imports.
+- **Focused verification:** Cross-boundary schema tests plus architecture-check; make ml-check backend-check contract-check.
+- **Pre-data boundary / risk:** Do not make publication depend on training a new model; a deterministic fake producer suffices.
+
+## TASK-026
+
+**Add isolated PostgreSQL repository integration test support** — RQ-03.
+
+- **Evidence / scope:** [Makefile](../../Makefile). Extend existing disposable-database lifecycle for actual SQL repository fixtures; allocate unique project/ports/volumes and avoid the developer DB.
+- **Acceptance:** Fresh DB tests run valid seed reads, rollback and deterministic ordering; setup/cleanup safe on failure; later run/window invariants can reuse the harness.
+- **Focused verification:** New PostgreSQL test command, make migration-verify, Compose config and isolated smoke; make check.
+- **Pre-data boundary / risk:** One owner of Makefile/CI/runtime scripts; no competing test stack.
+
+## TASK-027
+
+**Persist coherent forecast runs and enforce value invariants** — RQ-02–03.
+
+- **Evidence / scope:** [backend/app/infrastructure/db/models.py](../../backend/app/infrastructure/db/models.py). Add new Alembic migration for immutable run identity/publication state and nonambiguous uniqueness; enforce valid counts/intervals/capacity under the agreed target contract.
+- **Acceptance:** Two runs coexist without mixed metadata; duplicate aggregate rows with null stop rejected; zero/unknown capacity handled explicitly before division; invalid partial runs remain invisible.
+- **Focused verification:** PostgreSQL invariant/transaction tests; clean migration upgrade and alembic check; make backend-check migration-verify.
+- **Pre-data boundary / risk:** Never rewrite initial migration; document recovery and backward-compatible seed handling.
+
+## TASK-028
+
+**Serve bounded route, stop and time-window forecast aggregates** — RQ-03.
+
+- **Evidence / scope:** [backend/app/infrastructure/repositories/forecast.py](../../backend/app/infrastructure/repositories/forecast.py). Extend API/application/repository with explicit aggregation key, optional stop, bounded half-open window and one published run; preserve documented old requests via bounded defaults.
+- **Acceptance:** Multi-route/stop/bucket/run fixture returns exact selected totals without double counts or repeated ambiguous stops; invalid/oversized windows fail; no unbounded history read; intervals aggregate by documented method.
+- **Focused verification:** PostgreSQL oracle and HTTP boundary tests; EXPLAIN (ANALYZE, BUFFERS); make backend-check contract-check migration-verify.
+- **Pre-data boundary / risk:** Uncertainty bounds cannot be blindly summed under an independence assumption; choose a declared valid aggregation method or report unavailable.
+
+## TASK-029
+
+**Publish validated batch artifacts atomically and idempotently** — RQ-02–04.
+
+- **Evidence / scope:** [backend/app/ml/protocols.py](../../backend/app/ml/protocols.py). Implement offline validator/publisher command and atomic active-run switch; retain prior valid run and provenance, with a fake model adapter for tests.
+- **Acceptance:** Interrupted/invalid/failed-quality run cannot become visible; repeated same artifact does not duplicate rows; old run remains readable; no training in web process.
+- **Focused verification:** Fault-injection/idempotency PostgreSQL integration; publication schema tests; make backend-check ml-check migration-verify.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-030
+
+**Publish graph artifacts as a validated versioned set** — RQ-04.
+
+- **Evidence / scope:** [scripts/fetch_tram_graph.py](../../scripts/fetch_tram_graph.py). Stage JSON/GeoJSON/CSV/GraphML together, validate checksums/source version, and expose only a complete matching set through a manifest.
+- **Acceptance:** Interrupted export or mismatched JSON/GeoJSON cannot replace last good snapshot; committed topology and two components preserved; rollback selects prior complete set.
+- **Focused verification:** Injected write-failure and manifest mismatch tests; make backend-check.
+- **Pre-data boundary / risk:** Research atomic multi-file publication before implementation; retain file repository under ADR-0003 unless measured need warrants a new ADR.
+
+## TASK-031
+
+**Make missing per-edge geometry explicit** — RQ-04.
+
+- **Evidence / scope:** [backend/app/domain/tram_graph.py](../../backend/app/domain/tram_graph.py). Decide and implement strict rejection or visible quality flags for missing edge geometry; current tested straight-line fallback is silent.
+- **Acceptance:** A missing individual edge cannot be presented as real rail geometry; intentional synthetic geometry remains distinguishable; path/error contracts and generated types synchronized.
+- **Focused verification:** Existing fallback regression plus quality-state API/UI tests; make backend-check frontend-check contract-check.
+- **Pre-data boundary / risk:** This changes a tested behavior: document the decision and compatibility/rollback before editing.
+
+## TASK-032
+
+**Join forecast entities to versioned Moscow map geometry** — RQ-03–04.
+
+- **Evidence / scope:** [docs/decisions/0003-tram-graph-file-repository.md](../../docs/decisions/0003-tram-graph-file-repository.md). Implement explicit canonical-to-OSM crosswalk and map payload fixtures; seed DB IDs and OSM IDs are different namespaces.
+- **Acceptance:** Duplicate-name/directional stops do not auto-merge; unmatched/ambiguous geometry counts visible; mapping and graph version recorded; route sets are not mistaken for ordered trips.
+- **Focused verification:** Crosswalk fixtures with duplicate names, directions and unmapped nodes; make backend-check ml-check.
+- **Pre-data boundary / risk:** Real mapping coverage is certified only in TASK-050; no graph-to-PostgreSQL migration solely for convenience.
+
+## TASK-033
+
+**Add dispatcher stop and time-window filters** — RQ-03.
+
+- **Evidence / scope:** [frontend/src/api/client.ts](../../frontend/src/api/client.ts). Extend central client/hooks and controls with stop selection and start/end time; keep route/horizon filters visible and accessible.
+- **Acceptance:** Every filter is in query identity; route change clears incompatible stop; invalid/empty windows explained; keyboard flow works; delayed old responses never appear as new selection.
+- **Focused verification:** Request-shape and rapid-filter race fixtures; route/stop/window Playwright tests; make frontend-check contract-check e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-034
+
+**Synchronize forecast map, time selection and chart state** — RQ-03–04.
+
+- **Evidence / scope:** [frontend/src/features/forecast/components/network-map.tsx](../../frontend/src/features/forecast/components/network-map.tsx). Replace the disconnected forecast schematic experience with geographically grounded forecast overlays on the existing Moscow graph; share selected run/bucket/entity with chart/KPI.
+- **Acceptance:** Moving time selection updates map/chart/KPI consistently; stop values accessible without hover; units/interval/time legend; unmatched stops explicit; synthetic updates test coherence.
+- **Focused verification:** Known-value overlay join tests and three-horizon map/timeline E2E; make frontend-check backend-check contract-check e2e.
+- **Pre-data boundary / risk:** Reuse installed MapLibre and existing topology; do not imply observed occupancy if target is boardings.
+
+## TASK-035
+
+**Expose provenance and trustworthy real-time refresh state** — RQ-04–05.
+
+- **Evidence / scope:** [frontend/src/App.tsx](../../frontend/src/App.tsx). Show run/model/data version, synthetic status, source coverage/cutoff and generation time; define configurable polling/freshness behavior using existing query infrastructure.
+- **Acceptance:** Refresh failure retains last good coherent snapshot marked stale; map and chart never mix runs; generation/source observation/UI fetch times distinguished; missing live feed is explicit.
+- **Focused verification:** Fake-clock refresh/outage/recovery and out-of-order response E2E; make frontend-check backend-check contract-check e2e.
+- **Pre-data boundary / risk:** Real-time cadence/SLA is unspecified. No invented live observations; replay/fixture updates are clearly marked.
+
+## TASK-036
+
+**Make forecast uncertainty and units inspectable without hover** — RQ-02–05.
+
+- **Evidence / scope:** [frontend/src/features/forecast/components/forecast-chart.tsx](../../frontend/src/features/forecast/components/forecast-chart.tsx). Add accessible table/summary and full Moscow bucket timestamps, target units, bounds and compatible capacity metadata; avoid unsupported confidence wording.
+- **Acceptance:** Keyboard users can inspect every plotted value; month/year dates exact; unavailable capacity or interval differs from zero; no false precision or calibrated-quality claim on demo data.
+- **Focused verification:** Chart/table known-value tests at calendar boundaries; accessibility browser checks; make frontend-check e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-037
+
+**Cover network navigation and outages in browser tests** — RQ-04.
+
+- **Evidence / scope:** [frontend/e2e/dashboard.e2e.ts](../../frontend/e2e/dashboard.e2e.ts). Add separate network suite using deterministic fixtures for route/stop selection, directed paths, component separation and partial errors.
+- **Acceptance:** Keyboard search, endpoint swap/reset, unreachable path, offline basemap, retries and empty results pass without live Overpass.
+- **Focused verification:** New network Playwright suite; make frontend-check e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-038
+
+**Verify dispatcher accessibility and responsive operation** — RQ-03–05.
+
+- **Evidence / scope:** [DESIGN.md](../../DESIGN.md). Apply design requirements to primary forecast/filter/map and error/stale flows; coordinate shared CSS fixes through one owner.
+- **Acceptance:** 390/768/1440px, 200% zoom, reduced motion and keyboard complete flow pass; no page overflow; non-colour legends; axe on success/error/map/filter states.
+- **Focused verification:** Responsive/keyboard/axe Playwright suite with screenshots; make frontend-check e2e.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-039
+
+**Build a first-data profiling and adaptation toolkit** — RQ-01–03.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/cli.py](../../ml/src/tramflow_ml/cli.py). Add read-only intake report and adapter checklist for alternate synthetic source schemas: date span, missingness, duplicates, units, join coverage and eligible folds.
+- **Acceptance:** Unknown schemas fail actionably; report says which horizons/targets are supportable; no raw passenger identifiers in output; counts reconcile across two fixture schemas.
+- **Focused verification:** Intake CLI golden-report tests; make ml-check.
+- **Pre-data boundary / risk:** Actual field mapping remains TASK-049/050; prebuild tooling without guessing organizer columns.
+
+## TASK-040
+
+**Observe batch quality, publication and forecast freshness** — RQ-01, RQ-04.
+
+- **Evidence / scope:** [backend/app/api/middleware/observability.py](../../backend/app/api/middleware/observability.py). Extend existing structured logs/health with safe run IDs, rejected-row counts, publish failures and data freshness; document liveness versus data availability.
+- **Acceptance:** Failed batch leaves last published run intact with visible age; trace a synthetic run end to end; errors contain no payload/identifiers; missing source does not masquerade as fresh data.
+- **Focused verification:** Captured-log/fake-clock/publication failure tests; make backend-check ml-check.
+- **Pre-data boundary / risk:** Reuse existing logs first; no unsolicited monitoring platform.
+
+## TASK-041
+
+**Measure million-row ingestion and bounded query/UI budgets** — RQ-01, RQ-03–04.
+
+- **Evidence / scope:** [Makefile](../../Makefile). Run parameterized synthetic scale experiments for ingestion memory/throughput, SQL window queries, response size and map responsiveness; agree provisional budgets before optimizing.
+- **Acceptance:** Record hardware/config/row counts, p50/p95 and peak memory; EXPLAIN buffers/time for selected windows; cardinality stays bounded; flag exceeded budgets with reproducible commands.
+- **Focused verification:** Synthetic million-row benchmark and EXPLAIN (ANALYZE, BUFFERS); browser trace; make check.
+- **Pre-data boundary / risk:** No claimed organizer SLA or real workload representativeness; schema/index/runtime changes require a separate R2 implementation task.
+
+## TASK-042
+
+**Verify offline synthetic data-to-map integration** — RQ-01–05.
+
+- **Evidence / scope:** [scripts/smoke.sh](../../scripts/smoke.sh). Extend existing isolated smoke to fixture ingestion → baseline → evaluation → publication → route/stop/window API → Moscow map; cover all horizons.
+- **Acceptance:** Fresh isolated stack and no external network can demonstrate valid coherent forecast plus invalid-batch preservation, empty interval and stale refresh; data remains labelled synthetic.
+- **Focused verification:** make verify-full plus new synthetic pipeline smoke and browser flow; preserve existing checks.
+- **Pre-data boundary / risk:** Reuse Compose/worktree isolation, do not mutate shared volumes. Final integration gate belongs to lead.
+
+## TASK-043
+
+**Rehearse first-data arrival and freeze a reviewable demo** — RQ-01–05.
+
+- **Evidence / scope:** [README.md](../../README.md). Document exact bootstrap/intake/train/publish/demo commands, reset/recovery and capability limitations; exercise a clean checkout and schema-variation fixture.
+- **Acceptance:** One reproducible handoff includes run/config versions, required filters/map, failures and recovery, measurements and unknowns; no fabricated competition score or validated accuracy.
+- **Focused verification:** Clean isolated rehearsal; make verify-full; command/path review.
+- **Pre-data boundary / risk:** Confirm organizer rules, input/submission format and allowed prebuilt code when available; do not publish externally automatically.
+
+## TASK-044
+
+**Preserve directional ordered route patterns for assignment** — EXT: route assignment.
+
+- **Evidence / scope:** [backend/app/domain/tram_graph.py](../../backend/app/domain/tram_graph.py). Add separate ordered relation/direction/pattern artifact rather than treating sorted stop IDs as route traversal.
+- **Acceptance:** Loops and repeated stops retained; existing route-set API preserved; provenance and pattern direction tested.
+- **Focused verification:** Extractor/pattern fixtures; make backend-check contract-check.
+- **Pre-data boundary / risk:** Optional after core map/filter delivery; OSM pattern availability is not actual timetable/capacity evidence.
+
+## TASK-045
+
+**Define a unit-consistent capacity model and solver port** — EXT: what-if.
+
+- **Evidence / scope:** [backend/app/application/services/forecast.py](../../backend/app/application/services/forecast.py). Extract demo math behind an application port; specify departures, bucket duration and vehicle capacity with explicit fleet/cycle assumptions.
+- **Acceptance:** Zero-change identity; increasing headway lowers service frequency; absent schedule/capacity produces unavailable result; baseline immutable; existing demo behavior labelled.
+- **Focused verification:** Hand-calculated domain and fake-solver contract tests; make backend-check.
+- **Pre-data boundary / risk:** No arbitrary 8%-per-vehicle formula presented as physics; not required to complete organizer forecasting features.
+
+## TASK-046
+
+**Prototype demand-conserving assignment and graph overlays** — EXT: OD and what-if.
+
+- **Evidence / scope:** [backend/app/domain/tram_pathfinding.py](../../backend/app/domain/tram_pathfinding.py). Research a simple deterministic toy-network baseline; add immutable closures/local demand overlays separate from demand prediction.
+- **Acceptance:** Explicit synthetic OD: served + unmet equals input; capacities respected; ties deterministic; disconnected/closed paths produce unmet demand; source graph unchanged.
+- **Focused verification:** Hand-calculated tiny-network conservation/capacity tests; make backend-check ml-check.
+- **Pre-data boundary / risk:** Shortest rail path is not behavioral assignment. Adoption on real transport requires TASK-052 and schedule/capacity evidence.
+
+## TASK-047
+
+**Persist reproducible scenario runs without overwriting forecasts** — EXT: what-if.
+
+- **Evidence / scope:** [backend/app/domain/forecast.py](../../backend/app/domain/forecast.py). Record exact normalized inputs, baseline run, graph/solver version and outputs with replay semantics.
+- **Acceptance:** Repeated run reproduces outputs; published forecast unchanged; failed scenario leaves no apparently complete record; compatibility maintained.
+- **Focused verification:** Scenario replay/transaction/API tests; clean new migration; make backend-check migration-verify contract-check.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
+
+## TASK-048
+
+**Show optional scenario deltas and reproducible comparisons** — EXT: what-if.
+
+- **Evidence / scope:** [frontend/src/features/forecast/components/scenario-panel.tsx](../../frontend/src/features/forecast/components/scenario-panel.tsx). Show available signed deltas, affected stops, exact inputs/run and limitations; disable unsupported controls explicitly.
+- **Acceptance:** Baseline/scenario share unit/window; no invented uncertainty or redistribution; accessible comparison table and input-bound result export.
+- **Focused verification:** Scenario fixture/E2E and accessibility checks; make frontend-check contract-check e2e.
+- **Pre-data boundary / risk:** Cannot delay route/stop/time forecast acceptance.
+
+## TASK-049
+
+**Inspect organizer data and confirm the measurable target** — RQ-01–03.
+
+- **Evidence / scope:** [docs/product/TASK.md](../../docs/product/TASK.md). On authorized receipt, record checksums/schema/licence/coverage, actual validation semantics, incumbent availability, scoring and submission requirements.
+- **Acceptance:** Read-only report resolves or explicitly blocks targets/horizons; immutable source retained; minimum privacy/retention decisions recorded; no raw sensitive data committed.
+- **Focused verification:** Run intake profiler on permitted sample and reconcile supplied totals.
+- **Pre-data boundary / risk:** Blocked by organizer dataset/schema and evaluation instructions; human/data owner supplies access. Next action: run TASK-039 on first authorized sample.
+
+## TASK-050
+
+**Implement and certify real adapters and map crosswalks** — RQ-01, RQ-03–04.
+
+- **Evidence / scope:** [docs/tram-graph.md](../../docs/tram-graph.md). Map actual columns/IDs/time semantics; reconcile validation/telemetry and OSM joins with explicit coverage and ambiguity reports.
+- **Acceptance:** Known sample totals/time buckets reconcile; unmatched cases retained; rerun/resume idempotent; schema drift rejected; coverage decision documented.
+- **Focused verification:** Real-sample adapter tests plus synthetic regressions; intake reconciliation; make ml-check backend-check.
+- **Pre-data boundary / risk:** Blocked by TASK-049 source access and field meaning; data owner resolves ambiguous identities, not nearest-name guesses.
+
+## TASK-051
+
+**Evaluate and promote models on untouched real temporal slices** — RQ-02, RQ-05.
+
+- **Evidence / scope:** [ml/evals/README.md](../../ml/evals/README.md). Run complete-horizon backtests against executable baselines and supplied incumbent, calibrate intervals and select a model by agreed per-slice criteria; include TASK-023 only if available, never block baseline evaluation on boosting.
+- **Acceptance:** Document folds/date coverage/metrics for every horizon and route/stop slices; insufficient yearly history remains failed/unverified; test holdout never tunes model; publish model card.
+- **Focused verification:** make ml-eval plus reproducible real backtest report; independent review of split/leakage and promotion artifact.
+- **Pre-data boundary / risk:** Blocked by adequate labelled history, target agreement and acceptance thresholds; no guarantee an AI candidate beats baseline.
+
+## TASK-052
+
+**Establish whether occupancy and OD are identifiable** — RQ-05 / EXT: OD.
+
+- **Evidence / scope:** [docs/product/CONCEPT.md](../../docs/product/CONCEPT.md). Check exits/trips/vehicle capacities and permitted linkage; determine which load/OD quantities are observed, estimable with assumptions, or unsupported.
+- **Acceptance:** Written capability decision with counterexamples and uncertainty; boarding counts never relabelled onboard occupancy; scenario validation eligibility explicit.
+- **Focused verification:** Sample-based identifiability review with documented assumptions and lawful field availability.
+- **Pre-data boundary / risk:** Blocked by real schema and capacities/trip evidence. Human/data owner resolves unsupported target; core boarding forecast remains possible when confirmed.
+
+## TASK-053
+
+**Gate spatial or graph-model experiments on measured baseline failures** — EXT: graph ML.
+
+- **Evidence / scope:** [docs/product/CONCEPT.md](../../docs/product/CONCEPT.md). Only if residual spatial structure and sufficient data justify it, compare a modest spatial feature baseline before researching ST-GNN/transformer adoption.
+- **Acceptance:** Primary-paper/library evidence, identical folds and ablations; accept only agreed multi-slice gains within runtime budget; losing experiment documented, not promoted.
+- **Focused verification:** Reproducible controlled backtests and resource report; make ml-check ml-eval.
+- **Pre-data boundary / risk:** Deferred until residual evidence exists; no speculative framework/dependency installation now.
+
+## TASK-054
+
+**Assess multimodal expansion only after tram acceptance** — EXT: multimodal.
+
+- **Evidence / scope:** [docs/product/CONCEPT.md](../../docs/product/CONCEPT.md). Identify concrete tram forecast benefit, available metro/bus transfer data and legal/source limits before extending graph/data contracts.
+- **Acceptance:** Decision states measurable benefit, inputs, transfer semantics and acceptance experiment, or explicitly rejects expansion.
+- **Focused verification:** Primary-source/source-availability review and toy transfer contract tests if adopted.
+- **Pre-data boundary / risk:** Not an organizer requirement; external data availability and completed tram core are adoption gates.
+
+## TASK-055
+
+**Bound shared Overpass requests and failure resource usage** — RQ-04.
+
+- **Evidence / scope:** [backend/app/infrastructure/overpass.py](../../backend/app/infrastructure/overpass.py). Review and implement explicit timeout, response-size and concurrency limits around existing gateway; keep known partial-result error handling.
+- **Acceptance:** Fake upstream oversized/slow/saturated responses fail explicitly without exhausting ordinary API capacity; valid responses unchanged; no live stress test.
+- **Focused verification:** Fake-client timeout/size/concurrency tests and isolated smoke; make backend-check compose-check.
+- **Pre-data boundary / risk:** Choose documented local budgets, not invented organizer SLA; transport changes require official-library research.
+
+## TASK-056
+
+**Export a self-describing dispatcher forecast report** — RQ-05.
+
+- **Evidence / scope:** [frontend/src/features/forecast/components/forecast-chart.tsx](../../frontend/src/features/forecast/components/forecast-chart.tsx). Add user-triggered CSV/report export of selected run/route/stop/window with units, bounds, provenance and synthetic/stale label.
+- **Acceptance:** Export values equal visible selected data; timezone and units retained; no raw passenger IDs; empty/error state has no misleading export.
+- **Focused verification:** Fixture-based export/value-parity tests; make frontend-check.
+- **Pre-data boundary / risk:** Helpful decision support, not an explicit organizer submission format; do not send reports externally.
+
+## TASK-057
+
+**Explain model behavior and compare baseline errors** — RQ-02, RQ-05.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/evaluation.py](../../ml/src/tramflow_ml/evaluation.py). Create model-card/error diagnostics for horizon/route/stop, data support and feature availability; explain associations without causal claims.
+- **Acceptance:** Report includes baseline comparison, worst slices, peak misses, unavailable inputs and synthetic marker; feature importance computed on valid temporal partitions.
+- **Focused verification:** Known-error fixture report tests and held-out importance checks; make ml-check ml-eval.
+- **Pre-data boundary / risk:** Real quality narratives wait for TASK-051; a diagnostics artifact can be implemented now without a new UI screen.
+
+## TASK-058
+
+**Run an evaluation-gated offline forecasting pipeline** — RQ-01–03.
+
+- **Evidence / scope:** [ml/src/tramflow_ml/cli.py](../../ml/src/tramflow_ml/cli.py). Provide one config-driven command from canonical fixture input through features, temporal baseline evaluation, validated export and explicit publication.
+- **Acceptance:** Artifact/report share manifest/hash; failed quality exits nonzero without switching active run; repeated seed/config deterministic; dry-run does not publish.
+- **Focused verification:** Tiny fixture end-to-end and injected quality failure; make ml-check ml-eval backend-check.
+- **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
 ## Research basis
 

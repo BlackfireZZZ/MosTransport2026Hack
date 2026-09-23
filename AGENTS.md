@@ -2,11 +2,14 @@
 
 ## Repository mission
 
-We are building a decision-support system for forecasting passenger flow on Moscow surface transport. Priorities are forecast and data correctness, explainability, reliability, delivery speed, and visual polish.
+We are building a decision-support system for forecasting passenger flow on Moscow tram routes. The authoritative task is [docs/product/TASK.md](docs/product/TASK.md); read it before planning work. It takes precedence over team hypotheses in the concept. Priorities are forecast and data correctness, explainability, reliability, delivery speed, and visual polish.
 
 These rules apply to the entire repository. A nested `AGENTS.md` may refine them for its subtree, but it may not weaken the evidence requirements.
 
 ## Agent contract map
+
+- Authoritative task and requirement IDs: [docs/product/TASK.md](docs/product/TASK.md).
+- Pre-hackathon evidence and execution order: [docs/product/PRE_HACKATHON_ANALYSIS.md](docs/product/PRE_HACKATHON_ANALYSIS.md).
 
 - Task tracker and classification: [docs/agentic/TASK_TRACKER.md](docs/agentic/TASK_TRACKER.md). Read before selecting work; update ownership, status, and evidence at handoff.
 - Task specification template: `docs/agentic/TASK_SPEC.md`.

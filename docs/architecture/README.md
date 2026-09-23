@@ -1,5 +1,7 @@
 # Архитектура TramFlow
 
+Authoritative product requirements: [../product/TASK.md](../product/TASK.md). Prioritize tram passenger-flow forecasts for day/month/year, route/stop/time aggregation, and an updating Moscow map. OD, multimodal modeling, and what-if are optional team extensions.
+
 ## Контекст
 
 TramFlow превращает многолетнюю историю валидаций и телематики в краткосрочные, среднесрочные и долгосрочные прогнозы для диспетчеров ЕДЦ. Архитектура разделяет online-выдачу результата и тяжёлую подготовку/обучение, чтобы рост данных не замедлял веб-сервис.

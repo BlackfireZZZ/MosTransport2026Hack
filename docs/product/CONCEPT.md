@@ -1,5 +1,7 @@
 # Концепция решения: прогноз потоков на транспортном графе
 
+Authoritative product requirements: [TASK.md](TASK.md). Prioritize tram passenger-flow forecasts for day/month/year, route/stop/time aggregation, and an updating Moscow map. OD, multimodal modeling, and what-if are optional team extensions.
+
 ## Гипотеза
 
 Мы прогнозируем не отдельный трамвай и не изолированный маршрут, а пассажирский спрос на перемещения внутри городской транспортной сети. Это делает прогноз переносимым на изменения маршрутной сети и события, которых не было в обучающей выборке.

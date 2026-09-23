@@ -8,6 +8,8 @@ What observable behavior will be introduced or changed?
 
 ## Context and evidence
 
+- Requirement ID from [the authoritative task](../product/TASK.md), or explicitly optional team extension:
+
 - Current repository contract or example:
 - Official sources or comparable implementations for a new complex solution:
 - Falsifiable hypothesis:
