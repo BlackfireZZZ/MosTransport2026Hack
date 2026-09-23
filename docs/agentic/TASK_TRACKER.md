@@ -77,8 +77,8 @@ to install dependencies. Do not silently weaken existing contracts.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | TASK-001 | [Create a discoverable agent task tracker](#task-001) | docs | docs | P2 | R1 | done | Codex lead | CONTRACT | none | A | S |
 | TASK-002 | [Analyze and populate the pre-hackathon backlog](#task-002) | docs | docs | P1 | R1 | done | Codex lead | CONTRACT | TASK-001 | A | M |
-| TASK-003 | [Freeze acceptance assumptions and organizer questions](#task-003) | research | docs | P1 | R1 | ready | unassigned | CONTRACT | none | A | S |
-| TASK-004 | [Reject invalid evaluation inputs and gate every horizon](#task-004) | bug | ml | P1 | R1 | ready | unassigned | ML-EVAL | none | A | S |
+| TASK-003 | [Freeze acceptance assumptions and organizer questions](#task-003) | research | docs | P1 | R1 | done | Codex lead | CONTRACT | none | A | S |
+| TASK-004 | [Reject invalid evaluation inputs and gate every horizon](#task-004) | bug | ml | P1 | R1 | done | Codex lead | ML-EVAL | none | A | S |
 | TASK-005 | [Make demonstration and model capability labels truthful](#task-005) | bug | frontend | P1 | R1 | ready | unassigned | UI-SHELL | none | A | S |
 | TASK-006 | [Bind scenario output to the submitted parameter snapshot](#task-006) | bug | frontend | P2 | R1 | ready | unassigned | UI-SCENARIO | none | A | S |
 | TASK-007 | [Preserve stale forecasts and gate queries on valid selection](#task-007) | bug | frontend | P1 | R1 | backlog | unassigned | UI-SHELL | TASK-005 | B | S |
@@ -194,6 +194,32 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Freeze acceptance assumptions and organizer questions** — RQ-01–05.
 
+- **Owner / location:** Codex lead; primary checkout
+  `/home/blackfire/Hackatons/MosTransport2026Hack`, branch `main`, base
+  `5eccb89b61c24f414d37972be5aabb07b881de10`. Three documentation files only:
+  this tracker, `docs/product/TASK.md`, and
+  [acceptance register](../product/ACCEPTANCE.md). No runtime/data/API contract
+  changes; no large-task criterion applies. Independent reviewer is read-only;
+  existing sibling worktrees are preserved.
+- **Hypothesis / smallest disproof:** Every RQ has a concrete synthetic case and
+  separate real-data gate without turning unresolved questions into requirements.
+  Check requirement coverage, local links, source consistency and independent
+  review, then `git diff --check` and `make check`; runtime behavior stays unchanged.
+- **Verification (2026-09-23):** Python local-reference/coverage check passed:
+  76 file links across the three documents, five requirement rows with separate
+  real-data gates, eight question entries. `git diff --check` passed. Independent
+  read-only source/acceptance review approved with no blockers. Lead-run
+  `PATH=/home/blackfire/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH make check`
+  passed (exit 0): 61 backend, 3 ML, 23 frontend tests; architecture, lint/types,
+  golden evaluation, frontend build, OpenAPI drift and Compose config passed.
+- **Result / integration:** Three documentation files applied locally on `main`,
+  uncommitted for review. No runtime or dependencies changed; no environment was
+  created to clean up. Existing worktrees remain untouched. This verifies the
+  register, not the future synthetic cases or real-data quality.
+- **Next action:** Scope TASK-015's synthetic target/entity/calendar/manifest
+  contract using this register in a dedicated worktree; organizer questions stay
+  unresolved until attributed answers arrive. TASK-015 and TASK-055 remain backlog
+  pending their own contract/authority review despite TASK-003 being complete.
 - **Evidence / scope:** [docs/product/TASK.md](../../docs/product/TASK.md). Record target/unit choices, provisional bucket cadence, scoring/format unknowns, permitted pre-event reuse, and real-time meaning; distinguish known requirements from assumptions.
 - **Acceptance:** Every RQ has a measurable synthetic acceptance case and an explicit real-data acceptance gate; unanswered questions remain unresolved rather than guessed.
 - **Focused verification:** Documentation link/requirement review; git diff --check.
@@ -203,6 +229,31 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Reject invalid evaluation inputs and gate every horizon** — RQ-02.
 
+- **Owner / location:** Codex lead; isolated worktree
+  `/home/blackfire/Hackatons/MosTransport2026Hack-worktrees/ml-evaluation-finish`,
+  branch `agent/ml-evaluation-finish`, base
+  `5eccb89b61c24f414d37972be5aabb07b881de10`. Integrated commits `0621821` and
+  `d548bb8`; primary checkout contains the reviewed diff. Files owned:
+  `ml/src/tramflow_ml/evaluation.py`, `ml/evals/README.md`,
+  `ml/tests/test_evaluation.py`, `ml/tests/test_evaluation_cli.py`.
+- **Hypothesis / smallest disproof:** Nonfinite input, invalid thresholds,
+  duplicate IDs, unknown/missing horizons and zero-demand slices fail explicitly;
+  each required horizon gates baseline WAPE and interval coverage independently.
+  Existing report schema and valid golden metrics remain unchanged. Focused
+  evaluator and CLI tests are the falsifying check.
+- **Verification (2026-09-23):** Focused suite passed 47 tests, then the full
+  `make check` passed (exit 0): architecture check, backend 61 tests, ML 48
+  tests, Ruff, mypy, golden evaluation, frontend lint/types, 23 frontend tests,
+  production build, OpenAPI contract check and Compose config. Independent
+  read-only review found no blockers. Invalid CLI inputs return nonzero diagnostics
+  without writing a report; the coverage regression returns a failing report even
+  when overall coverage is 0.9.
+- **Result / integration:** TASK-004 implementation is present in the primary
+  checkout alongside the earlier documentation changes. No dependency, API,
+  database or model artifact was added. The isolated worktree remains retained
+  with clean status for review; its branch is preserved.
+- **Next action:** Continue with TASK-005 or another highest-priority ready task;
+  real-data model quality remains gated by TASK-049/051.
 - **Evidence / scope:** [ml/src/tramflow_ml/evaluation.py](../../ml/src/tramflow_ml/evaluation.py). Fix demonstrated acceptance of NaN and coverage checks that only gate the overall score; document zero-demand, duplicate-ID and required-horizon policies.
 - **Acceptance:** NaN/Inf and invalid thresholds fail; a year slice with 0% coverage cannot pass behind good day coverage; all-zero demand is reported explicitly; valid golden fixtures still pass.
 - **Focused verification:** uv run --package tramflow-ml pytest ml/tests/test_evaluation.py; make ml-eval.
