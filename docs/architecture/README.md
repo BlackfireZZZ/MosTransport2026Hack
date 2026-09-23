@@ -72,5 +72,16 @@ features/forecast/{components,hooks,types}
 - `/health/live` проверяет процесс, `/health/ready` — DB.
 - Каждый ответ получает `X-Request-ID`; HTTP access logs с длительностью запроса
   сериализуются в JSON.
+- `tramflow.http` accepts only `request_failed` / `request_completed` message names
+  (other messages become `application_event`). Diagnostic fields are `request_id`,
+  `method`, `path` (matched route template, or `<unmatched>`), `status_code` and
+  `duration_ms`. Never pass payload values through these fields.
+- The optional `exception` object contains a built-in `category` (custom types use
+  `Exception`) and the last 20 `frames`, each with deployed code `module`, `function`
+  and `line`. Exception text, nested values, SQL parameters, notes, source lines,
+  absolute filenames and locals are excluded. Consumers must not expect the former
+  traceback string. Code metadata is trusted; client request IDs must be opaque,
+  non-sensitive correlation tokens. Third-party loggers and validation responses
+  are outside this formatter's scope.
 - После хакатона: metrics/traces, forecast freshness и model quality dashboards.
 - До production нужны SSO/RBAC, audit log, secret manager, rate limits, TLS и классификация исходных полей.

@@ -39,14 +39,12 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
-            # exc_info, not str(exc): the traceback belongs in the log. Echoing a
-            # cause would hand out the database host and the account name.
             self._logger.exception(
                 "request_failed",
                 extra={
                     "request_id": request_id,
                     "method": request.method,
-                    "path": request.url.path,
+                    "path": getattr(request.scope.get("route"), "path", "<unmatched>"),
                 },
             )
             response = JSONResponse(
@@ -61,7 +59,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
                 extra={
                     "request_id": request_id,
                     "method": request.method,
-                    "path": request.url.path,
+                    "path": getattr(request.scope.get("route"), "path", "<unmatched>"),
                     "status_code": status_code,
                     "duration_ms": round((perf_counter() - started_at) * 1000, 3),
                 },

@@ -87,7 +87,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-010 | [Build internally consistent browser forecast fixtures](#task-010) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | none | A | S |
 | TASK-011 | [Reject incomplete Overpass extracts before writing outputs](#task-011) | bug | data | P1 | R1 | ready | unassigned | GRAPH-EXPORT | none | A | S |
 | TASK-012 | [Validate graph structures and numerical invariants strictly](#task-012) | bug | backend,data | P1 | R1 | ready | unassigned | GRAPH-LOAD | none | A | M |
-| TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | ready | unassigned | OBSERVABILITY | none | A | S |
+| TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | done | safe-error-diagnostics lead | OBSERVABILITY | none | A | S |
 | TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | done | integration lead | API-TEST | none | A | S |
 | TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | Codex lead | CONTRACT | TASK-003 | B | M |
 | TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-015 | B | M |
@@ -344,6 +344,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
 ## TASK-013
+
+- **Result (2026-09-23):** Safe exception metadata and route-template logging; 19 focused tests, full `make check` and Docker smoke pass. Branch `agent/safe-error-diagnostics`, base `6a0f1a7`; [verification, ownership and scope](../exec-plans/completed/safe-error-diagnostics.md).
 
 **Keep exception diagnostics free of raw secrets and identifiers** — RQ-01.
 

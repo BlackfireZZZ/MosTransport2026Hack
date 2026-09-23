@@ -46,8 +46,6 @@ def test_unhandled_exception_returns_json(client: TestClient) -> None:
 def test_unhandled_exception_hides_internal_detail(client: TestClient) -> None:
     response = client.get(_BOOM)
 
-    # The traceback goes to the log; leaking it here hands an attacker the
-    # database host, the port and the account name.
     assert _LEAKY_MESSAGE not in response.text
     assert "Traceback" not in response.text
     assert "RuntimeError" not in response.text
