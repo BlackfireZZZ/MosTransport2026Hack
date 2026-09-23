@@ -4,7 +4,7 @@ SHELL := /bin/sh
 	up down logs dev dev-db dev-backend dev-backend-no-db dev-frontend dev-ml \
 	check verify-fast verify verify-full backend-check frontend-check ml-check \
 	ml-eval architecture-check contract-generate contract-check e2e e2e-install \
-	compose-check migration migration-check migration-verify stack-verify smoke \
+	compose-check migration migration-check migration-verify stack-verify backend-sql-test smoke \
 	agent-create agent-up agent-smoke agent-down agent-remove
 
 PYTHON_VERSION := $(shell tr -d '[:space:]' < .python-version)
@@ -45,7 +45,7 @@ logs:
 verify-fast: architecture-check backend-check ml-check ml-eval frontend-check contract-check compose-check
 
 # Default proof gate: fast checks plus migrations on a disposable clean database.
-verify: verify-fast migration-verify
+verify: verify-fast migration-verify backend-sql-test
 
 # Backward-compatible alias required by AGENTS.md.
 check: verify-fast
@@ -118,27 +118,16 @@ migration:
 migration-check:
 	DATABASE_URL=$(LOCAL_DATABASE_URL) uv run --package tramflow-backend alembic -c backend/alembic.ini check
 
+backend-sql-test:
+	uv run --no-project python scripts/backend-test-env.py sql
+
 # Runs upgrade and autogenerate drift detection against a newly-created volume.
 migration-verify:
-	@set -eu; \
-	eval "$$(./scripts/agent-env.sh env migration-verify)"; \
-	project="$$COMPOSE_PROJECT_NAME"; \
-	cleanup() { docker compose --project-name "$$project" down -v --remove-orphans >/dev/null 2>&1 || true; }; \
-	trap cleanup EXIT INT TERM; \
-	cleanup; \
-	docker compose --project-name "$$project" up -d --build db; \
-	docker compose --project-name "$$project" run --rm migrate; \
-	docker compose --project-name "$$project" run --rm migrate /workspace/.venv/bin/alembic check
+	uv run --no-project python scripts/backend-test-env.py migration
 
 # Uses an isolated Compose project so it cannot overwrite the developer's stack.
 stack-verify:
-	@set -eu; \
-	eval "$$(./scripts/agent-env.sh env verify-full)"; \
-	cleanup() { docker compose down -v --remove-orphans >/dev/null 2>&1 || true; }; \
-	trap cleanup EXIT INT TERM; \
-	cleanup; \
-	docker compose up --build --wait; \
-	BASE_URL="http://localhost:$$BACKEND_PORT" FRONTEND_URL="http://localhost:$$FRONTEND_PORT" ./scripts/smoke.sh
+	uv run --no-project python scripts/backend-test-env.py stack
 
 # Large tasks can get a dedicated branch/worktree plus an isolated Compose stack.
 # Usage: make agent-create ID=forecast-contract REF=HEAD

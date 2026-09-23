@@ -24,6 +24,7 @@ jobs:
       - run: pip install uv==0.12.13
       - run: make sync-backend
       - run: make backend-check architecture-check
+      - run: make backend-sql-test
 
   ml:
     runs-on: ubuntu-latest
@@ -73,6 +74,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make compose-check
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - run: pip install uv==0.12.13
+      - run: make sync-backend
       - run: make migration-verify
       - run: make stack-verify
       - if: failure()
