@@ -8,6 +8,7 @@ These rules apply to the entire repository. A nested `AGENTS.md` may refine them
 
 ## Agent contract map
 
+- Task tracker and classification: [docs/agentic/TASK_TRACKER.md](docs/agentic/TASK_TRACKER.md). Read before selecting work; update ownership, status, and evidence at handoff.
 - Task specification template: `docs/agentic/TASK_SPEC.md`.
 - Verification matrix: `docs/agentic/VERIFICATION_MATRIX.md`.
 - Permission boundaries: `docs/agentic/PERMISSIONS.md`.
