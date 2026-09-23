@@ -3,7 +3,7 @@ SHELL := /bin/sh
 .PHONY: bootstrap setup doctor frontend-install sync-backend sync-ml \
 	up down logs dev dev-db dev-backend dev-backend-no-db dev-frontend dev-ml \
 	check verify-fast verify verify-full backend-check frontend-check ml-check \
-	ml-eval architecture-check contract-generate contract-check e2e e2e-install \
+	ml-eval architecture-check contract-generate contract-check reference-contract-check e2e e2e-install \
 	compose-check migration migration-check migration-verify stack-verify backend-sql-test smoke \
 	agent-create agent-up agent-smoke agent-down agent-remove
 
@@ -42,7 +42,7 @@ logs:
 	docker compose logs -f --tail=100
 
 # Fast, deterministic checks that do not require a running database.
-verify-fast: architecture-check backend-check ml-check ml-eval frontend-check contract-check compose-check
+verify-fast: architecture-check backend-check ml-check ml-eval frontend-check contract-check reference-contract-check compose-check
 
 # Default proof gate: fast checks plus migrations on a disposable clean database.
 verify: verify-fast migration-verify backend-sql-test
@@ -75,6 +75,11 @@ ml-eval:
 contract-generate:
 	uv run --package tramflow-backend python scripts/export_openapi.py
 	cd frontend && npm run api:generate
+
+reference-contract-check:
+	uv run --package tramflow-backend ruff check contracts --config backend/pyproject.toml
+	uv run --package tramflow-backend mypy contracts/forecast_v1.py contracts/calendar_v1.py contracts/data_v1.py --config-file backend/pyproject.toml
+	uv run --package tramflow-backend pytest contracts/tests
 
 contract-check:
 	cd frontend && npm run contract:check

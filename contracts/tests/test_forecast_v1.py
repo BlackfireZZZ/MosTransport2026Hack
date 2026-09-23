@@ -1,5 +1,6 @@
 import json
-from datetime import timezone
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -9,36 +10,9 @@ from contracts.forecast_v1 import ForecastArtifact, validate_forecast_json
 
 
 def payload(**overrides: object) -> dict[str, object]:
-    result: dict[str, object] = {
-        "schema_version": "forecast.v1",
-        "run_id": "run-2026-01",
-        "dataset_id": "synthetic-2024-2025",
-        "target": "synthetic_boardings",
-        "unit": "event_count",
-        "synthetic": True,
-        "horizon": "day",
-        "bucket_granularity": "hourly",
-        "forecast_origin": "2025-12-31T00:00:00Z",
-        "generated_at": "2026-01-01T00:01:00Z",
-        "data_cutoff": "2025-12-30T23:59:00Z",
-        "source_version": "fixture.v1",
-        "feature_version": "features.v1",
-        "model_version": "baseline.v1",
-        "interval_level": 0.8,
-        "interval_method": "historical_residuals",
-        "points": [
-            {
-                "route_id": "route-1",
-                "direction_id": "north",
-                "stop_id": "stop-1",
-                "bucket_start": "2026-01-01T01:00:00+03:00",
-                "bucket_end": "2026-01-01T02:00:00+03:00",
-                "predicted": 10.0,
-                "lower_bound": 8.0,
-                "upper_bound": 12.0,
-            }
-        ],
-    }
+    result: dict[str, object] = json.loads(
+        (Path(__file__).parents[1] / "fixtures/forecast_v1.valid.json").read_text()
+    )
     result.update(overrides)
     return result
 
@@ -85,15 +59,12 @@ def test_nonfinite_or_negative_predictions_are_rejected(bad: float) -> None:
 
 
 def test_same_instant_in_utc_and_moscow_is_accepted() -> None:
-    point = {
-        **first_point(),
-        "bucket_start": "2026-01-01T01:00:00Z",
-        "bucket_end": "2026-01-01T02:00:00Z",
-    }
-    artifact = validate_forecast_json(
-        json.dumps(payload(points=[point], forecast_origin="2026-01-01T00:00:00+03:00"))
-    )
-    assert artifact.points[0].bucket_start.astimezone(timezone.utc).hour == 1
+    points = cast(list[dict[str, object]], payload()["points"])
+    for point in points:
+        for field in ("bucket_start", "bucket_end"):
+            point[field] = datetime.fromisoformat(str(point[field])).astimezone(UTC).isoformat()
+    artifact = validate_forecast_json(json.dumps(payload(points=points)))
+    assert artifact.points[0].bucket_start.hour == 21
 
 
 def test_horizon_cadence_and_target_unit_are_explicit() -> None:

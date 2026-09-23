@@ -89,7 +89,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-012 | [Validate graph structures and numerical invariants strictly](#task-012) | bug | backend,data | P1 | R1 | done | Codex lead | GRAPH-LOAD | none | A | M |
 | TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | done | safe-error-diagnostics lead | OBSERVABILITY | none | A | S |
 | TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | done | integration lead | API-TEST | none | A | S |
-| TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | Codex lead | CONTRACT | TASK-003 | B | M |
+| TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-003 | B | M |
 | TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-015 | B | M |
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-016 | C | L |
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-015, TASK-016 | C | M |
@@ -99,7 +99,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-020 | E | M |
 | TASK-023 | [Add a reproducible lag/calendar boosting candidate](#task-023) | feature | ml | P2 | R2 | backlog | unassigned | ML-MODEL | TASK-021, TASK-022 | F | M |
 | TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
-| TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | Codex lead | CONTRACT | TASK-015 | C | M |
+| TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-015 | C | M |
 | TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | done | integration lead | INFRA | none | A | M |
 | TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-025, TASK-026 | D | L |
 | TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-027, TASK-015 | E | L |
@@ -387,17 +387,7 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Define canonical targets, entities, calendar and dataset manifests** — RQ-01–03, RQ-05.
 
-- **Result (2026-09-23):** Implemented the strict repository reference contract in
-  `contracts/forecast_v1.py` with `forecast.v1` schema, opaque route/direction/stop
-  identifiers, explicit target/unit, synthetic provenance, UTC-aware instants,
-  Europe/Moscow-compatible calendar semantics, half-open buckets, and dataset
-  manifest metadata. The organizer's target remains unresolved; synthetic data is
-  explicitly `synthetic_boardings`, never inferred occupancy.
-- **Verification:** Shared JSON fixture is accepted by both backend and ML test
-  environments. Contract suite: 12 passed; backend contract tests: 2 passed; ML
-  contract tests: 2 passed; Ruff and mypy passed. Full `make check` passed after
-  integration: architecture, backend 63 tests, ML 50 tests, frontend 23 tests,
-  build, OpenAPI drift and Compose config.
+- **Corrected and completed (2026-09-23):** Reopened after audit, then added calendar/availability/entity/missing-zero rules and publication consistency checks. Final `make check` includes 119 shared-contract tests; independent review and Docker smoke pass. Branch `agent/complete-data-contracts`, base `cece609`; [evidence](../exec-plans/completed/complete-data-contracts.md).
 - **Evidence / scope:** [docs/product/CONCEPT.md](../../docs/product/CONCEPT.md). Specify boardings versus occupancy, route/direction/stop identifiers, event/availability time, service day, half-open windows, units, missing versus zero, and versioned source/feature manifests.
 - **Acceptance:** Schema fixtures cover duplicate stop names, UTC/Moscow midnight, leap year and variable months; aggregation rules prohibit summing incompatible quantities; unsupported occupancy/OD is explicit.
 - **Focused verification:** New schema and time-boundary tests in ml/tests and backend/tests; contract review; make ml-check backend-check.
@@ -488,14 +478,7 @@ to install dependencies. Do not silently weaken existing contracts.
 
 **Freeze the versioned offline forecast publication contract** — RQ-02–04.
 
-- **Result (2026-09-23):** Added `contracts/forecast_v1.schema.json`, a canonical
-  `ForecastArtifact` with run/origin/cutoff/generated timestamps, horizon-specific
-  hourly/daily/monthly cadence, model/data/feature/graph versions, optional interval
-  metadata and unique route/direction/stop/bucket keys. The reference validator is
-  intentionally not imported by the online worker until packaging is decided.
-- **Verification:** Backend and ML independently validate the same fixture and reject
-  an unsupported schema version or nonfinite prediction. Mixed-run, duplicate-key,
-  partial-bound, naive-time, invalid-unit, and cutoff-order cases are covered.
+- **Corrected and completed (2026-09-23):** Reopened after audit, then added calendar/availability/entity/missing-zero rules and publication consistency checks. Final `make check` includes 119 shared-contract tests; independent review and Docker smoke pass. Branch `agent/complete-data-contracts`, base `cece609`; [evidence](../exec-plans/completed/complete-data-contracts.md).
 - **Evidence / scope:** [backend/app/ml/protocols.py](../../backend/app/ml/protocols.py). Define shared artifact and validation fixtures: run/origin, entity/target/unit, buckets, interval level, source/feature/model/graph versions, generated-at, data cutoff and synthetic status.
 - **Acceptance:** Reject mixed-run, nonfinite, misaligned or inconsistent artifacts; explicit schema compatibility policy; ML producer and backend consumer validate identical fixtures without backend training imports.
 - **Focused verification:** Cross-boundary schema tests plus architecture-check; make ml-check backend-check contract-check.

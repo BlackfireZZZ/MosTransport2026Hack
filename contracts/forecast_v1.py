@@ -5,14 +5,15 @@ imported by the online worker yet: the publication task will decide how this
 contract is packaged at the producer/consumer boundary.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
-from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-MOSCOW = ZoneInfo("Europe/Moscow")
+from contracts.calendar_v1 import forecast_buckets
+
+CalendarVersion = Literal["moscow-midnight.v1"]
 SchemaVersion = Literal["forecast.v1"]
 Identifier = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:/-]+$")]
 FiniteNonNegative = Annotated[float, Field(ge=0, allow_inf_nan=False)]
@@ -59,17 +60,18 @@ class DatasetManifest(ContractModel):
     target: ForecastTarget
     unit: AggregationUnit
     entity_version: Identifier
-    availability_policy: Identifier
+    calendar_version: CalendarVersion = "moscow-midnight.v1"
+    availability_policy: Literal["event-and-availability.v1"]
     synthetic: bool
 
     @model_validator(mode="after")
     def validate_manifest(self) -> "DatasetManifest":
         _require_aware(self.date_from, "date_from")
         _require_aware(self.date_to, "date_to")
-        if self.date_to <= self.date_from:
+        if self.date_to.astimezone(UTC) <= self.date_from.astimezone(UTC):
             raise ValueError("date_to must be after date_from")
-        if self.synthetic and self.target != ForecastTarget.SYNTHETIC_BOARDINGS:
-            raise ValueError("synthetic datasets must use synthetic_boardings target")
+        if self.synthetic != (self.target == ForecastTarget.SYNTHETIC_BOARDINGS):
+            raise ValueError("dataset synthetic flag must agree with synthetic_boardings target")
         if self.target == ForecastTarget.ONBOARD_LOAD and self.unit != AggregationUnit.PASSENGERS:
             raise ValueError("onboard_load requires passengers unit")
         expected_unit = {
@@ -97,7 +99,7 @@ class ForecastPoint(ContractModel):
     def validate_point(self) -> "ForecastPoint":
         _require_aware(self.bucket_start, "bucket_start")
         _require_aware(self.bucket_end, "bucket_end")
-        if self.bucket_end <= self.bucket_start:
+        if self.bucket_end.astimezone(UTC) <= self.bucket_start.astimezone(UTC):
             raise ValueError("bucket_end must be after bucket_start")
         bounds = (self.lower_bound, self.upper_bound)
         if any(bound is None for bound in bounds) and any(bound is not None for bound in bounds):
@@ -122,6 +124,8 @@ class ForecastArtifact(ContractModel):
     data_cutoff: datetime
     source_version: Identifier
     feature_version: Identifier
+    entity_version: Identifier
+    calendar_version: CalendarVersion = "moscow-midnight.v1"
     model_version: Identifier
     graph_version: Identifier | None = None
     interval_level: Annotated[float, Field(gt=0, lt=1, allow_inf_nan=False)] | None = None
@@ -132,12 +136,12 @@ class ForecastArtifact(ContractModel):
     def validate_artifact(self) -> "ForecastArtifact":
         for name in ("forecast_origin", "generated_at", "data_cutoff"):
             _require_aware(getattr(self, name), name)
-        if self.data_cutoff > self.forecast_origin:
+        if self.data_cutoff.astimezone(UTC) > self.forecast_origin.astimezone(UTC):
             raise ValueError("data_cutoff cannot be after forecast_origin")
-        if self.generated_at < self.forecast_origin:
+        if self.generated_at.astimezone(UTC) < self.forecast_origin.astimezone(UTC):
             raise ValueError("generated_at cannot be before forecast_origin")
-        if self.synthetic and self.target != ForecastTarget.SYNTHETIC_BOARDINGS:
-            raise ValueError("synthetic artifacts must use synthetic_boardings target")
+        if self.synthetic != (self.target == ForecastTarget.SYNTHETIC_BOARDINGS):
+            raise ValueError("artifact synthetic flag must agree with synthetic_boardings target")
         expected_unit = {
             ForecastTarget.SYNTHETIC_BOARDINGS: AggregationUnit.EVENT_COUNT,
             ForecastTarget.VALIDATION_COUNT: AggregationUnit.EVENT_COUNT,
@@ -157,23 +161,58 @@ class ForecastArtifact(ContractModel):
             )
         if (self.interval_level is None) != (self.interval_method is None):
             raise ValueError("interval_level and interval_method must be both present or absent")
-        keys = [
-            (point.route_id, point.direction_id, point.stop_id, point.bucket_start)
-            for point in self.points
-        ]
-        if len(keys) != len(set(keys)):
-            raise ValueError("forecast points must have unique route/direction/stop/bucket keys")
+        expected_buckets = {
+            (start.astimezone(UTC), end.astimezone(UTC))
+            for start, end in forecast_buckets(self.forecast_origin, self.horizon.value)
+        }
+        by_entity: dict[tuple[str, str, str], set[tuple[datetime, datetime]]] = {}
         for point in self.points:
-            if point.bucket_start < self.forecast_origin:
-                raise ValueError("forecast bucket cannot start before forecast_origin")
+            key = (point.route_id, point.direction_id, point.stop_id)
+            window = (point.bucket_start.astimezone(UTC), point.bucket_end.astimezone(UTC))
+            windows = by_entity.setdefault(key, set())
+            if window in windows:
+                raise ValueError("forecast points must have unique entity/bucket keys")
+            if window not in expected_buckets:
+                raise ValueError("bucket must align with the calendar horizon")
+            windows.add(window)
+            if (point.lower_bound is not None) != (self.interval_level is not None):
+                raise ValueError("point bounds must agree with interval metadata")
+        if any(windows != expected_buckets for windows in by_entity.values()):
+            raise ValueError("each represented entity must cover the complete horizon")
         return self
 
 
 def _require_aware(value: datetime, name: str) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{name} must be timezone-aware")
+    try:
+        value.astimezone(UTC)
+    except OverflowError as error:
+        raise ValueError("instant exceeds the supported datetime range") from error
 
 
-def validate_forecast_json(payload: str) -> ForecastArtifact:
-    """Validate the canonical JSON representation, including datetime strings."""
-    return ForecastArtifact.model_validate_json(payload)
+def validate_forecast_json(
+    payload: str, *, manifest: DatasetManifest | None = None
+) -> ForecastArtifact:
+    """Validate an artifact, and dataset identity when supplied by its consumer."""
+    artifact = ForecastArtifact.model_validate_json(payload)
+    if manifest is not None:
+        for field in (
+            "dataset_id",
+            "source_version",
+            "feature_version",
+            "entity_version",
+            "calendar_version",
+            "target",
+            "unit",
+            "synthetic",
+        ):
+            if getattr(artifact, field) != getattr(manifest, field):
+                raise ValueError(f"artifact {field} does not match manifest")
+        if not (
+            manifest.date_from.astimezone(UTC)
+            <= artifact.data_cutoff.astimezone(UTC)
+            <= manifest.date_to.astimezone(UTC)
+        ):
+            raise ValueError("artifact cutoff must fall within the manifest date range")
+    return artifact

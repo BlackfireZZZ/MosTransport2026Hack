@@ -120,6 +120,12 @@
     "bucket_granularity": {
       "$ref": "#/$defs/BucketGranularity"
     },
+    "calendar_version": {
+      "const": "moscow-midnight.v1",
+      "default": "moscow-midnight.v1",
+      "title": "Calendar Version",
+      "type": "string"
+    },
     "data_cutoff": {
       "format": "date-time",
       "title": "Data Cutoff",
@@ -130,6 +136,13 @@
       "minLength": 1,
       "pattern": "^[A-Za-z0-9_.:/-]+$",
       "title": "Dataset Id",
+      "type": "string"
+    },
+    "entity_version": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:/-]+$",
+      "title": "Entity Version",
       "type": "string"
     },
     "feature_version": {
@@ -255,6 +268,7 @@
     "data_cutoff",
     "source_version",
     "feature_version",
+    "entity_version",
     "model_version",
     "points"
   ],

@@ -21,7 +21,7 @@ def test_backend_accepts_shared_forecast_fixture() -> None:
     assert artifact.points[0].stop_id == "stop-1"
 
 
-def test_backend_rejects_shared_fixture_with_mixed_run_metadata() -> None:
+def test_backend_rejects_shared_fixture_with_unknown_version() -> None:
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     payload["schema_version"] = "forecast.v2"
 
