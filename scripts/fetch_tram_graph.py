@@ -18,6 +18,7 @@ import csv
 import json
 import math
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -53,7 +54,59 @@ def fetch(api_url: str, query: str, timeout: int) -> dict:
     if not raw.lstrip().startswith("{"):
         snippet = " ".join(raw.split())[:300]
         raise RuntimeError(f"Overpass did not return JSON: {snippet}")
-    return json.loads(raw)
+    payload = json.loads(raw)
+    validate_payload(payload)
+    return payload
+
+
+def validate_payload(payload: object) -> None:
+    """Reject error responses and structures outside this query's output contract."""
+    if not isinstance(payload, dict):
+        raise ValueError("Overpass response must be an object")
+    if "remark" in payload:
+        raise ValueError("Overpass returned a remark; the extract may be incomplete")
+    elements = payload.get("elements")
+    if not isinstance(elements, list):
+        raise ValueError("Overpass elements must be an array")
+    if not isinstance(payload.get("osm3s", {}), dict):
+        raise ValueError("Overpass osm3s must be an object")
+    for element in elements:
+        if not isinstance(element, dict):
+            raise ValueError("Overpass elements must contain objects")
+        kind = element.get("type")
+        if kind not in ("node", "way", "relation"):
+            raise ValueError("Overpass element type must be node, way or relation")
+        if type(element.get("id")) is not int or element["id"] <= 0:
+            raise ValueError("Overpass element id must be a positive integer")
+        tags = element.get("tags", {})
+        if not isinstance(tags, dict) or any(
+            not isinstance(k, str) or not isinstance(v, str) for k, v in tags.items()
+        ):
+            raise ValueError("Overpass tags must map strings to strings")
+        if kind == "node":
+            for field, limit in (("lat", 90), ("lon", 180)):
+                value = element.get(field)
+                if type(value) not in (int, float) or not -limit <= value <= limit:
+                    raise ValueError(f"Overpass node {field} is invalid")
+        elif kind == "way":
+            refs = element.get("nodes")
+            if not isinstance(refs, list) or any(
+                type(ref) is not int or ref <= 0 for ref in refs
+            ):
+                raise ValueError("Overpass way nodes must contain positive integer refs")
+        else:
+            members = element.get("members")
+            if not isinstance(members, list):
+                raise ValueError("Overpass relation members must be an array")
+            for member in members:
+                if (
+                    not isinstance(member, dict)
+                    or member.get("type") not in ("node", "way", "relation")
+                    or type(member.get("ref")) is not int
+                    or member["ref"] <= 0
+                    or not isinstance(member.get("role"), str)
+                ):
+                    raise ValueError("Overpass relation member is invalid")
 
 
 def haversine(a: tuple[float, float], b: tuple[float, float]) -> float:
@@ -93,7 +146,7 @@ def order_track_nodes(way_ids: list[int], ways: dict[int, list[int]]) -> list[in
         elif nodes[0] == seq[0]:
             seq = list(reversed(nodes[1:])) + seq
         else:
-            seq.extend(nodes)  # disconnected: keep going, note the gap later
+            seq.extend(nodes)
     return seq
 
 
@@ -136,8 +189,6 @@ def build(payload: dict) -> tuple[OrderedDict, OrderedDict, dict]:
         for i, nid in enumerate(seq):
             seq_index.setdefault(nid, []).append(i)
 
-        # Platform names are a fallback for stop_position nodes that have none;
-        # in a PTv2 relation each stop is followed by its own platform.
         platform_name_after: dict[int, str] = {}
         last_stop_ref = None
         for m in members:
@@ -179,8 +230,6 @@ def build(payload: dict) -> tuple[OrderedDict, OrderedDict, dict]:
                 }
             graph_nodes[sid]["routes"].add(route_label)
 
-        # Walk the assembled track forward, so a route that revisits a node
-        # (loops, termini) still advances instead of matching an earlier copy.
         cursor = 0
         for a, b in zip(stops, stops[1:]):
             geometry: list[tuple[float, float]] = []
@@ -370,7 +419,11 @@ def main() -> int:
 
     query = QUERY.format(area=args.area, admin_level=args.admin_level, timeout=args.timeout)
     print(f"querying {args.api_url} for tram routes in {args.area}...", file=sys.stderr)
-    payload = fetch(args.api_url, query, args.timeout)
+    try:
+        payload = fetch(args.api_url, query, args.timeout)
+    except (ValueError, RuntimeError, urllib.error.URLError, TimeoutError) as exc:
+        print(f"graph extraction failed: {exc}", file=sys.stderr)
+        return 1
 
     nodes, edges, stats = build(payload)
     if not nodes:
