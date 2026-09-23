@@ -554,10 +554,10 @@ to install dependencies. Do not silently weaken existing contracts.
   availability until that commit point. Final publication suite: 36 tests passed;
   full lead-owned `make check` passed (220 backend, 48 ML, 23 frontend tests).
   Independent reviews approved after failure-path and GraphML direction fixes.
-  Result is committed in `agent/prep-graph-integrity`; main is owned by the parallel
-  integration lane and was not changed. Next: merge this branch into the current
-  integration branch, preserving other tracker updates, then run its combined gate.
-  Worktrees/branches retained for that handoff; no runtime stack was created.
+  Result merged with current main in `agent/integrate-graph-block`; combined
+  `make check` passed (292 backend, 50 ML, 47 frontend), plus 10 PostgreSQL
+  tests and Docker smoke. See the ExecPlan combined integration section.
+  Source and integration worktrees retained for review; test resources removed.
 - **Evidence / scope:** [scripts/fetch_tram_graph.py](../../scripts/fetch_tram_graph.py). Stage JSON/GeoJSON/CSV/GraphML together, validate checksums/source version, and expose only a complete matching set through a manifest.
 - **Acceptance:** Interrupted export or mismatched JSON/GeoJSON cannot replace last good snapshot; committed topology and two components preserved; rollback selects prior complete set.
 - **Focused verification:** Injected write-failure and manifest mismatch tests; make backend-check.

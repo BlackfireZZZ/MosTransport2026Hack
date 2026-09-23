@@ -121,3 +121,18 @@ no other worktree was removed and no Docker stack/volume was started. Power-loss
 durability, hostile writers and non-POSIX filesystems remain explicitly outside
 the verified local filesystem contract; API processes must restart to adopt a
 new active graph because their existing cache semantics are preserved.
+
+## Combined integration — 2026-09-23
+
+Integration worktree: `/home/blackfire/Hackatons/MosTransport2026Hack-worktrees/integrate-graph-block`,
+branch `agent/integrate-graph-block`, base `7856223e76bcca0e4f239b87e839c2e4da65c589`.
+Merged c3b0735 with only a tracker conflict, retaining all completed non-graph
+statuses and graph TASK-011/012/030 results. Independent review found no blockers
+and ran 166 focused tests. Lead focused graph suite: 156 passed; extractor Ruff clean.
+Lead `make check`: exit 0, 292 backend passed / 10 SQL skipped, 50 ML passed,
+47 frontend passed, architecture/types/lint/build/API drift/Compose passed.
+Shared contract tests: 12 passed. `make backend-sql-test stack-verify`: exit 0,
+10 PostgreSQL tests, clean migrations and built-stack smoke passed; owned runtime
+resources removed. Diff audit clean; no committed graph bytes changed.
+Integration into primary uses fast-forward from the clean recorded base. No push.
+Integration and source worktrees retained for review; no other's workspace removed.
