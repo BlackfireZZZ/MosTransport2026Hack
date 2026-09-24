@@ -159,3 +159,130 @@ match kinds and unmatched reasons are counts only. Dict output has sorted keys.
 
 Thresholds and mappings are configuration: real organizer identifiers, name
 conventions and GPS tolerances cannot be certified before samples arrive.
+
+## Feature engineering
+
+`tramflow_ml.features` turns ingested `data.v1` event rows into one feature table per
+forecast horizon (TASK-019, RQ-01–03). It is a pure-Python API; CLI and pipeline wiring
+belong to a later task. A table holds one row per `(route_id, direction_id, stop_id)`
+entity and per calendar bucket of the horizon, plus a header naming the feature version,
+the policy, the forecast origin and the availability cutoff that was applied.
+
+```python
+from tramflow_ml.features import (
+    YEAR_MONTH, CoverageCalendar, FeatureRequest, build_features,
+    load_entity_keys, load_observations,
+)
+
+observations = load_observations(ingest_dir / "validations.jsonl")
+coverage = CoverageCalendar.from_range(date(2024, 1, 1), date(2026, 1, 1), gaps=gap_dates)
+table = build_features(FeatureRequest(
+    policy=YEAR_MONTH,
+    origin=datetime(2025, 1, 1, tzinfo=MOSCOW),
+    entities=load_entity_keys(fixture_dir / "entities.json"),
+    observations=observations,
+    coverage=coverage,
+    target="synthetic_boardings",
+    unit="event_count",
+))
+```
+
+Bucket policy: the key is the entity plus a half-open `[bucket_start, bucket_end)`
+interval in `Europe/Moscow`, and granularity follows the horizon exactly as
+`ForecastArtifact` requires. Direction is part of the key and is never collapsed;
+`stop_sequence` is not, so a stop visited twice on a loop aggregates into one cell.
+
+| Policy | Horizon | Buckets | Lags | Rolling windows | Season |
+|---|---|---|---|---|---|
+| `day/hour` | one day | 24 hourly | 1, 2, 24, 48, 168 h | 24 h, 168 h | 4 × 24 h |
+| `month/day` | one calendar month | 28–31 daily | 1, 7, 14, 364 d | 7 d, 28 d | 4 × 7 d |
+| `year/month` | one calendar year | 12 monthly | 1, 2, 3, 12 m | 3 m, 12 m | 3 × 12 m |
+
+Availability cutoff: each policy derives one cutoff `C` from the forecast origin
+(`C = origin` unless `cutoff_lead_buckets` moves it earlier for a late-publishing
+source). An event reaches a feature only when `event_at < C and available_at <= C` —
+the `data.v1` rule, closed on availability and half-open on the event — and a history
+bucket is used only when its `bucket_end <= C`, so a bucket still running at the cutoff
+is missing rather than a partial sum. A lag that reaches into the horizon is therefore
+explicitly missing: under `day/hour`, `lag_1h` exists only for the first target hour.
+Rolling windows are anchored at the last bucket that has fully elapsed at `C`, not at
+the target bucket, so every row of one horizon shares the past a forecaster actually
+has and no anchor can reach forward. Labels (`target_value`) come from the full series
+and are not features; the leakage guarantee covers `feature_digest`.
+
+Coverage is cutoff-aware, not only event-aware. `CoverageCalendar` optionally records
+the instant each civil date's data arrived; a date not yet published at `C` counts as
+unavailable, so a bucket built only from such dates is `missing`. Without that, filtering
+unpublished rows upstream would leave the bucket looking like a confident zero — a whole
+day of real boardings reported as no demand. The same calendar is read through two
+views: `as_of(C)` for history and `complete()` for labels, so an as-of history never
+requires the caller to hand in a mutilated calendar. A date the calendar does not cover
+at all is still an input defect and stops the run. The resolution of this mechanism is
+one civil date: a source that delivers a date and then trickles individual rows into it
+later still reads as an observed zero for the buckets those rows belong to, because the
+date itself was stated as delivered. Per-row publication metadata would be needed to
+close that, and no organizer format for it exists yet.
+
+Missing convention: `None`, never `0.0`. An `AggregateCell` is `coverage="missing"`
+with `value=None` exactly when no available date falls in the bucket, which is the
+`ObservedAggregate` invariant, and both `AggregateCell` and `FeatureRow` enforce it on
+construction rather than only describing it. A bucket whose dates are available but
+carry no events is `coverage="observed"` with `value=0` — a real zero, distinct from
+missing in the digest. A rolling window with no observation is `None` for sum, mean and
+max with `coverage=0.0`; a capacity that is unknown, or known only after `C`, is `None`.
+
+Partial coverage inside a bucket is carried in the feature vector, not only on the cell.
+Each lag, rolling window and season of a policy whose buckets span more than one civil
+date also emits a `*_units` ratio: the fraction of that bucket's (or window's) civil
+dates that are available at `C`. A February with one covered day reports
+`lag_12m_units ≈ 0.034` against `1.0` for a complete one, so a diluted month can no
+longer read as a quiet one. Only `year/month` carries these columns: an hourly or daily
+bucket is exactly one civil date, so the ratio there would be `1.0` whenever the value
+exists and would repeat what the value already says. `covered_units`/`total_units` remain
+on every `AggregateCell` regardless.
+
+Calendar periods are real calendar arithmetic. Hour steps move whole UTC hours, day
+steps move the civil date and recombine at Moscow midnight, month steps move
+`year * 12 + month - 1`. Nothing approximates a month as 30 days or a year as 365:
+February 2024 yields 29 daily buckets, 2024 yields 12 monthly buckets spanning 366
+days, and `lag_12m` lands on the same calendar month a year earlier. `bucket_hours` is
+measured on the instants, so the Moscow DST days 2011-03-27 and 2014-10-26 report 23
+and 25 hours; Moscow has had no DST since 2014, but the arithmetic does not rely on it.
+Timestamps are normalized to Moscow through UTC, because `astimezone` returns a value
+unchanged when its `tzinfo` is already the target zone: a datetime merely *tagged*
+`Europe/Moscow` can otherwise keep a wall time that names no instant, and two spellings
+of one instant would disagree. The rule on midnights is stated rather than enumerated:
+any civil date whose Moscow midnight is nonexistent or ambiguous is refused instead of
+resolved to a guess, the same rule `identity/clock.py` applies to naive source times.
+Which dates those are belongs to the tz database and changes with it — a sweep of
+1900–2040 on the current database finds seven, not the four an earlier version of this
+section named. Hourly bucketing is unaffected by such dates and needs no whole-hour
+offset: it is done in UTC, and at a sub-hour historical offset (1918 Moscow ran at
++04:31:19) an hourly bucket start legitimately carries minutes and seconds. Where
+`contracts/calendar_v1.forecast_buckets` would resolve such a midnight silently, this
+layer refuses; a service day it cannot locate is an error, not a default.
+
+Only counted targets are accepted: `synthetic_boardings` and `validation_count`, both
+in `event_count`. An observation is one event with no magnitude, so a passenger-valued
+target from `forecast_v1` is refused at the `FeatureRequest` and `aggregate` boundaries
+rather than silently relabelling a row count as a passenger load.
+
+Determinism: entities are sorted by `(route_id, direction_id, stop_id)`, buckets run
+chronologically, feature names follow the policy's declared order, and
+`FeatureTable.digest` is SHA-256 over canonical JSON of the whole table. Nothing reads
+the wall clock, a filesystem path, or a set or dict iteration order; reversing the input
+event order changes nothing. On the tiny synthetic fixture (64 unique validations, 12
+entities), the hourly aggregate reproduces all 64 `cell_totals` entries of
+`generation.json` cell for cell, and repeated builds — including from a second
+independent ingestion run of the same fixture — give identical digests
+(`7e412bb0…` for `day/hour`, `b3ad914c…` for `month/day`, `408d4580…` for `year/month`).
+That fixture spans 2024–2026, where Moscow is a fixed +03:00, so it does not exercise
+the DST-sensitive part of bucketing; that rests on the hand-written calendar tests.
+
+Not certified before organizer data: the bucket policy, the lag sets, the rolling
+windows, the seasons and the cutoff leads are the team proposal and are configuration.
+Historical weather and event data are absent on purpose, because they are not available
+at a forecast origin and therefore cannot be features; no placeholder column exists for
+them. There is no holiday calendar — `is_weekend` is the civil weekday and is not a
+holiday proxy. For real data the coverage calendar must come from the organizer's own
+coverage statement, not from our row counts.
