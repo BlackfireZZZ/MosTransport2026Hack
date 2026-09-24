@@ -206,3 +206,15 @@ def test_missing_geometry_file_is_an_error_not_straight_lines(tmp_path: Path) ->
         repository.load()
 
     assert "absent.geojson" in str(error.value)
+
+
+def test_http_geometry_quality_matches_complete_committed_extract(client: TestClient) -> None:
+    body = client.get(f"{BASE}/geojson").json()
+    assert body["metadata"]["missing_geometry_edges"] == 0
+    assert body["metadata"]["synthetic"] is False
+    lines = [item for item in body["features"] if item["geometry"]["type"] == "LineString"]
+    assert lines and all(item["properties"]["geometry_quality"] == "provided" for item in lines)
+    path = client.get(f"{BASE}/path", params={"from": 1377188043, "to": 472373305}).json()
+    assert path["found"]
+    assert path["geometry_quality"] == "provided"
+    assert path["missing_geometry_edges"] == 0

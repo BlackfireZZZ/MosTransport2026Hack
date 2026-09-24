@@ -9,7 +9,7 @@ vi.mock("./tram-map", () => ({ TramMap: () => <p>Доступ к локальн�
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 function mount(networkFails = false) {
-  vi.spyOn(api.tramGraph, "geojson").mockResolvedValue({ type: "FeatureCollection", metadata: {}, features: [] })
+  vi.spyOn(api.tramGraph, "geojson").mockResolvedValue({ type: "FeatureCollection", metadata: { missing_geometry_edges: 0, synthetic: false }, features: [] })
   if (networkFails) vi.mocked(api.tramGraph.geojson).mockRejectedValue(new Error("graph offline"))
   vi.spyOn(api.tramGraph, "routes").mockResolvedValue([])
   vi.spyOn(api.tramGraph, "stats").mockRejectedValue(new Error("stats offline"))
@@ -41,7 +41,7 @@ it("does not report unselected route geometry as another graph failure", async (
   await screen.findByText("Граф сети: ошибка загрузки")
   expect(screen.queryByText("Геометрия маршрута: ошибка загрузки")).not.toBeInTheDocument()
   expect(screen.getByRole("searchbox", { name: "Поиск остановки" })).toBeEnabled()
-  vi.mocked(api.tramGraph.geojson).mockResolvedValueOnce({ type: "FeatureCollection", metadata: {}, features: [] })
+  vi.mocked(api.tramGraph.geojson).mockResolvedValueOnce({ type: "FeatureCollection", metadata: { missing_geometry_edges: 0, synthetic: false }, features: [] })
   fireEvent.click(screen.getByRole("button", { name: "Повторить: граф сети" }))
   await screen.findByText("В графе нет объектов.")
   expect(api.tramGraph.routes).toHaveBeenCalledTimes(1)

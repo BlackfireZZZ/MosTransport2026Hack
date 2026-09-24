@@ -175,6 +175,12 @@
             ],
             "title": "License"
           },
+          "missing_geometry_edges": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Missing Geometry Edges",
+            "type": "integer"
+          },
           "osm_data_timestamp": {
             "anyOf": [
               {
@@ -207,10 +213,24 @@
               }
             ],
             "title": "Source"
+          },
+          "synthetic": {
+            "default": false,
+            "title": "Synthetic",
+            "type": "boolean"
           }
         },
         "title": "GeoJsonMetadataResponse",
         "type": "object"
+      },
+      "GeometryQuality": {
+        "enum": [
+          "provided",
+          "inferred",
+          "synthetic"
+        ],
+        "title": "GeometryQuality",
+        "type": "string"
       },
       "HTTPValidationError": {
         "properties": {
@@ -673,6 +693,9 @@
       },
       "SegmentFeatureProperties": {
         "properties": {
+          "geometry_quality": {
+            "$ref": "#/components/schemas/GeometryQuality"
+          },
           "length_m": {
             "title": "Length M",
             "type": "number"
@@ -694,6 +717,7 @@
           }
         },
         "required": [
+          "geometry_quality",
           "source",
           "target",
           "length_m",
@@ -986,7 +1010,7 @@
             "type": "boolean"
           },
           "geometry": {
-            "description": "[lon, lat] pairs along the track",
+            "description": "[lon, lat] pairs; inferred paths contain straight endpoint connectors",
             "items": {
               "maxItems": 2,
               "minItems": 2,
@@ -1002,6 +1026,22 @@
             },
             "title": "Geometry",
             "type": "array"
+          },
+          "geometry_quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQuality"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing_geometry_edges": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Missing Geometry Edges",
+            "type": "integer"
           },
           "reason": {
             "anyOf": [

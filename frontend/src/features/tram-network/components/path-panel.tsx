@@ -82,6 +82,10 @@ export function PathPanel(props: PathPanelProps) {
 
         {summary?.status === "found" && (
           <div className="path-result" data-testid="tram-path-result" aria-live="polite">
+            {path?.geometry_quality === "inferred" && (
+              <p role="status">Геометрия отсутствует для {path.missing_geometry_edges} участков пути. Линия пути скрыта; последовательность остановок доступна ниже.</p>
+            )}
+            {path?.geometry_quality === "synthetic" && <p role="status">Путь использует синтетическую геометрию.</p>}
             <div className="path-numbers">
               <span>
                 <strong>{formatKm(summary.lengthM)}</strong>

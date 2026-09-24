@@ -12,7 +12,14 @@ import heapq
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.domain.tram_graph import Coordinate, TramEdge, TramNetwork, TramStop, sorted_refs
+from app.domain.tram_graph import (
+    Coordinate,
+    GeometryQuality,
+    TramEdge,
+    TramNetwork,
+    TramStop,
+    sorted_refs,
+)
 
 
 class PathAbsence(StrEnum):
@@ -41,6 +48,8 @@ class TramPath:
     total_length_m: float
     geometry: tuple[Coordinate, ...]
     routes: tuple[str, ...]
+    geometry_quality: GeometryQuality | None = None
+    missing_geometry_edges: int = 0
 
 
 def absent_path(code: PathAbsence, reason: str) -> TramPath:
@@ -99,6 +108,15 @@ def find_path(network: TramNetwork, source: int, target: int) -> TramPath:
         total_length_m=round(total, 1),
         geometry=tuple(geometry),
         routes=sorted_refs(routes),
+        missing_geometry_edges=sum(
+            network.geometry_quality(edge) == GeometryQuality.INFERRED for edge in chain
+        ),
+        geometry_quality=(
+            GeometryQuality.INFERRED
+            if any(network.geometry_quality(edge) == GeometryQuality.INFERRED for edge in chain)
+            else GeometryQuality.SYNTHETIC if network.metadata.synthetic
+            else GeometryQuality.PROVIDED
+        ),
     )
 
 def _cheapest_chain(network: TramNetwork, source: int, target: int) -> list[TramEdge] | None:

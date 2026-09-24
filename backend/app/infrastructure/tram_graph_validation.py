@@ -66,6 +66,10 @@ def _coordinate(value: object, location: str) -> Coordinate:
 def _metadata(document: dict[str, Any]) -> GraphMetadata:
     raw = _object(document.get("metadata", {}), "metadata")
     fields: dict[str, Any] = {}
+    if "synthetic" in raw:
+        if type(raw["synthetic"]) is not bool:
+            raise TramGraphDataError("metadata.synthetic must be a boolean")
+        fields["synthetic"] = raw["synthetic"]
     for field in ("source", "license", "area", "osm_data_timestamp", "generated_at"):
         if field in raw:
             fields[field] = _text(raw[field], f"metadata.{field}")
@@ -81,7 +85,7 @@ def parse_network(document: object, geojson: object) -> TramNetwork:
     """Reject malformed pairs without coercing identifiers or numeric strings.
 
     Legacy extracts may omit metadata and per-edge geometry; missing geometry
-    preserves the domain's straight-line fallback. Present features must be valid.
+    is explicitly marked inferred. Present features must be valid.
     """
     graph = _object(document, "graph")
     if "directed" in graph and graph["directed"] is not True:

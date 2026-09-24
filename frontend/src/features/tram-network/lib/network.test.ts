@@ -64,7 +64,7 @@ describe("unnamed stops", () => {
 
 describe("path summary", () => {
   const unreachable: TramPath = {
-    found: false,
+    missing_geometry_edges: 0, found: false,
     reason:
       "Даниловская мануфактура and Тимирязевская академия are in different parts of the tram network; there is no track connecting them",
     stops: [],
@@ -94,7 +94,7 @@ describe("path summary", () => {
 
   it("reports stop count and length for a found path", () => {
     const summary = summarisePath({
-      found: true,
+      missing_geometry_edges: 0, found: true,
       reason: null,
       stops: [
         { id: 1, name: "A", latitude: 55.7, longitude: 37.6, routes: ["16"] },
@@ -148,7 +148,7 @@ describe("coordinate order", () => {
 describe("summarisePath explanations", () => {
   const absent = (reason_code: PathAbsence | null, reason: string) =>
     summarisePath({
-      found: false,
+      missing_geometry_edges: 0, found: false,
       reason_code,
       reason,
       stops: [],
@@ -215,4 +215,12 @@ describe("padBounds", () => {
   it("is a no-op at zero", () => {
     expect(padBounds([37.0, 55.0, 38.0, 56.0], 0)).toEqual([37.0, 55.0, 38.0, 56.0])
   })
+})
+
+it("does not draw inferred path geometry as rails", () => {
+  const path: TramPath = { missing_geometry_edges: 0, found: true, stops: [], total_length_m: 100, routes: ["1"],
+    geometry: [[37, 55], [38, 56]], geometry_quality: "inferred" }
+  expect(pathCollection(path).features).toEqual([])
+  expect(pathCollection({ ...path, geometry_quality: "provided" }).features).toHaveLength(1)
+  expect(pathCollection({ ...path, geometry_quality: "synthetic" }).features).toHaveLength(1)
 })

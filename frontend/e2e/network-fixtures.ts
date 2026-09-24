@@ -18,7 +18,7 @@ const stats: NetworkStats = {
 }
 export function graph(ref: string | null = null): TramGraphGeoJson {
   return {
-    type: "FeatureCollection", metadata: { source: "Deterministic E2E fixture", filtered_to_route: ref },
+    type: "FeatureCollection", metadata: { missing_geometry_edges: 0, synthetic: true, source: "Deterministic E2E fixture", filtered_to_route: ref },
     features: [
       ...stops.filter((stop) => !ref || stop.routes.includes(ref)).map((stop) => ({
         type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [stop.longitude, stop.latitude] as [number, number] },
@@ -26,7 +26,7 @@ export function graph(ref: string | null = null): TramGraphGeoJson {
       })),
       ...(!ref || ref === "1" ? [{ type: "Feature" as const,
         geometry: { type: "LineString" as const, coordinates: [[37.6, 55.75], [37.62, 55.76]] as [number, number][] },
-        properties: { source: 101, target: 102, length_m: 1700, routes: ["1"] },
+        properties: { geometry_quality: "synthetic" as const, source: 101, target: 102, length_m: 1700, routes: ["1"] },
       }] : []),
     ],
   }
@@ -56,7 +56,7 @@ export async function mockNetwork(page: Page, failures = new Set<string>()) {
     if (url.pathname.endsWith("/path")) {
       const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"))
       const found = from === 101 && to === 102
-      const path: TramPath = { found, stops: found ? stops.slice(0, 2) : [], geometry: found ? [[37.6, 55.75], [37.62, 55.76]] : [], routes: found ? ["1"] : [], total_length_m: found ? 1700 : 0, reason_code: found ? null : from === 201 || to === 201 ? "different_components" : "wrong_direction", reason: found ? null : "Fixture has no directed connection" }
+      const path: TramPath = { geometry_quality: found ? "synthetic" : null, missing_geometry_edges: 0, found, stops: found ? stops.slice(0, 2) : [], geometry: found ? [[37.6, 55.75], [37.62, 55.76]] : [], routes: found ? ["1"] : [], total_length_m: found ? 1700 : 0, reason_code: found ? null : from === 201 || to === 201 ? "different_components" : "wrong_direction", reason: found ? null : "Fixture has no directed connection" }
       return json(route, path)
     }
     return json(route, { detail: `Unmocked endpoint: ${key}` }, 500)
