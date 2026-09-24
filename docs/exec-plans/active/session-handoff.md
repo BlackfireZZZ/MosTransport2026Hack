@@ -21,11 +21,13 @@ lives outside `main`.
   `~/.local/bin` satisfies it when the system package is older.
 - `frontend/package.json` requires Node 24 / npm ≥ 11.19; `n 24` into `~/.local`
   satisfies it.
-- `make bootstrap` runs `sync-backend` then `sync-ml`; each `uv sync --package`
-  is exact, so the second removes `pytest-asyncio` and backend tests then fail at
-  collection (`Unknown config option: asyncio_mode`). CI is unaffected because
-  each job syncs one package. Work around locally with `make sync-backend`
-  before `make check`; a Makefile fix is the next maintenance item.
+- `make bootstrap` used to run `sync-backend` then `sync-ml`; each per-package
+  `uv sync` is exact, so the second removed `pytest-asyncio` and backend tests
+  failed at collection (`Unknown config option: asyncio_mode`). `bootstrap` now
+  runs `sync-all` (`uv sync --all-packages --all-extras --locked`); verified on a
+  fresh worktree with `make bootstrap && make check` (exit 0). CI still syncs one
+  package per job. Running `make sync-ml` alone afterwards reintroduces the
+  problem; use `make sync-all`.
 
 ## Exact continuation
 
