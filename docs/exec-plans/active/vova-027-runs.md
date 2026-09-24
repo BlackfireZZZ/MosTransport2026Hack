@@ -41,8 +41,9 @@ head and alembic check passed on owned tramflow-vova027-dev database.
 make check passed: backend292 (30 SQL opt-in skipped), ML151, frontend48,
 contracts119, lint/types/build/Compose all passed. Chrome E2E18/18 passed at
 isolated port43127. Independent review fixed bad join, nullable chart arithmetic,
-and downgrade guard for unpublished legacy data. Production-like stack smoke
-is running; do not mark done until its observed result is recorded.
+and downgrade guard for unpublished legacy data. Production-like make stack-verify passed: DB/API/frontend healthy and smoke
+passed; disposable stack and volumes removed. make e2e-install completed.
+Status: verified, independently reviewed, committed; pending integration.
 
 Integer serving entity IDs remain surrogate IDs; TASK029 must explicitly resolve
 canonical identifiers to these catalog entries (never coerce a canonical ID to
