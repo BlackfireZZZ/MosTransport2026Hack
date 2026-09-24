@@ -115,7 +115,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | done | for-vova-huesos | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
 | TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | done | for-vova-huesos | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
 | TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
-| TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | for-vova-huesos | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
+| TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | done | for-vova-huesos | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
 | TASK-039 | [Build a first-data profiling and adaptation toolkit](#task-039) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-017, TASK-018, TASK-019 | E | M |
 | TASK-040 | [Observe batch quality, publication and forecast freshness](#task-040) | feature | backend,ml | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-029, TASK-035, TASK-013 | I | M |
 | TASK-041 | [Measure million-row ingestion and bounded query/UI budgets](#task-041) | research | data,backend,frontend | P1 | R1 | backlog | unassigned | PERFORMANCE | TASK-017, TASK-028, TASK-034, TASK-026 | H | M |
@@ -133,7 +133,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-053 | [Gate spatial or graph-model experiments on measured baseline failures](#task-053) | research | ml | P3 | R2 | backlog | unassigned | ML-MODEL | TASK-051, TASK-052 | OPTIONAL | L |
 | TASK-054 | [Assess multimodal expansion only after tram acceptance](#task-054) | research | data,ml | P3 | R2 | backlog | unassigned | CONTRACT | TASK-044, TASK-052 | OPTIONAL | M |
 | TASK-055 | [Bound shared Overpass requests and failure resource usage](#task-055) | maintenance | backend,infra | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-003 | B | M |
-| TASK-056 | [Export a self-describing dispatcher forecast report](#task-056) | feature | frontend | P2 | R1 | backlog | for-vova-huesos | UI-CHART | TASK-035, TASK-036 | I | S |
+| TASK-056 | [Export a self-describing dispatcher forecast report](#task-056) | feature | frontend | P2 | R1 | done | for-vova-huesos | UI-CHART | TASK-035, TASK-036 | I | S |
 | TASK-057 | [Explain model behavior and compare baseline errors](#task-057) | feature | ml,frontend | P2 | R2 | backlog | unassigned | ML-EVAL | TASK-023, TASK-022 | G | M |
 | TASK-058 | [Run an evaluation-gated offline forecasting pipeline](#task-058) | feature | ml,backend | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-019, TASK-020, TASK-021, TASK-022, TASK-024, TASK-029 | H | M |
 

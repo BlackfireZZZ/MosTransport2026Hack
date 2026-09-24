@@ -116,3 +116,24 @@ make check350backend/151ML/79frontend/119reference and Chrome E2E37 passed.
 No dependencies/API/schema/ML/authored-contract edits. Parent local fast-forward
 integration after checks; worktree retained unpushed. Recovery is revert, with caveat
 that older interface exposes unsupported capacity ratios.
+
+## 2026-09-25 — for-vova-huesos: final TASK038/TASK056 integration
+
+All ten allocated rows are done. TASK038 branch agent/vova-038-accessibility,
+base04bf1a9, commit40f95df, worktree
+/Users/cute/MosTransport2026Hack-worktrees/vova-038-accessibility: seven additional
+browser cases, no CSS changes required. Real Chrome200% setting (1440→720 CSS px),
+Tab navigation/focus, reduced motion,390/768/1440, errors/empty/invalid/stale all pass.
+TASK056 branch agent/vova-056-export, base04bf1a9, worktree
+/Users/cute/MosTransport2026Hack-worktrees/vova-056-export. CSV is derived from one
+visible snapshot without another request; contains exact points, nullable bounds,
+units/timezone, run/selection/provenance, geometry status, synthetic/stale markers.
+Untrusted formula-like text has a reversible text: prefix listed by column.
+
+Parent personally ran combined make check (350 backend,151ML,92frontend,119reference),
+clean migration/no drift and48 SQL tests, production-like stack smoke and48 Chrome
+E2E tests. All passed. Initial migration, ML and authored shared contracts unchanged;
+only generated OpenAPI reflects backward-compatible serving additions. No dependency
+or lock changes. No push/PR/publication. Dedicated previews stopped and owned test
+Compose resources removed. All10 worktrees retained because branches are unpushed.
+See completed/vova-block-final.md for the consolidated result and residual limits.

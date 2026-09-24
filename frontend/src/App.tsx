@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ForecastExport } from "@/features/forecast/components/forecast-export"
 import { ProvenancePanel } from "@/features/forecast/components/provenance-panel"
 import { CAPACITY_UNAVAILABLE, formatForecastValue } from "@/features/forecast/lib/values"
 import { dataKind, forecastUnit } from "@/features/forecast/lib/provenance"
@@ -184,6 +185,7 @@ function App() {
             <Button variant="secondary" disabled={selectedRouteId === null || !validSelection || forecast.isFetching} onClick={() => void forecast.refetch()}>Обновить прогноз</Button>
           </section>
 
+          <ForecastExport snapshot={data} updatedAt={forecast.dataUpdatedAt} failed={forecast.isRefetchError} pollInterval={pollInterval} selectedTimestamp={timestamp} requestedFilters={filters} />
           <div className="window-help" id="window-help">
             <p>{window.error ?? "Время Europe/Moscow. Пустые даты — опубликованный интервал целиком; конец не включается."}</p>
             {window.error && <span role="alert">Запрос не выполнен: исправьте интервал.</span>}
