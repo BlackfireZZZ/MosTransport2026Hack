@@ -418,13 +418,28 @@ export interface components {
             readonly generated_at?: string | null;
             /** License */
             readonly license?: string | null;
+            /**
+             * Missing Geometry Edges
+             * @default 0
+             */
+            readonly missing_geometry_edges: number;
             /** Osm Data Timestamp */
             readonly osm_data_timestamp?: string | null;
             /** Route Relations */
             readonly route_relations?: number | null;
             /** Source */
             readonly source?: string | null;
+            /**
+             * Synthetic
+             * @default false
+             */
+            readonly synthetic: boolean;
         };
+        /**
+         * GeometryQuality
+         * @enum {string}
+         */
+        readonly GeometryQuality: "provided" | "inferred" | "synthetic";
         /** HTTPValidationError */
         readonly HTTPValidationError: {
             /** Detail */
@@ -635,6 +650,7 @@ export interface components {
         };
         /** SegmentFeatureProperties */
         readonly SegmentFeatureProperties: {
+            readonly geometry_quality: components["schemas"]["GeometryQuality"];
             /** Length M */
             readonly length_m: number;
             /** Routes */
@@ -781,12 +797,18 @@ export interface components {
             readonly found: boolean;
             /**
              * Geometry
-             * @description [lon, lat] pairs along the track
+             * @description [lon, lat] pairs; inferred paths contain straight endpoint connectors
              */
             readonly geometry: readonly (readonly [
                 number,
                 number
             ])[];
+            readonly geometry_quality?: components["schemas"]["GeometryQuality"] | null;
+            /**
+             * Missing Geometry Edges
+             * @default 0
+             */
+            readonly missing_geometry_edges: number;
             /**
              * Reason
              * @description The same cause in English prose, for a human reading the API directly.

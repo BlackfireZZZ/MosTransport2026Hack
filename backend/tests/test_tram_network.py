@@ -123,3 +123,18 @@ def test_every_absence_sets_both_code_and_prose(network: TramNetwork) -> None:
         assert path.found is False
         assert path.reason_code is not None
         assert path.reason
+
+
+def test_missing_geometry_quality_is_explicit_in_path_and_geojson(network: TramNetwork) -> None:
+    from app.schemas.tram_graph import TramGraphGeoJson, TramPathResponse
+
+    path = TramPathResponse.model_validate(find_path(network, 1, 3))
+    assert path.geometry_quality == "inferred"
+    assert path.missing_geometry_edges == 2
+    body = TramGraphGeoJson.from_domain(network.geometry(None)).model_dump()
+    assert body["metadata"]["missing_geometry_edges"] == 5
+    lines = [f for f in body["features"] if f["geometry"]["type"] == "LineString"]
+    assert all(f["properties"]["geometry_quality"] == "inferred" for f in lines)
+    absent = find_path(network, 1, 9)
+    assert absent.geometry_quality is None
+    assert absent.missing_geometry_edges == 0

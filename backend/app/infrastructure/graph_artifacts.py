@@ -261,8 +261,16 @@ def _load_set(root: Path, manifest: dict[str, Any]) -> tuple[dict[str, Any], dic
 
 def load_active_graph(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     """Read one manifest and validate the exact bytes of its immutable artifact set."""
+    _, graph, geo = load_active_graph_snapshot(root)
+    return graph, geo
+
+
+def load_active_graph_snapshot(root: Path) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """Return the version from the same manifest that selected the verified bytes."""
     store = _store(root)
-    return _load_set(store, _json(_bytes(store / MANIFEST_NAME)))
+    manifest = _json(_bytes(store / MANIFEST_NAME))
+    graph, geo = _load_set(store, manifest)
+    return _check_manifest(manifest), graph, geo
 
 
 def _store(root: Path) -> Path:

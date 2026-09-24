@@ -19,6 +19,7 @@ from app.domain.forecast import (
     RouteSummary,
     StopForecastPoint,
     StopLoad,
+    finite_load_percent,
 )
 from app.infrastructure.db.models import (
     ForecastPointModel,
@@ -155,6 +156,7 @@ class SqlAlchemyForecastRepository:
                 upper_bound=row.upper if row.sources == 1 else None,
                 capacity=row.capacity if row.sources == 1 else None,
             )
+            finite_load_percent(value.predicted_passengers, value.capacity)
             if row.stop_id == chosen.stop_id:
                 points.append(value)
             if row.stop_id is not None:
@@ -198,7 +200,7 @@ class SqlAlchemyForecastRepository:
                     stop.latitude,
                     stop.longitude,
                     predicted,
-                    predicted / capacity * 100 if capacity else None,
+                    finite_load_percent(predicted, capacity),
                     stop.sequence,
                 )
             )

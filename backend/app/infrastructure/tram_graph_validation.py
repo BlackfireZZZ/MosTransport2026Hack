@@ -1,6 +1,7 @@
 """Strict parsing shared by the file repository and offline graph publication."""
 
 import math
+from dataclasses import replace
 from typing import Any
 
 from app.domain.tram_graph import (
@@ -66,6 +67,10 @@ def _coordinate(value: object, location: str) -> Coordinate:
 def _metadata(document: dict[str, Any]) -> GraphMetadata:
     raw = _object(document.get("metadata", {}), "metadata")
     fields: dict[str, Any] = {}
+    if "synthetic" in raw:
+        if type(raw["synthetic"]) is not bool:
+            raise TramGraphDataError("metadata.synthetic must be a boolean")
+        fields["synthetic"] = raw["synthetic"]
     for field in ("source", "license", "area", "osm_data_timestamp", "generated_at"):
         if field in raw:
             fields[field] = _text(raw[field], f"metadata.{field}")
@@ -81,7 +86,7 @@ def parse_network(document: object, geojson: object) -> TramNetwork:
     """Reject malformed pairs without coercing identifiers or numeric strings.
 
     Legacy extracts may omit metadata and per-edge geometry; missing geometry
-    preserves the domain's straight-line fallback. Present features must be valid.
+    is explicitly marked inferred. Present features must be valid.
     """
     graph = _object(document, "graph")
     if "directed" in graph and graph["directed"] is not True:
@@ -112,7 +117,7 @@ def parse_network(document: object, geojson: object) -> TramNetwork:
     collection = _object(geojson, "geojson")
     if collection.get("type") != "FeatureCollection":
         raise TramGraphDataError("geojson.type must be FeatureCollection")
-    _metadata(collection)
+    geometry_metadata = _metadata(collection)
     geometry: dict[tuple[int, int], tuple[Coordinate, ...]] = {}
     stop_ids = {stop.id for stop in stops}
     point_ids: set[int] = set()
@@ -147,4 +152,6 @@ def parse_network(document: object, geojson: object) -> TramNetwork:
             )
         else:
             raise TramGraphDataError("graph features must be Point or LineString")
-    return TramNetwork.build(_metadata(graph), stops, edges, geometry)
+    metadata = _metadata(graph)
+    metadata = replace(metadata, synthetic=metadata.synthetic or geometry_metadata.synthetic)
+    return TramNetwork.build(metadata, stops, edges, geometry)

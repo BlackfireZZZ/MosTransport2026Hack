@@ -309,3 +309,33 @@ async def test_two_published_runs_never_mix_point_and_stop_values(
     assert result.stop_points is not None and [
         p.predicted_passengers for p in result.stop_points
     ] == [777]
+
+
+async def test_unrepresentable_load_fails_before_http_serialization(
+    sql_session: AsyncSession,
+) -> None:
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy import update
+
+    from app.api.dependencies import get_forecast_service
+    from app.application.services.forecast import ForecastService
+    from app.main import create_app
+
+    await sql_session.execute(
+        update(ForecastPointModel)
+        .where(
+            ForecastPointModel.run_id == "legacy-day",
+            ForecastPointModel.route_id == 1,
+        )
+        .values(predicted_passengers=1e308, lower_bound=None, upper_bound=None, capacity=1e-308)
+    )
+    application = create_app()
+    application.dependency_overrides[get_forecast_service] = lambda: ForecastService(
+        SqlAlchemyForecastRepository(sql_session)
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=application), base_url="http://test"
+    ) as client:
+        response = await client.get("/api/v1/forecasts", params={"route_id": 1})
+        assert response.status_code == 409
+        assert response.json()["detail"] == "load percentage exceeds finite range"

@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -51,6 +52,15 @@ WINDOW_LIMITS = {
     ForecastHorizon.YEAR: timedelta(days=366),
 }
 BUCKET_LIMITS = {ForecastHorizon.DAY: 24, ForecastHorizon.MONTH: 31, ForecastHorizon.YEAR: 12}
+
+
+def finite_load_percent(predicted: float, capacity: float | None) -> float | None:
+    if capacity is None or capacity <= 0:
+        return None
+    result = predicted / capacity * 100
+    if not math.isfinite(result):
+        raise ForecastDataConflict("load percentage exceeds finite range")
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,11 +167,11 @@ class ForecastSnapshot:
         ):
             return None
         percentages = [
-            point.predicted_passengers / point.capacity * 100
+            finite_load_percent(point.predicted_passengers, point.capacity)
             for point in self.points
             if point.capacity
         ]
-        return max(percentages)
+        return max(value for value in percentages if value is not None)
 
 
 @dataclass(frozen=True, slots=True)

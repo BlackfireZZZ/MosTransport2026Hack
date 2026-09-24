@@ -104,12 +104,12 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
 | TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-015 | C | M |
 | TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | done | integration lead | INFRA | none | A | M |
-| TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | in_progress | for-vova-huesos | SERVING | TASK-025, TASK-026 | D | L |
+| TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | done | for-vova-huesos | SERVING | TASK-025, TASK-026 | D | L |
 | TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | for-vova-huesos | SERVING | TASK-027, TASK-015 | E | L |
 | TASK-029 | [Publish validated batch artifacts atomically and idempotently](#task-029) | feature | backend,ml | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-025, TASK-027 | G | M |
 | TASK-030 | [Publish graph artifacts as a validated versioned set](#task-030) | feature | data,backend | P1 | R2 | done | Codex lead | GRAPH-EXPORT | TASK-011, TASK-012 | B | M |
-| TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | ready | for-vova-huesos | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
-| TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | ready | for-vova-huesos | DATA-MAPPING | TASK-018, TASK-030 | D | M |
+| TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | done | for-vova-huesos | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
+| TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | done | for-vova-huesos | DATA-MAPPING | TASK-018, TASK-030 | D | M |
 | TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-028, TASK-010 | F | M |
 | TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
 | TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
@@ -511,7 +511,9 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-027
 
-- **Working evidence:** [active ExecPlan](../exec-plans/active/vova-027-runs.md); branch `agent/vova-027-runs`, base `d8313a4b79273306e41001adaf1f4673649cc304`.
+- **Integration:** Locally merged in `main` at `202caed`; independently reviewed; combined `make check` passed in `agent/vova-033-filters`. Evidence: [handoff](HANDOFF.md#vova-foundation-2026-09-25). No remote publication.
+
+- **Working evidence:** [active ExecPlan](../exec-plans/completed/vova-027-runs.md); branch `agent/vova-027-runs`, base `d8313a4b79273306e41001adaf1f4673649cc304`.
 
 - **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
@@ -568,6 +570,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-031
 
+- **Integration:** Locally merged in `main` at `202caed`; independently reviewed; combined `make check` passed in `agent/vova-033-filters`. Evidence: [handoff](HANDOFF.md#vova-foundation-2026-09-25). No remote publication.
+
 - **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Make missing per-edge geometry explicit** — RQ-04.
@@ -578,6 +582,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** This changes a tested behavior: document the decision and compatibility/rollback before editing.
 
 ## TASK-032
+
+- **Integration:** Locally merged in `main` at `202caed`; independently reviewed; combined `make check` passed in `agent/vova-033-filters`. Evidence: [handoff](HANDOFF.md#vova-foundation-2026-09-25). No remote publication.
 
 - **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 

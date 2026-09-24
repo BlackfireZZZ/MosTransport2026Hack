@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.tram_graph import (
+    GeometryQuality,
     NeighbourDirection,
     NetworkGeometry,
     RouteDetail,
@@ -158,13 +159,18 @@ class TramPathResponse(BaseModel):
     )
     stops: list[TramStopResponse]
     total_length_m: float = Field(ge=0)
-    geometry: list[tuple[float, float]] = Field(description="[lon, lat] pairs along the track")
+    geometry: list[tuple[float, float]] = Field(
+        description="[lon, lat] pairs; inferred paths contain straight endpoint connectors"
+    )
+    geometry_quality: GeometryQuality | None = None
+    missing_geometry_edges: int = Field(default=0, ge=0)
     routes: list[str]
 
 
 class GraphMetadataResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    synthetic: bool = False
     source: str | None = None
     license: str | None = None
     area: str | None = None
@@ -174,6 +180,7 @@ class GraphMetadataResponse(BaseModel):
 
 
 class GeoJsonMetadataResponse(GraphMetadataResponse):
+    missing_geometry_edges: int = Field(default=0, ge=0)
     filtered_to_route: str | None = None
 
 
@@ -194,6 +201,7 @@ class StopFeatureProperties(BaseModel):
 
 
 class SegmentFeatureProperties(BaseModel):
+    geometry_quality: GeometryQuality
     source: int
     target: int
     length_m: float
@@ -238,6 +246,7 @@ class TramGraphGeoJson(BaseModel):
                     target=segment.target,
                     length_m=segment.length_m,
                     routes=list(segment.routes),
+                    geometry_quality=segment.geometry_quality,
                 ),
             )
             for segment in geometry.segments
@@ -246,6 +255,10 @@ class TramGraphGeoJson(BaseModel):
             metadata=GeoJsonMetadataResponse(
                 **GraphMetadataResponse.model_validate(geometry.metadata).model_dump(),
                 filtered_to_route=geometry.filtered_to_route,
+                missing_geometry_edges=sum(
+                    segment.geometry_quality == GeometryQuality.INFERRED
+                    for segment in geometry.segments
+                ),
             ),
             features=features,
         )

@@ -199,7 +199,7 @@ export function markerCollection(
 }
 
 export function pathCollection(path: TramPath | undefined): FeatureCollection {
-  if (!path?.found || path.geometry.length < 2) return EMPTY_COLLECTION
+  if (!path?.found || path.geometry_quality === "inferred" || path.geometry.length < 2) return EMPTY_COLLECTION
   return {
     type: "FeatureCollection",
     features: [

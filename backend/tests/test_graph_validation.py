@@ -245,3 +245,54 @@ def test_domain_build_checks_invariants_independent_of_json(case: str) -> None:
         stops[0] = replace(stops[0], id=True)
     with pytest.raises(TramGraphDataError):
         TramNetwork.build(GraphMetadata(), stops, edges, {})
+
+
+@pytest.mark.parametrize("synthetic, expected", [(False, "provided"), (True, "synthetic")])
+def test_provided_and_synthetic_geometry_quality(synthetic: bool, expected: str) -> None:
+    from app.domain.tram_pathfinding import find_path
+    from app.schemas.tram_graph import TramGraphGeoJson
+
+    graph, geojson = documents()
+    graph["metadata"] = {"synthetic": synthetic}
+    network = parse_network(graph, geojson)
+    assert network.geometry(None).segments[0].geometry_quality == expected
+    assert find_path(network, 1, 2).geometry_quality == expected
+    assert find_path(network, 1, 2).missing_geometry_edges == 0
+    assert TramGraphGeoJson.from_domain(network.geometry(None)).metadata.synthetic == synthetic
+
+
+def test_partial_geometry_counts_only_missing_edges() -> None:
+    from app.domain.tram_pathfinding import find_path
+    from app.schemas.tram_graph import TramGraphGeoJson
+
+    graph, geojson = documents()
+    graph["links"].append({"source": 2, "target": 1, "length_m": 5, "routes": ["1"]})
+    network = parse_network(graph, geojson)
+    assert TramGraphGeoJson.from_domain(network.geometry(None)).metadata.missing_geometry_edges == 1
+    assert find_path(network, 1, 2).geometry_quality == "provided"
+    assert find_path(network, 2, 1).geometry_quality == "inferred"
+
+
+@pytest.mark.parametrize("value", ["true", 1, None])
+def test_synthetic_metadata_requires_boolean(value: object) -> None:
+    graph, geojson = documents()
+    graph["metadata"] = {"synthetic": value}
+    with pytest.raises(TramGraphDataError, match="synthetic must be a boolean"):
+        parse_network(graph, geojson)
+
+
+@pytest.mark.parametrize("graph_metadata", [{}, {"synthetic": False}, {"synthetic": True}])
+def test_geometry_synthetic_marker_cannot_be_erased_by_graph_metadata(
+    graph_metadata: dict[str, object],
+) -> None:
+    from app.domain.tram_pathfinding import find_path
+    from app.schemas.tram_graph import TramGraphGeoJson
+
+    graph, geojson = documents()
+    graph["metadata"] = graph_metadata
+    geojson["metadata"] = {"synthetic": True}
+    network = parse_network(graph, geojson)
+    assert network.metadata.synthetic is True
+    assert network.geometry(None).segments[0].geometry_quality == "synthetic"
+    assert find_path(network, 1, 2).geometry_quality == "synthetic"
+    assert TramGraphGeoJson.from_domain(network.geometry(None)).metadata.synthetic is True

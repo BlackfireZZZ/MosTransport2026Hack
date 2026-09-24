@@ -26,6 +26,12 @@ from enum import StrEnum
 Coordinate = tuple[float, float]
 
 
+class GeometryQuality(StrEnum):
+    PROVIDED = "provided"
+    INFERRED = "inferred"
+    SYNTHETIC = "synthetic"
+
+
 class TramGraphDataError(RuntimeError):
     """The stored graph could not be turned into a usable network."""
 
@@ -81,6 +87,7 @@ class GraphMetadata:
     `NetworkStats` counts.
     """
 
+    synthetic: bool = False
     source: str | None = None
     license: str | None = None
     area: str | None = None
@@ -176,13 +183,14 @@ class NetworkStats:
 
 @dataclass(frozen=True, slots=True)
 class TrackSegment:
-    """An edge together with the polyline of the track it runs on."""
+    """An edge polyline whose provenance is explicit, including inferred connectors."""
 
     source: int
     target: int
     length_m: float
     routes: tuple[str, ...]
     coordinates: tuple[Coordinate, ...]
+    geometry_quality: GeometryQuality
 
 
 @dataclass(frozen=True, slots=True)
@@ -413,8 +421,13 @@ class TramNetwork:
             component=route.component,
         )
 
+    def geometry_quality(self, edge: TramEdge) -> GeometryQuality:
+        if (edge.source, edge.target) not in self.track_geometry:
+            return GeometryQuality.INFERRED
+        return GeometryQuality.SYNTHETIC if self.metadata.synthetic else GeometryQuality.PROVIDED
+
     def track_coordinates(self, edge: TramEdge) -> tuple[Coordinate, ...]:
-        """The polyline along the rails, falling back to the straight line."""
+        """Coordinates only; consumers must inspect geometry_quality before rendering rails."""
         coordinates = self.track_geometry.get((edge.source, edge.target))
         if coordinates:
             return coordinates
@@ -438,6 +451,7 @@ class TramNetwork:
                     length_m=edge.length_m,
                     routes=edge.routes,
                     coordinates=self.track_coordinates(edge),
+                    geometry_quality=self.geometry_quality(edge),
                 )
                 for edge in edges
             ),

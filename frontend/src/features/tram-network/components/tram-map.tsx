@@ -158,7 +158,7 @@ export function TramMap(props: TramMapProps) {
         id: "network-track",
         type: "line",
         source: "network",
-        filter: ["==", ["geometry-type"], "LineString"],
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["!=", ["get", "geometry_quality"], "inferred"]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: { "line-color": COLOR.track, "line-width": 1.6, "line-opacity": 0.85 },
       })
@@ -178,7 +178,7 @@ export function TramMap(props: TramMapProps) {
         id: "route-track",
         type: "line",
         source: "route",
-        filter: ["==", ["geometry-type"], "LineString"],
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["!=", ["get", "geometry_quality"], "inferred"]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: { "line-color": COLOR.route, "line-width": 3.4 },
       })
@@ -354,6 +354,10 @@ export function TramMap(props: TramMapProps) {
         </div>
       )}
       </div>
+      {(network?.metadata.missing_geometry_edges ?? 0) > 0 && (
+        <p role="status">Геометрия отсутствует для {network?.metadata.missing_geometry_edges} участков. Прямые соединения не показаны как рельсы.</p>
+      )}
+      {network?.metadata.synthetic && <p role="status">Синтетическая геометрия — демонстрационные данные.</p>}
       <details>
         <summary>Остановки и участки сети</summary>
         <div className="max-h-80 overflow-auto">
@@ -372,7 +376,7 @@ export function TramMap(props: TramMapProps) {
                       <span> · {feature.geometry.coordinates.join(", ")}</span>
                     </>
                   ) : (
-                    <span>OSM {feature.properties.source} → OSM {feature.properties.target} · {feature.properties.length_m} м</span>
+                    <span>OSM {feature.properties.source} → OSM {feature.properties.target} · {feature.properties.length_m} м · {feature.properties.geometry_quality === "inferred" ? "геометрия отсутствует" : feature.properties.geometry_quality === "synthetic" ? "синтетическая геометрия" : "геометрия источника"}</span>
                   )}
                   <span> · маршруты: {feature.properties.routes.join(", ") || "не указаны"}</span>
                 </li>

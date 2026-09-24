@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright"
 import { expect, test, type Page } from "@playwright/test"
-import { mockNetwork } from "./network-fixtures"
+import { graph, json, mockNetwork, stops } from "./network-fixtures"
 
 async function openNetwork(page: Page) {
   await page.goto("/")
@@ -161,3 +161,32 @@ test("tile failures are visible even when the style itself loads", async ({ page
   await selectStop(page, "Альфа")
   await expect(page.getByRole("button", { name: "Откуда", exact: true })).toBeEnabled()
 })
+
+
+for (const width of [390, 1440]) {
+  test(`missing geometry is explicit and keyboard usable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 })
+    await mockNetwork(page)
+    await page.route("**/api/v1/tram-graph/geojson", async (route) => {
+      const data = graph()
+      await json(route, { ...data, metadata: { ...data.metadata, missing_geometry_edges: 1 },
+        features: data.features.map((feature) => "source" in feature.properties
+          ? { ...feature, properties: { ...feature.properties, geometry_quality: "inferred" } }
+          : feature) })
+    })
+    await page.route("**/api/v1/tram-graph/path?*", (route) => json(route, {
+      found: true, stops: stops.slice(0, 2), routes: ["1"], total_length_m: 1700,
+      geometry: [[37.6, 55.75], [37.62, 55.76]], geometry_quality: "inferred", missing_geometry_edges: 1,
+    }))
+    await openNetwork(page)
+    await expect(page.getByText(/Прямые соединения не показаны как рельсы/)).toBeVisible()
+    await expect(page.getByText(/Синтетическая геометрия/)).toBeVisible()
+    await selectStop(page, "Альфа")
+    await page.getByRole("button", { name: "Откуда", exact: true }).press("Enter")
+    await selectStop(page, "Бета")
+    await page.getByRole("button", { name: "Куда", exact: true }).press("Enter")
+    await expect(page.getByText(/Линия пути скрыта/)).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+  })
+}

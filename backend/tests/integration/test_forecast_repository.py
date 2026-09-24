@@ -78,6 +78,11 @@ async def test_order_is_independent_of_insert_order(sql_session: AsyncSession) -
             )
         )
     await sql_session.execute(delete(RouteStopModel).where(RouteStopModel.route_id == 1))
+    await sql_session.execute(
+        delete(ForecastPointModel).where(
+            ForecastPointModel.route_id == 1, ForecastPointModel.stop_id.in_([4, 5, 6])
+        )
+    )
     for sequence in (3, 1, 2):
         sql_session.add(
             RouteStopModel(id=9000 + sequence, route_id=1, stop_id=sequence, sequence=sequence)
