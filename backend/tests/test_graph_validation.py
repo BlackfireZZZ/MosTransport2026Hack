@@ -279,3 +279,20 @@ def test_synthetic_metadata_requires_boolean(value: object) -> None:
     graph["metadata"] = {"synthetic": value}
     with pytest.raises(TramGraphDataError, match="synthetic must be a boolean"):
         parse_network(graph, geojson)
+
+
+@pytest.mark.parametrize("graph_metadata", [{}, {"synthetic": False}, {"synthetic": True}])
+def test_geometry_synthetic_marker_cannot_be_erased_by_graph_metadata(
+    graph_metadata: dict[str, object],
+) -> None:
+    from app.domain.tram_pathfinding import find_path
+    from app.schemas.tram_graph import TramGraphGeoJson
+
+    graph, geojson = documents()
+    graph["metadata"] = graph_metadata
+    geojson["metadata"] = {"synthetic": True}
+    network = parse_network(graph, geojson)
+    assert network.metadata.synthetic is True
+    assert network.geometry(None).segments[0].geometry_quality == "synthetic"
+    assert find_path(network, 1, 2).geometry_quality == "synthetic"
+    assert TramGraphGeoJson.from_domain(network.geometry(None)).metadata.synthetic is True

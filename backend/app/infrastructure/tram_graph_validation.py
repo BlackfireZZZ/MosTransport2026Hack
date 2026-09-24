@@ -1,6 +1,7 @@
 """Strict parsing shared by the file repository and offline graph publication."""
 
 import math
+from dataclasses import replace
 from typing import Any
 
 from app.domain.tram_graph import (
@@ -116,7 +117,7 @@ def parse_network(document: object, geojson: object) -> TramNetwork:
     collection = _object(geojson, "geojson")
     if collection.get("type") != "FeatureCollection":
         raise TramGraphDataError("geojson.type must be FeatureCollection")
-    _metadata(collection)
+    geometry_metadata = _metadata(collection)
     geometry: dict[tuple[int, int], tuple[Coordinate, ...]] = {}
     stop_ids = {stop.id for stop in stops}
     point_ids: set[int] = set()
@@ -151,4 +152,6 @@ def parse_network(document: object, geojson: object) -> TramNetwork:
             )
         else:
             raise TramGraphDataError("graph features must be Point or LineString")
-    return TramNetwork.build(_metadata(graph), stops, edges, geometry)
+    metadata = _metadata(graph)
+    metadata = replace(metadata, synthetic=metadata.synthetic or geometry_metadata.synthetic)
+    return TramNetwork.build(metadata, stops, edges, geometry)

@@ -7,7 +7,9 @@ Accepted 2026-09-25, TASK-031.
 An absent edge polyline retains its endpoint connector for topology navigation, but
 is `inferred`, never surveyed rail geometry. Supplied polylines are `provided`;
 that label describes provenance, not a certification of accuracy. Explicit
-`synthetic: true` graph metadata labels all supplied geometry `synthetic`.
+`synthetic: true` in either graph or GeoJSON metadata labels all supplied
+geometry `synthetic`; absent or false metadata in the other file cannot erase
+that marker.
 A path inherits inferred quality if any traversed edge is missing; otherwise it
 inherits synthetic or provided quality. Missing-edge counts accompany paths and
 GeoJSON metadata. Unreachable paths have no geometry and zero missing edges.

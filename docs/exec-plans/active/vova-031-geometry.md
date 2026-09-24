@@ -64,3 +64,14 @@ to their pre-existing silent-fallback behavior until deployed with the new UI.
 - Final `make check`: exit 0; backend 300 passed / 10 opt-in SQL tests skipped,
   ML 151 passed, frontend 49 passed, shared contracts 119 passed; lint, mypy,
   production build, generated-contract check, architecture and Compose checks passed.
+
+### Review correction
+
+Independent review found that legacy GeoJSON-only `synthetic: true` was discarded
+when graph metadata lacked the marker. The loader now conservatively preserves a
+true marker from either validated file. A false or missing counterpart cannot
+relabel synthetic geometry as provided. Three regression cases exercise missing,
+false and true graph flags with synthetic GeoJSON through segment/path/API output.
+Focused `pytest backend/tests/test_graph_validation.py`: 98 passed.
+Repeated `make check`: exit 0; 303 backend passed (10 opt-in SQL skips), 151 ML,
+49 frontend and 119 contracts passed, with all static/build/Compose gates passing.
