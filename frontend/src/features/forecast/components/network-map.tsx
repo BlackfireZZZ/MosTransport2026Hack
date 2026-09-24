@@ -9,7 +9,8 @@ interface NetworkMapProps {
   stops: readonly StopLoad[]
 }
 
-function stopColor(load: number) {
+function stopColor(load: number | null) {
+  if (load === null) return "var(--muted-foreground)"
   if (load >= 95) return "var(--destructive)"
   if (load >= 75) return "var(--warning)"
   return "var(--chart-2)"
@@ -24,7 +25,7 @@ export function NetworkMap({ stops }: NetworkMapProps) {
       </Card>
     )
   }
-  const maxLoad = Math.max(...stops.map((stop) => stop.load_percent), 1)
+  const maxLoad = Math.max(...stops.map((stop) => stop.load_percent ?? 0), 1)
   const longitudes = stops.map((stop) => stop.longitude)
   const latitudes = stops.map((stop) => stop.latitude)
   const minLongitude = Math.min(...longitudes)
@@ -56,7 +57,7 @@ export function NetworkMap({ stops }: NetworkMapProps) {
             <path d={path} fill="none" stroke="var(--foreground)" strokeWidth="1.2" strokeLinecap="round" />
             {points.map((point) => (
               <g key={point.id}>
-                <circle cx={point.x} cy={point.y} r={4 + (point.load_percent / maxLoad) * 2.5} fill="var(--card)" stroke={stopColor(point.load_percent)} strokeWidth="2" />
+                <circle cx={point.x} cy={point.y} r={4 + ((point.load_percent ?? 0) / maxLoad) * 2.5} fill="var(--card)" stroke={stopColor(point.load_percent)} strokeWidth="2" />
                 <circle cx={point.x} cy={point.y} r="1.5" fill={stopColor(point.load_percent)} />
               </g>
             ))}
@@ -70,7 +71,7 @@ export function NetworkMap({ stops }: NetworkMapProps) {
                 {stop.sequence === 1 ? <TrainFront /> : <CircleDot />}
               </span>
               <span className="stop-name">{stop.name}</span>
-              <span className="stop-value">{formatPassengers(stop.predicted_passengers)} · {stop.load_percent.toFixed(0)}%</span>
+              <span className="stop-value">{formatPassengers(stop.predicted_passengers)} · {stop.load_percent == null ? "вместимость неизвестна" : `${stop.load_percent.toFixed(0)}%`}</span>
             </li>
           ))}
         </ol>

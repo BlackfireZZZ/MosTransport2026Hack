@@ -19,9 +19,9 @@ class ForecastPointResponse(BaseModel):
 
     timestamp: datetime
     predicted_passengers: float = Field(ge=0)
-    lower_bound: float = Field(ge=0)
-    upper_bound: float = Field(ge=0)
-    capacity: float = Field(gt=0)
+    lower_bound: float | None = Field(ge=0)
+    upper_bound: float | None = Field(ge=0)
+    capacity: float | None = Field(ge=0)
 
 
 class StopLoadResponse(BaseModel):
@@ -32,7 +32,7 @@ class StopLoadResponse(BaseModel):
     latitude: float
     longitude: float
     predicted_passengers: float = Field(ge=0)
-    load_percent: float = Field(ge=0)
+    load_percent: float | None = Field(ge=0)
     sequence: int = Field(ge=1)
 
 
@@ -44,7 +44,7 @@ class ForecastResponse(BaseModel):
     generated_at: datetime
     model_version: str
     peak_passengers: float
-    peak_load_percent: float
+    peak_load_percent: float | None
     points: list[ForecastPointResponse]
     stops: list[StopLoadResponse]
 
@@ -60,8 +60,8 @@ class ScenarioRequest(BaseModel):
 class ScenarioResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    baseline_peak_load_percent: float
-    scenario_peak_load_percent: float
+    baseline_peak_load_percent: float | None
+    scenario_peak_load_percent: float | None
     passenger_delta: float
     capacity_delta: float
     affected_stops: list[StopLoadResponse]

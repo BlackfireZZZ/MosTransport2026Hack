@@ -9,7 +9,7 @@ describe("browser forecast fixture contracts", () => {
         expect(forecast).toEqual(forecastResponse(route.id, horizon))
         expect(forecast.route).toEqual(route)
         expect(forecast.peak_passengers).toBe(Math.max(...forecast.points.map((p) => p.predicted_passengers)))
-        expect(forecast.peak_load_percent).toBe(Math.max(...forecast.points.map((p) => p.predicted_passengers / p.capacity * 100)))
+        expect(forecast.peak_load_percent).toBe(Math.max(...forecast.points.map((p) => p.predicted_passengers / (p.capacity ?? NaN) * 100)))
         expect(forecast.points).toHaveLength(horizon === "day" ? 24 : horizon === "month" ? 31 : 12)
         forecast.points.forEach((point, index) => {
           expect(point.lower_bound).toBeLessThanOrEqual(point.predicted_passengers)

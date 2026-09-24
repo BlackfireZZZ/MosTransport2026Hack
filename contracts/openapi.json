@@ -13,14 +13,28 @@
       "ForecastPointResponse": {
         "properties": {
           "capacity": {
-            "exclusiveMinimum": 0.0,
-            "title": "Capacity",
-            "type": "number"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
           },
           "lower_bound": {
-            "minimum": 0.0,
-            "title": "Lower Bound",
-            "type": "number"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Bound"
           },
           "predicted_passengers": {
             "minimum": 0.0,
@@ -33,9 +47,16 @@
             "type": "string"
           },
           "upper_bound": {
-            "minimum": 0.0,
-            "title": "Upper Bound",
-            "type": "number"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Bound"
           }
         },
         "required": [
@@ -63,8 +84,15 @@
             "type": "string"
           },
           "peak_load_percent": {
-            "title": "Peak Load Percent",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Load Percent"
           },
           "peak_passengers": {
             "title": "Peak Passengers",
@@ -576,8 +604,15 @@
             "type": "array"
           },
           "baseline_peak_load_percent": {
-            "title": "Baseline Peak Load Percent",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Peak Load Percent"
           },
           "capacity_delta": {
             "title": "Capacity Delta",
@@ -588,8 +623,15 @@
             "type": "number"
           },
           "scenario_peak_load_percent": {
-            "title": "Scenario Peak Load Percent",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario Peak Load Percent"
           },
           "solver_version": {
             "title": "Solver Version",
@@ -792,9 +834,16 @@
             "type": "number"
           },
           "load_percent": {
-            "minimum": 0.0,
-            "title": "Load Percent",
-            "type": "number"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Percent"
           },
           "longitude": {
             "title": "Longitude",

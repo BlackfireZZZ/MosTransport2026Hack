@@ -53,3 +53,18 @@ it("distinguishes initial failure from retained demo data and recovers", async (
   fireEvent.click(screen.getByRole("button", { name: "Повторить прогноз" }))
   await waitFor(() => expect(screen.queryByText("Показан сохранённый демопрогноз")).not.toBeInTheDocument())
 })
+
+it("shows unknown capacity without inventing a zero percentage", async () => {
+  vi.mocked(api.routes).mockResolvedValue([...routes])
+  const response = forecastResponse(1, "day")
+  vi.mocked(api.forecast).mockResolvedValue({ ...response, peak_load_percent: null,
+    points: response.points.map((point) => ({ ...point, capacity: null, lower_bound: null, upper_bound: null })),
+    stops: response.stops.map((stop) => ({ ...stop, load_percent: null })),
+  })
+  mount()
+  await screen.findByText("Тестовый график")
+  const kpis = screen.getByRole("region", { name: "Ключевые показатели" })
+  expect(kpis).toHaveTextContent("вместимость неизвестна")
+  expect(kpis).not.toHaveTextContent("0%")
+  expect(kpis).not.toHaveTextContent("в пределах вместимости")
+})

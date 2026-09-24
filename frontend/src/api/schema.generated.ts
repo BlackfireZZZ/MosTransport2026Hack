@@ -294,9 +294,9 @@ export interface components {
         /** ForecastPointResponse */
         readonly ForecastPointResponse: {
             /** Capacity */
-            readonly capacity: number;
+            readonly capacity: number | null;
             /** Lower Bound */
-            readonly lower_bound: number;
+            readonly lower_bound: number | null;
             /** Predicted Passengers */
             readonly predicted_passengers: number;
             /**
@@ -305,7 +305,7 @@ export interface components {
              */
             readonly timestamp: string;
             /** Upper Bound */
-            readonly upper_bound: number;
+            readonly upper_bound: number | null;
         };
         /** ForecastResponse */
         readonly ForecastResponse: {
@@ -318,7 +318,7 @@ export interface components {
             /** Model Version */
             readonly model_version: string;
             /** Peak Load Percent */
-            readonly peak_load_percent: number;
+            readonly peak_load_percent: number | null;
             /** Peak Passengers */
             readonly peak_passengers: number;
             /** Points */
@@ -518,13 +518,13 @@ export interface components {
             /** Affected Stops */
             readonly affected_stops: readonly components["schemas"]["StopLoadResponse"][];
             /** Baseline Peak Load Percent */
-            readonly baseline_peak_load_percent: number;
+            readonly baseline_peak_load_percent: number | null;
             /** Capacity Delta */
             readonly capacity_delta: number;
             /** Passenger Delta */
             readonly passenger_delta: number;
             /** Scenario Peak Load Percent */
-            readonly scenario_peak_load_percent: number;
+            readonly scenario_peak_load_percent: number | null;
             /** Solver Version */
             readonly solver_version: string;
         };
@@ -606,7 +606,7 @@ export interface components {
             /** Latitude */
             readonly latitude: number;
             /** Load Percent */
-            readonly load_percent: number;
+            readonly load_percent: number | null;
             /** Longitude */
             readonly longitude: number;
             /** Name */

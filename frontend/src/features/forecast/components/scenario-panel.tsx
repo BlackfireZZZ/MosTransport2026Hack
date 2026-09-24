@@ -62,10 +62,10 @@ export function ScenarioPanel({ routeId, horizon }: ScenarioPanelProps) {
           <div className="scenario-result" data-testid="scenario-result" aria-live="polite">
             <span>Пиковая загрузка</span>
             <div>
-              <strong>{scenario.data.baseline_peak_load_percent.toFixed(0)}%</strong>
+              <strong>{scenario.data.baseline_peak_load_percent == null ? "нет данных о вместимости" : `${scenario.data.baseline_peak_load_percent.toFixed(0)}%`}</strong>
               <ArrowRight />
-              <strong className={scenario.data.scenario_peak_load_percent >= 100 ? "is-critical" : ""}>
-                {scenario.data.scenario_peak_load_percent.toFixed(0)}%
+              <strong className={(scenario.data.scenario_peak_load_percent ?? -1) >= 100 ? "is-critical" : ""}>
+                {scenario.data.scenario_peak_load_percent == null ? "нет данных о вместимости" : `${scenario.data.scenario_peak_load_percent.toFixed(0)}%`}
               </strong>
             </div>
             <small>Прототип расчёта · {scenario.data.solver_version}</small>

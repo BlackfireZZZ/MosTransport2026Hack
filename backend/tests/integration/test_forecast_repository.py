@@ -64,6 +64,7 @@ async def test_order_is_independent_of_insert_order(sql_session: AsyncSession) -
         sql_session.add(
             ForecastPointModel(
                 id=9000 + index,
+                run_id="legacy-day",
                 route_id=1,
                 stop_id=None,
                 horizon="day",
@@ -72,8 +73,8 @@ async def test_order_is_independent_of_insert_order(sql_session: AsyncSession) -
                 lower_bound=0,
                 upper_bound=20,
                 capacity=180,
-                model_version="ordering-fixture",
-                generated_at=start,
+                model_version="graph-baseline-v1",
+                generated_at=datetime(2026, 9, 19, 9, tzinfo=UTC),
             )
         )
     await sql_session.execute(delete(RouteStopModel).where(RouteStopModel.route_id == 1))

@@ -10,6 +10,7 @@ from app.domain.forecast import (
 )
 from app.infrastructure.db.models import (
     ForecastPointModel,
+    ForecastRunModel,
     RouteModel,
     RouteStopModel,
     StopModel,
@@ -34,9 +35,19 @@ class SqlAlchemyForecastRepository:
         if route is None:
             return None
 
+        run = await self._session.scalar(
+            select(ForecastRunModel)
+            .where(ForecastRunModel.horizon == horizon.value, ForecastRunModel.state == "published")
+            .order_by(ForecastRunModel.generated_at.desc(), ForecastRunModel.id.desc())
+            .limit(1)
+        )
+        if run is None:
+            return None
+
         points_result = await self._session.execute(
             select(ForecastPointModel)
             .where(
+                ForecastPointModel.run_id == run.id,
                 ForecastPointModel.route_id == route_id,
                 ForecastPointModel.stop_id.is_(None),
                 ForecastPointModel.horizon == horizon.value,
@@ -52,7 +63,8 @@ class SqlAlchemyForecastRepository:
             .join(StopModel, StopModel.id == RouteStopModel.stop_id)
             .join(
                 ForecastPointModel,
-                (ForecastPointModel.stop_id == StopModel.id)
+                (ForecastPointModel.run_id == run.id)
+                & (ForecastPointModel.stop_id == StopModel.id)
                 & (ForecastPointModel.route_id == route_id)
                 & (ForecastPointModel.horizon == horizon.value),
             )
@@ -67,7 +79,11 @@ class SqlAlchemyForecastRepository:
                 latitude=stop.latitude,
                 longitude=stop.longitude,
                 predicted_passengers=forecast.predicted_passengers,
-                load_percent=forecast.predicted_passengers / forecast.capacity * 100,
+                load_percent=(
+                    forecast.predicted_passengers / forecast.capacity * 100
+                    if forecast.capacity
+                    else None
+                ),
                 sequence=route_stop.sequence,
             )
             for route_stop, stop, forecast in stops_result.all()
@@ -78,8 +94,8 @@ class SqlAlchemyForecastRepository:
                 id=route.id, number=route.number, name=route.name, color=route.color
             ),
             horizon=horizon,
-            generated_at=point_rows[0].generated_at,
-            model_version=point_rows[0].model_version,
+            generated_at=run.generated_at,
+            model_version=run.model_version,
             points=[
                 ForecastPoint(
                     timestamp=row.bucket_start,
