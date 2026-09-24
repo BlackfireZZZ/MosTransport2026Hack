@@ -1,0 +1,52 @@
+"""Event-time alignment: source clock in, Europe/Moscow out, day shifts recorded."""
+
+from datetime import UTC, datetime, timedelta
+
+from tramflow_ml.identity.config import MOSCOW, SourceClock
+from tramflow_ml.identity.types import AlignedTime, IdentityError
+
+
+def localize(clock: SourceClock, value: datetime) -> datetime:
+    """Aware values keep their own offset; naive values are read in the source timezone."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=clock.zone)
+    return value
+
+
+def adjust(clock: SourceClock, value: datetime) -> datetime:
+    """Apply the offset in UTC so a source DST gap cannot yield a phantom wall time."""
+    try:
+        shifted = localize(clock, value).astimezone(UTC) + timedelta(seconds=clock.offset_seconds)
+        return shifted.astimezone(MOSCOW)
+    except OverflowError as error:
+        raise IdentityError("timestamp outside the supported datetime range") from error
+
+
+def align_time(
+    clock: SourceClock, event_at: datetime, available_at: datetime | None
+) -> AlignedTime:
+    source_event_at = localize(clock, event_at)
+    aligned_event_at = adjust(clock, event_at)
+    source_available_at = None if available_at is None else localize(clock, available_at)
+    return AlignedTime(
+        source_event_at=source_event_at,
+        event_at=aligned_event_at,
+        source_available_at=source_available_at,
+        available_at=_availability(clock, aligned_event_at, available_at),
+        offset_seconds=clock.offset_seconds,
+        service_day_shifted=source_event_at.astimezone(MOSCOW).date() != aligned_event_at.date(),
+    )
+
+
+def _availability(
+    clock: SourceClock, aligned_event_at: datetime, available_at: datetime | None
+) -> datetime | None:
+    if available_at is not None:
+        return adjust(clock, available_at)
+    if clock.availability_lag_seconds is None:
+        return None
+    lag = timedelta(seconds=clock.availability_lag_seconds)
+    try:
+        return (aligned_event_at.astimezone(UTC) + lag).astimezone(MOSCOW)
+    except OverflowError as error:
+        raise IdentityError("availability outside the supported datetime range") from error
