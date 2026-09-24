@@ -1,6 +1,7 @@
 """Immutable feature records. ``None`` is the only representation of missing."""
 
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -18,12 +19,16 @@ Granularity = Literal["hourly", "daily", "monthly"]
 Coverage = Literal["observed", "missing"]
 FeatureValue = float | None
 
+COUNT_UNIT = "event_count"
+COUNT_TARGETS: frozenset[str] = frozenset({"synthetic_boardings", "validation_count"})
+
 GRANULARITY_FOR_HORIZON: Mapping[Horizon, Granularity] = MappingProxyType(
     {"day": "hourly", "month": "daily", "year": "monthly"}
 )
 GRANULARITY_SUFFIX: Mapping[Granularity, str] = MappingProxyType(
     {"hourly": "h", "daily": "d", "monthly": "m"}
 )
+MULTI_DATE_GRANULARITIES: frozenset[str] = frozenset({"monthly"})
 
 
 class FeatureError(ValueError):
@@ -41,6 +46,30 @@ def require_aware(value: datetime, name: str) -> datetime:
     return value
 
 
+def validate_count_pair(target: str, unit: str) -> None:
+    """Refuse a unit this layer cannot produce.
+
+    An observation is one event with no magnitude attached, so the layer can only ever
+    emit event counts. ``forecast_v1`` also defines passenger-valued targets; labelling a
+    row count as a passenger load would misstate the quantity all the way into the
+    header and the digest.
+    """
+    if unit != COUNT_UNIT:
+        raise FeatureError(
+            f"unit {unit!r} cannot be produced: observations carry no magnitude, "
+            f"so only {COUNT_UNIT!r} is available"
+        )
+    if target not in COUNT_TARGETS:
+        raise FeatureError(
+            f"target {target!r} is not a counted target; expected {sorted(COUNT_TARGETS)}"
+        )
+
+
+def spans_multiple_dates(granularity: Granularity) -> bool:
+    """Whether one bucket can cover more than one Moscow civil date."""
+    return granularity in MULTI_DATE_GRANULARITIES
+
+
 @dataclass(frozen=True, slots=True, order=True)
 class EntityKey:
     """Route, direction and stop; direction is never collapsed away."""
@@ -55,6 +84,30 @@ class EntityKey:
             "direction_id": self.direction_id,
             "stop_id": self.stop_id,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class CapacityRecord:
+    """A capacity together with the instant it became known.
+
+    An attribute without its own availability instant cannot be placed relative to a
+    cutoff, so an unstamped capacity is refused rather than assumed to be timeless: a
+    2026 capacity table must not reach a 2024 forecast origin.
+    """
+
+    value: float
+    available_at: datetime
+
+    def __post_init__(self) -> None:
+        require_aware(self.available_at, "capacity available_at")
+        if isinstance(self.value, bool) or not isinstance(self.value, int | float):
+            raise FeatureError("capacity value must be a number")
+        if not math.isfinite(self.value) or self.value < 0:
+            raise FeatureError("capacity value must be finite and non-negative")
+
+    def value_at(self, cutoff: datetime) -> FeatureValue:
+        published = self.available_at.astimezone(UTC) <= cutoff.astimezone(UTC)
+        return float(self.value) if published else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +168,23 @@ class AggregateCell:
     covered_units: int
     total_units: int
 
+    def __post_init__(self) -> None:
+        if self.total_units < 1:
+            raise FeatureError("a bucket spans at least one civil date")
+        if not 0 <= self.covered_units <= self.total_units:
+            raise FeatureError("covered_units must lie within [0, total_units]")
+        if (self.coverage == "missing") != (self.value is None):
+            raise FeatureError("missing requires no value; observed requires a count")
+        if (self.covered_units == 0) != (self.value is None):
+            raise FeatureError("a bucket with no available date must have no value")
+        if self.value is not None and self.value < 0:
+            raise FeatureError("an event count cannot be negative")
+
+    @property
+    def unit_ratio(self) -> float:
+        """Fraction of the bucket's civil dates that are available; 1/29 is not 29/29."""
+        return self.covered_units / self.total_units
+
     def to_dict(self) -> dict[str, object]:
         return {
             **self.entity.to_dict(),
@@ -139,6 +209,14 @@ class FeatureRow:
     target_covered_units: int
     target_total_units: int
     features: Mapping[str, FeatureValue]
+
+    def __post_init__(self) -> None:
+        if self.target_total_units < 1:
+            raise FeatureError("a target bucket spans at least one civil date")
+        if not 0 <= self.target_covered_units <= self.target_total_units:
+            raise FeatureError("target covered_units must lie within [0, total_units]")
+        if (self.target_coverage == "missing") != (self.target_value is None):
+            raise FeatureError("a missing target requires no value; observed requires a count")
 
     def feature_dict(self) -> dict[str, object]:
         """Everything a model may consume; no label, so leakage is testable on its own."""

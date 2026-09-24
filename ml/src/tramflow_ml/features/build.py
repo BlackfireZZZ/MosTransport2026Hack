@@ -7,7 +7,7 @@ from types import MappingProxyType
 
 from tramflow_ml.features.aggregate import AggregateIndex, aggregate
 from tramflow_ml.features.calendar_features import calendar_feature_names, calendar_features
-from tramflow_ml.features.coverage import CoverageCalendar
+from tramflow_ml.features.coverage import CoverageCalendar, CoverageView
 from tramflow_ml.features.history import (
     lag_features,
     lag_names,
@@ -21,6 +21,7 @@ from tramflow_ml.features.policy import HorizonPolicy
 from tramflow_ml.features.records import (
     FEATURE_VERSION,
     Bucket,
+    CapacityRecord,
     EntityKey,
     FeatureError,
     FeatureHeader,
@@ -28,6 +29,7 @@ from tramflow_ml.features.records import (
     FeatureTable,
     FeatureValue,
     Observation,
+    validate_count_pair,
 )
 
 HORIZON_INDEX = "horizon_index"
@@ -36,7 +38,12 @@ ENTITY_CAPACITY = "entity_capacity"
 
 @dataclass(frozen=True, slots=True)
 class FeatureRequest:
-    """One horizon at one origin. Capacities absent from the mapping stay missing."""
+    """One horizon at one origin.
+
+    ``capacities`` is copied on construction, so a caller that keeps its own dict cannot
+    change a built request afterwards. Every capacity carries its own availability
+    instant and is resolved at the cutoff like any other input.
+    """
 
     policy: HorizonPolicy
     origin: datetime
@@ -45,13 +52,27 @@ class FeatureRequest:
     coverage: CoverageCalendar
     target: str
     unit: str
-    capacities: Mapping[EntityKey, float] = field(default_factory=dict)
+    capacities: Mapping[EntityKey, CapacityRecord] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.entities:
             raise FeatureError("a feature request needs at least one entity")
-        if not self.target or not self.unit:
-            raise FeatureError("target and unit must be non-empty")
+        validate_count_pair(self.target, self.unit)
+        stamped: dict[EntityKey, CapacityRecord] = {}
+        for entity, record in self.capacities.items():
+            if not isinstance(record, CapacityRecord):
+                raise FeatureError(
+                    f"capacity for {entity.stop_id} must be a CapacityRecord carrying its "
+                    "own availability instant; an unstamped capacity cannot be placed "
+                    "relative to a cutoff"
+                )
+            stamped[entity] = record
+        object.__setattr__(self, "capacities", MappingProxyType(stamped))
+
+    def capacity_at(self, entity: EntityKey, cutoff: datetime) -> FeatureValue:
+        """Missing when unknown and when known only after the cutoff."""
+        record = self.capacities.get(entity)
+        return None if record is None else record.value_at(cutoff)
 
 
 def feature_names(policy: HorizonPolicy) -> tuple[str, ...]:
@@ -66,6 +87,26 @@ def feature_names(policy: HorizonPolicy) -> tuple[str, ...]:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _Tables:
+    """What every row of one build shares."""
+
+    request: FeatureRequest
+    history: AggregateIndex
+    labels: AggregateIndex
+    cutoff: datetime
+    names: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _PerEntity:
+    """What every bucket of one entity shares; rolling windows are constant per entity."""
+
+    entity: EntityKey
+    rolling: Mapping[str, FeatureValue]
+    capacity: FeatureValue
+
+
 def build_features(request: FeatureRequest) -> FeatureTable:
     """History is the cutoff-visible slice; labels come from the full series separately."""
     policy = request.policy
@@ -73,26 +114,34 @@ def build_features(request: FeatureRequest) -> FeatureTable:
     visible = tuple(
         observation for observation in request.observations if observation.visible_at(cutoff)
     )
-    history = _index(request, visible)
-    labels = _index(request, request.observations)
+    tables = _Tables(
+        request=request,
+        history=_index(request, visible, request.coverage.as_of(cutoff)),
+        labels=_index(request, request.observations, request.coverage.complete()),
+        cutoff=cutoff,
+        names=feature_names(policy),
+    )
     buckets = horizon_buckets(request.origin, policy.horizon)
     entities = tuple(sorted(set(request.entities)))
-    names = feature_names(policy)
-    rows = tuple(
-        _row(request, history, labels, entity, bucket, index, cutoff, names)
-        for entity in entities
-        for index, bucket in enumerate(buckets)
-    )
-    return FeatureTable(_header(request, cutoff, names, len(entities), len(buckets)), rows)
+    rows: list[FeatureRow] = []
+    for entity in entities:
+        per_entity = _PerEntity(
+            entity=entity,
+            rolling=rolling_features(tables.history, entity, policy, cutoff),
+            capacity=request.capacity_at(entity, cutoff),
+        )
+        rows.extend(
+            _row(tables, per_entity, bucket, index) for index, bucket in enumerate(buckets)
+        )
+    header = _header(request, cutoff, tables.names, len(entities), len(buckets))
+    return FeatureTable(header, tuple(rows))
 
 
-def _index(request: FeatureRequest, observations: tuple[Observation, ...]) -> AggregateIndex:
+def _index(
+    request: FeatureRequest, observations: tuple[Observation, ...], coverage: CoverageView
+) -> AggregateIndex:
     return aggregate(
-        observations,
-        request.policy.granularity,
-        request.coverage,
-        request.target,
-        request.unit,
+        observations, request.policy.granularity, coverage, request.target, request.unit
     )
 
 
@@ -119,32 +168,25 @@ def _header(
     }
 
 
-def _row(
-    request: FeatureRequest,
-    history: AggregateIndex,
-    labels: AggregateIndex,
-    entity: EntityKey,
-    bucket: Bucket,
-    index: int,
-    cutoff: datetime,
-    names: tuple[str, ...],
-) -> FeatureRow:
+def _row(tables: _Tables, per_entity: _PerEntity, bucket: Bucket, index: int) -> FeatureRow:
+    request = tables.request
     policy = request.policy
+    entity = per_entity.entity
     values: dict[str, FeatureValue] = {
         **calendar_features(bucket, policy.granularity),
         HORIZON_INDEX: float(index),
-        **lag_features(history, entity, bucket.start, policy, cutoff),
-        **rolling_features(history, entity, policy, cutoff),
-        **seasonal_features(history, entity, bucket.start, policy, cutoff),
-        ENTITY_CAPACITY: request.capacities.get(entity),
+        **lag_features(tables.history, entity, bucket.start, policy, tables.cutoff),
+        **per_entity.rolling,
+        **seasonal_features(tables.history, entity, bucket.start, policy, tables.cutoff),
+        ENTITY_CAPACITY: per_entity.capacity,
     }
-    if tuple(values) != names:
+    if tuple(values) != tables.names:
         raise FeatureError("feature values disagree with the declared column order")
-    label = labels.cell(entity, bucket.start)
+    label = tables.labels.cell(entity, bucket.start)
     return FeatureRow(
         entity=entity,
         bucket=bucket,
-        cutoff=cutoff,
+        cutoff=tables.cutoff,
         target=request.target,
         unit=request.unit,
         target_value=label.value,

@@ -15,6 +15,7 @@ from tramflow_ml.features import (
     Observation,
     anchor_start,
     build_features,
+    carries_unit_ratio,
     feature_names,
 )
 
@@ -58,6 +59,11 @@ def row_at(built, start, entity=ENTITY):
     return next(
         row for row in built.rows if row.entity == entity and row.bucket.start == moscow(start)
     )
+
+
+def window_feature(built, name, entity=ENTITY):
+    """Rolling and seasonal columns are constant per entity, so any row of it will do."""
+    return next(row.features[name] for row in built.rows if row.entity == entity)
 
 
 @pytest.fixture
@@ -163,3 +169,51 @@ def test_entities_and_buckets_are_ordered_and_complete(two_years):
     assert len(built.rows) == 2 * MONTHS_PER_YEAR
     keys = [(row.entity, row.bucket.start) for row in built.rows]
     assert keys == sorted(keys)
+
+
+def test_a_diluted_month_is_distinguishable_from_a_complete_one():
+    """The finding: 1 of 29 covered days read identically to a complete February."""
+    complete = CoverageCalendar.from_range(date(2024, 1, 1), date(2026, 1, 1))
+    diluted = CoverageCalendar.from_dates(
+        {date(2024, 2, 14)}
+        | {day for day in complete.dates if not (day.year == 2024 and day.month == 2)}
+    )
+    events = repeated("2024-02-14T10:00", 1)
+
+    full = build(YEAR_MONTH, "2025-01-01T00:00", events, complete)
+    thin = build(YEAR_MONTH, "2025-01-01T00:00", events, diluted)
+
+    assert row_at(full, "2025-02-01T00:00").features["lag_12m"] == 1.0
+    assert row_at(thin, "2025-02-01T00:00").features["lag_12m"] == 1.0
+    assert row_at(full, "2025-02-01T00:00").features["lag_12m_units"] == 1.0
+    assert row_at(thin, "2025-02-01T00:00").features["lag_12m_units"] == pytest.approx(1 / 29)
+    assert full.feature_digest != thin.feature_digest
+
+
+def test_a_partly_covered_month_lowers_the_window_and_season_unit_ratios():
+    complete = CoverageCalendar.from_range(date(2024, 1, 1), date(2026, 1, 1))
+    def in_late_may(day):
+        return day.year == 2024 and day.month == 5 and day.day > 16
+
+    missing_half_of_may = CoverageCalendar.from_dates(
+        {day for day in complete.dates if not in_late_may(day)}
+    )
+
+    full = build(YEAR_MONTH, "2025-01-01T00:00", (), complete)
+    thin = build(YEAR_MONTH, "2025-01-01T00:00", (), missing_half_of_may)
+
+    assert row_at(full, "2025-05-01T00:00").features["lag_12m_units"] == 1.0
+    assert row_at(thin, "2025-05-01T00:00").features["lag_12m_units"] == pytest.approx(16 / 31)
+    assert window_feature(full, "roll_12m_coverage") == window_feature(thin, "roll_12m_coverage")
+    assert window_feature(thin, "roll_12m_units") < window_feature(full, "roll_12m_units")
+
+
+def test_the_unit_ratio_is_carried_only_where_a_bucket_spans_several_dates():
+    assert carries_unit_ratio(YEAR_MONTH)
+    assert not carries_unit_ratio(DAY_HOUR)
+    assert not carries_unit_ratio(MONTH_DAY)
+    assert "lag_12m_units" in feature_names(YEAR_MONTH)
+    assert "roll_12m_units" in feature_names(YEAR_MONTH)
+    assert "seasonal_3x12m_units" in feature_names(YEAR_MONTH)
+    assert not [name for name in feature_names(DAY_HOUR) if name.endswith("_units")]
+    assert not [name for name in feature_names(MONTH_DAY) if name.endswith("_units")]

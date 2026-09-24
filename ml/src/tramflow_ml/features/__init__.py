@@ -9,7 +9,7 @@ from tramflow_ml.features.build import (
     feature_names,
 )
 from tramflow_ml.features.calendar_features import calendar_feature_names, calendar_features
-from tramflow_ml.features.coverage import CoverageCalendar
+from tramflow_ml.features.coverage import CoverageCalendar, CoverageView
 from tramflow_ml.features.events import (
     entity_keys,
     load_entity_keys,
@@ -19,12 +19,14 @@ from tramflow_ml.features.events import (
 from tramflow_ml.features.history import (
     anchor_start,
     available_value,
+    carries_unit_ratio,
     lag_features,
     lag_names,
     rolling_features,
     rolling_names,
     seasonal_features,
     seasonal_names,
+    unit_counts,
 )
 from tramflow_ml.features.periods import (
     bucket_dates,
@@ -45,10 +47,13 @@ from tramflow_ml.features.policy import (
     policy_by_name,
 )
 from tramflow_ml.features.records import (
+    COUNT_TARGETS,
+    COUNT_UNIT,
     FEATURE_VERSION,
     MOSCOW,
     AggregateCell,
     Bucket,
+    CapacityRecord,
     Coverage,
     EntityKey,
     FeatureError,
@@ -60,9 +65,13 @@ from tramflow_ml.features.records import (
     Horizon,
     Observation,
     encode,
+    spans_multiple_dates,
+    validate_count_pair,
 )
 
 __all__ = [
+    "COUNT_TARGETS",
+    "COUNT_UNIT",
     "DAY_HOUR",
     "ENTITY_CAPACITY",
     "FEATURE_VERSION",
@@ -74,8 +83,10 @@ __all__ = [
     "AggregateCell",
     "AggregateIndex",
     "Bucket",
+    "CapacityRecord",
     "Coverage",
     "CoverageCalendar",
+    "CoverageView",
     "EntityKey",
     "FeatureError",
     "FeatureHeader",
@@ -97,6 +108,7 @@ __all__ = [
     "build_features",
     "calendar_feature_names",
     "calendar_features",
+    "carries_unit_ratio",
     "encode",
     "entity_keys",
     "feature_names",
@@ -113,5 +125,8 @@ __all__ = [
     "seasonal_features",
     "seasonal_names",
     "service_date",
+    "spans_multiple_dates",
     "step",
+    "unit_counts",
+    "validate_count_pair",
 ]

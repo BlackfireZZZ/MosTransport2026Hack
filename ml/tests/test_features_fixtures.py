@@ -92,7 +92,7 @@ def index_for(fixture_run, granularity):
     source, output, _ = fixture_run
     report = generation(source)
     observations = load_observations(output / "validations.jsonl")
-    return aggregate(observations, granularity, coverage_of(report), TARGET, UNIT)
+    return aggregate(observations, granularity, coverage_of(report).complete(), TARGET, UNIT)
 
 
 def test_hourly_cells_reconcile_with_the_generator_report(fixture_run):
@@ -113,8 +113,13 @@ def test_coarser_granularities_conserve_the_same_total(fixture_run, granularity)
 
     index = index_for(fixture_run, granularity)
 
+    values = [cell.value for cell in index.cells()]
+
     assert index.total == sum(oracle_cells(report).values())
-    assert sum(cell.value for cell in index.cells()) == report["counts"]["unique_validations"]
+    assert [value for value in values if value is None] == []
+    assert sum(value for value in values if value is not None) == (
+        report["counts"]["unique_validations"]
+    )
 
 
 def test_monthly_totals_group_the_generator_dates_by_calendar_month(fixture_run):

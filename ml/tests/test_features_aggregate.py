@@ -7,6 +7,8 @@ import pytest
 
 from tramflow_ml.features import (
     MOSCOW,
+    AggregateCell,
+    Bucket,
     CoverageCalendar,
     EntityKey,
     FeatureError,
@@ -51,7 +53,7 @@ def observations():
 
 @pytest.fixture
 def coverage():
-    return CoverageCalendar.from_range(date(2024, 5, 6), date(2024, 5, 9))
+    return CoverageCalendar.from_range(date(2024, 5, 6), date(2024, 5, 9)).complete()
 
 
 def oracle_totals(granularity):
@@ -158,7 +160,7 @@ def test_other_targets_and_units_are_not_counted(observations, coverage):
 def test_events_on_an_uncovered_date_are_refused(observations):
     calendar = CoverageCalendar.from_range(
         date(2024, 5, 6), date(2024, 5, 9), gaps=[date(2024, 5, 7)]
-    )
+    ).complete()
 
     with pytest.raises(FeatureError, match="2024-05-07"):
         aggregate(observations, "hourly", calendar, TARGET, UNIT)
@@ -180,3 +182,28 @@ def test_aggregation_does_not_mutate_its_input(observations, coverage):
 def test_availability_cannot_precede_the_event():
     with pytest.raises(FeatureError, match="available_at"):
         observation(FIRST, "2024-05-06T08:05", minutes=-1)
+
+
+def test_a_cell_cannot_claim_a_value_it_does_not_have():
+    """The invariant the layer is about, enforced rather than only documented."""
+    bucket = Bucket(moscow("2024-05-06T08:00"), moscow("2024-05-06T09:00"))
+
+    with pytest.raises(FeatureError, match="missing requires no value"):
+        AggregateCell(FIRST, bucket, None, "observed", 1, 1)
+    with pytest.raises(FeatureError, match="missing requires no value"):
+        AggregateCell(FIRST, bucket, 3, "missing", 0, 1)
+    with pytest.raises(FeatureError, match="no available date"):
+        AggregateCell(FIRST, bucket, 3, "observed", 0, 1)
+    with pytest.raises(FeatureError, match="within"):
+        AggregateCell(FIRST, bucket, 3, "observed", 2, 1)
+    with pytest.raises(FeatureError, match="at least one civil date"):
+        AggregateCell(FIRST, bucket, None, "missing", 0, 0)
+    with pytest.raises(FeatureError, match="cannot be negative"):
+        AggregateCell(FIRST, bucket, -1, "observed", 1, 1)
+
+
+def test_a_valid_cell_still_constructs():
+    bucket = Bucket(moscow("2024-05-06T08:00"), moscow("2024-05-06T09:00"))
+
+    assert AggregateCell(FIRST, bucket, 0, "observed", 1, 1).unit_ratio == 1.0
+    assert AggregateCell(FIRST, bucket, None, "missing", 0, 1).unit_ratio == 0.0
