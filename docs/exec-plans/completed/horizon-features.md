@@ -101,8 +101,9 @@ created for them.
    `(route_id, stop_id, horizon, bucket_start)`, which is the planned `forecast_points`
    table key from `docs/architecture/README.md` and drops the direction this very
    paragraph insists is never collapsed. The contract is the authority here; the table
-   key omitting direction is a real tension recorded under open risks, not resolved by
-   this task.
+   key omitting direction was recorded under open risks and has since been settled by
+   [ADR-0006](../../decisions/0006-stop-identity-and-direction.md) in the contract's
+   favour — the table gains the direction, the feature layer stands as written.
 2. **Missing representation.** `AggregateCell.value` is `int | None` with
    `coverage: "observed" | "missing"`, and `coverage == "missing"` iff
    `value is None` — the `ObservedAggregate` invariant. A feature value is
@@ -342,9 +343,10 @@ anyway for the downstream model code, it is a one-line change in
 
 - `ForecastArtifact` keys forecast points on `(route_id, direction_id, stop_id)` while the
   planned `forecast_points` table in `docs/architecture/README.md` keys on
-  `(route_id, stop_id, horizon, bucket_start)`, dropping direction. The feature layer
-  follows the contract and keeps direction; the table key needs a decision before
-  serving joins to these features.
+  `(route_id, stop_id, horizon, bucket_start)`, dropping direction. Resolved after this
+  plan closed by [ADR-0006](../../decisions/0006-stop-identity-and-direction.md): the
+  canonical namespace stays physical, so the table key does need direction and
+  TASK-027 adds it. The feature layer already follows the contract and needs no change.
 - Coverage availability has one-civil-date resolution. A source that delivers a date and
   then trickles rows into it still reports an observed zero for the buckets those rows
   belong to. Closing that needs per-row publication metadata, and no organizer format

@@ -177,8 +177,13 @@ system. **Any routing over this graph has to handle an unreachable destination.*
 ### Other things worth knowing
 
 - Degrees: 665 stops through-running, 136 junctions, 40 termini, 15 of degree 4.
-- Directed edges. A stop pair served in both directions appears twice, and the two
-  directions can differ in length where the tracks are not parallel.
+- Directed edges. A *physical* stop pair served in both directions appears as two
+  edges between **different** node ids, one per direction, and the two directions can
+  differ in length where the tracks are not parallel. No node pair carries an edge in
+  both directions: the extract has 0 reciprocal edges, so a node id already implies a
+  direction of travel. See
+  [ADR-0006](decisions/0006-stop-identity-and-direction.md) for what that means for
+  the canonical namespace.
 - 10 stops have no name in OSM and fall back to `node/<id>`. They are real stops,
   just unnamed upstream.
 - Route refs are not all numeric — `А`, `1а`, `39а`, `47а`, `т1`, `т2` exist. Sort

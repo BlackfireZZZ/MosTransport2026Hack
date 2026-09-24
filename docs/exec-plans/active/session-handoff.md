@@ -62,16 +62,19 @@ depends on TASK-004 and TASK-019 and is now unblocked. TASK-039 can run beside
 it. Follow the worktree and ExecPlan rules in the root `AGENTS.md`; keep
 million-row outputs outside git.
 
-One open decision the feature work surfaced and did not settle: `ForecastPoint`
-in `contracts/forecast_v1.py` keys on `(route_id, direction_id, stop_id,
-bucket_start, bucket_end)`, while the planned `forecast_points` table in
-`docs/architecture/README.md` keys on `(route_id, stop_id, horizon,
-bucket_start)` and drops `direction_id`. Direction is never inferred anywhere
-upstream, so the table as drawn cannot hold two directions of one stop. This
-needs a decision before serving joins to these features — it touches both lanes.
+The stop-identity question the feature work surfaced is settled in
+[ADR-0006](../../decisions/0006-stop-identity-and-direction.md): the repository
+holds three stop namespaces, the OSM graph's nodes are direction-specific
+(measured: 0 reciprocal edges, 382 names on more than one node) while the
+contract and the `stops` table are physical places with direction as a separate
+axis. The canonical namespace stays physical, so the
+`(canonical stop, direction) → OSM node` crosswalk is 1:1, and `forecast_points`
+needs a direction column because its `stop_id` points at the physical namespace.
+Both consequences land in the second agent's TASK-032 and TASK-027.
 
-`docs/exec-plans/tech-debt.md` now carries TD-001: the three recorded feature
-digests are documented but pinned by no test.
+`docs/exec-plans/tech-debt.md` carries TD-001 (the three recorded feature
+digests are documented but pinned by no test) and TD-002 (`stops.name` is
+globally unique, which real stop data does not honour).
 
 ## Lifecycle / boundaries
 
