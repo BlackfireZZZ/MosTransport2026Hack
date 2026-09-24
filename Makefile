@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: bootstrap setup doctor frontend-install sync-backend sync-ml \
+.PHONY: bootstrap setup doctor frontend-install sync-all sync-backend sync-ml \
 	up down logs dev dev-db dev-backend dev-backend-no-db dev-frontend dev-ml \
 	check verify-fast verify verify-full backend-check frontend-check ml-check \
 	ml-eval architecture-check contract-generate contract-check reference-contract-check e2e e2e-install \
@@ -14,14 +14,20 @@ BACKEND_PORT ?= 8000
 FRONTEND_PORT ?= 8080
 LOCAL_DATABASE_URL ?= postgresql+asyncpg://tramflow:tramflow_local@localhost:$(POSTGRES_PORT)/tramflow
 
-# Reproduce the dependency state from the committed lock files.
-bootstrap: sync-backend sync-ml frontend-install
+# Reproduce the dependency state from the committed lock files. Both workspace
+# packages share one .venv, and a per-package `uv sync` is exact: running
+# sync-backend and then sync-ml would uninstall the backend dev extras (pytest-asyncio),
+# so the local checks need a single sync that keeps every member and extra.
+bootstrap: sync-all frontend-install
 
 # Backward-compatible alias used by the README and existing workflows.
 setup: bootstrap
 
 doctor:
 	@PYTHON_VERSION=$(PYTHON_VERSION) NODE_VERSION=$(NODE_VERSION) ./scripts/doctor.sh
+
+sync-all:
+	uv sync --all-packages --all-extras --locked
 
 sync-backend:
 	uv sync --package tramflow-backend --extra dev --locked
