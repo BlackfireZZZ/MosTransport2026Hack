@@ -6,6 +6,7 @@ calendar is deliberately absent until a certified one exists.
 
 from calendar import isleap, monthrange
 from collections.abc import Callable, Mapping
+from types import MappingProxyType
 
 from tramflow_ml.features.periods import HOURS_PER_DAY, bucket_dates
 from tramflow_ml.features.records import Bucket, FeatureError, FeatureValue, Granularity
@@ -42,11 +43,13 @@ MONTHLY_FEATURES = (
     "bucket_days",
     "bucket_hours",
 )
-FEATURES_FOR_GRANULARITY: Mapping[Granularity, tuple[str, ...]] = {
-    "hourly": HOURLY_FEATURES,
-    "daily": DAILY_FEATURES,
-    "monthly": MONTHLY_FEATURES,
-}
+FEATURES_FOR_GRANULARITY: Mapping[Granularity, tuple[str, ...]] = MappingProxyType(
+    {
+        "hourly": HOURLY_FEATURES,
+        "daily": DAILY_FEATURES,
+        "monthly": MONTHLY_FEATURES,
+    }
+)
 
 
 def calendar_feature_names(granularity: Granularity) -> tuple[str, ...]:
@@ -58,13 +61,8 @@ def calendar_feature_names(granularity: Granularity) -> tuple[str, ...]:
 
 def calendar_features(bucket: Bucket, granularity: Granularity) -> dict[str, FeatureValue]:
     """Never missing: a calendar attribute exists for every bucket, at any cutoff."""
-    builders: Mapping[Granularity, Callable[[Bucket], dict[str, FeatureValue]]] = {
-        "hourly": _hourly,
-        "daily": _daily,
-        "monthly": _monthly,
-    }
     try:
-        build = builders[granularity]
+        build = _BUILDERS[granularity]
     except KeyError as error:
         raise FeatureError(f"unsupported granularity {granularity!r}") from error
     return build(bucket)
@@ -110,3 +108,8 @@ def _monthly(bucket: Bucket) -> dict[str, FeatureValue]:
         "bucket_days": float(len(bucket_dates(bucket))),
         "bucket_hours": bucket.elapsed_hours,
     }
+
+
+_BUILDERS: Mapping[Granularity, Callable[[Bucket], dict[str, FeatureValue]]] = MappingProxyType(
+    {"hourly": _hourly, "daily": _daily, "monthly": _monthly}
+)

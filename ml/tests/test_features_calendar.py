@@ -189,7 +189,7 @@ def test_misaligned_origins_are_refused_like_the_contract(origin, horizon):
 
 
 def test_a_date_without_a_moscow_midnight_is_refused_not_guessed():
-    """Moscow advanced the clock at 00:00 on 1 April 1981-1984, so 00:00 names no instant."""
+    """Any date whose Moscow midnight names no single instant is refused, 1981-04-01 here."""
     with pytest.raises(FeatureError, match="1981-04-01"):
         bucket_of(moscow("1981-04-01T12:00"), "daily")
     with pytest.raises(FeatureError, match="1981-04-01"):
@@ -206,3 +206,35 @@ def test_naive_and_empty_intervals_are_refused():
         bucket_of(datetime(2024, 5, 6, 8, 0), "hourly")
     with pytest.raises(FeatureError):
         Bucket(moscow("2024-05-06T08:00"), moscow("2024-05-06T08:00"))
+
+
+def test_a_datetime_already_tagged_moscow_is_still_normalized():
+    """``astimezone`` short-circuits on its own zone, so a bare tag can carry a phantom time."""
+    tagged = datetime(1981, 4, 1, tzinfo=MOSCOW)
+    same_instant = tagged.astimezone(UTC)
+
+    assert tagged.isoformat() == "1981-04-01T00:00:00+03:00"
+    assert bucket_start_of(tagged, "hourly") == bucket_start_of(same_instant, "hourly")
+    assert bucket_start_of(tagged, "hourly").isoformat() == "1981-04-01T01:00:00+04:00"
+
+
+@pytest.mark.parametrize("horizon", ["month", "year"])
+def test_both_spellings_of_one_instant_are_refused_alike(horizon):
+    tagged = datetime(1981, 4, 1, tzinfo=MOSCOW)
+    same_instant = tagged.astimezone(UTC)
+
+    with pytest.raises(FeatureError):
+        horizon_buckets(tagged, horizon)
+    with pytest.raises(FeatureError):
+        horizon_buckets(same_instant, horizon)
+    with pytest.raises(ValueError):
+        forecast_buckets(tagged, horizon)
+
+
+def test_a_sub_hour_historical_offset_keeps_its_minutes_in_an_hourly_bucket():
+    """Moscow ran at +04:31:19 in 1918; hour steps are taken in UTC, not assumed whole."""
+    start = bucket_start_of(moscow("1918-06-01T12:00"), "hourly")
+
+    assert start.utcoffset() == timedelta(hours=4, minutes=31, seconds=19)
+    assert (start.minute, start.second) == (31, 19)
+    assert bucket_of(moscow("1918-06-01T12:00"), "hourly").elapsed_hours == 1

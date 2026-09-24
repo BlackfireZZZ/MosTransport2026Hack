@@ -1,9 +1,11 @@
 """Calendar-period arithmetic in Europe/Moscow: hours, civil days, calendar months.
 
-No step is ever approximated by a fixed number of days. Hour steps move whole UTC
-hours because every historical Moscow offset is a whole hour, which keeps an hour
-bucket one elapsed hour across a DST transition; day and month steps move the civil
-date and recombine at Moscow midnight.
+No step is ever approximated by a fixed number of days. Hour steps are taken in UTC
+because that is offset-independent and stable across a DST transition: one hour bucket
+is always one elapsed hour, whatever the zone was doing. It is not an assumption that
+Moscow offsets are whole hours -- 1918 Moscow ran at +04:31:19, and an hourly bucket
+start in such an epoch legitimately carries the offset's minutes and seconds. Day and
+month steps move the civil date and recombine at Moscow midnight.
 """
 
 from calendar import monthrange
@@ -32,7 +34,18 @@ def granularity_for(horizon: Horizon) -> Granularity:
 
 
 def moscow(instant: datetime, name: str = "instant") -> datetime:
-    return require_aware(instant, name).astimezone(MOSCOW)
+    """Normalize to Europe/Moscow through UTC.
+
+    ``astimezone`` returns the value unchanged when its ``tzinfo`` is already this zone,
+    so a datetime merely tagged ``MOSCOW`` keeps whatever wall time it was given -- even
+    one that names no instant. Going through UTC forces the offset to be recomputed, so
+    two spellings of one instant cannot disagree.
+    """
+    aware = require_aware(instant, name)
+    try:
+        return aware.astimezone(UTC).astimezone(MOSCOW)
+    except OverflowError as error:
+        raise FeatureError(f"{name} exceeds the supported datetime range") from error
 
 
 def service_date(instant: datetime) -> date:
@@ -43,9 +56,11 @@ def service_date(instant: datetime) -> date:
 def midnight(day: date) -> datetime:
     """Moscow midnight of a civil date, refused when that wall time names no single instant.
 
-    Moscow advanced the clock at 00:00 on 1 April 1981-1984, so those dates have no
-    midnight. Resolving one would mean guessing an instant, which the identity clock
+    The rule, not a list: any date whose Moscow midnight is nonexistent or ambiguous is
+    refused. Resolving one would mean guessing an instant, which the identity clock
     already refuses; a service day that cannot be located is an error, not a default.
+    Such dates exist because a jurisdiction may move the clock at midnight, and which
+    dates they are depends on the tz database, so they are detected rather than enumerated.
     """
     naive = datetime.combine(day, time(0))
     local = naive.replace(tzinfo=MOSCOW, fold=0)
@@ -133,7 +148,7 @@ def horizon_buckets(origin: datetime, horizon: Horizon) -> tuple[Bucket, ...]:
         "month": monthrange(local.year, local.month)[1],
         "year": MONTHS_PER_YEAR,
     }
-    starts = [local]
+    starts = [bucket_start_of(local, granularity)]
     for _ in range(counts[horizon] - 1):
         starts.append(step(starts[-1], granularity, 1))
     return tuple(bucket_from_start(start, granularity) for start in starts)

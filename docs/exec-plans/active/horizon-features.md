@@ -95,8 +95,14 @@ created for them.
    Direction is part of the key, never collapsed, because the same stop carries
    different demand per direction and `identity` refuses to infer a direction.
    `stop_sequence` is not part of the key: a stop visited twice on a loop aggregates
-   to one cell, because the forecast contract keys on
-   `(route_id, stop_id, horizon, bucket_start)`.
+   to one cell, because `ForecastArtifact` keys its points on
+   `(route_id, direction_id, stop_id)` plus `(bucket_start, bucket_end)` and carries no
+   sequence. An earlier draft of this plan quoted the key as
+   `(route_id, stop_id, horizon, bucket_start)`, which is the planned `forecast_points`
+   table key from `docs/architecture/README.md` and drops the direction this very
+   paragraph insists is never collapsed. The contract is the authority here; the table
+   key omitting direction is a real tension recorded under open risks, not resolved by
+   this task.
 2. **Missing representation.** `AggregateCell.value` is `int | None` with
    `coverage: "observed" | "missing"`, and `coverage == "missing"` iff
    `value is None` — the `ObservedAggregate` invariant. A feature value is
@@ -147,12 +153,10 @@ created for them.
     fresh; inputs are never mutated. Mappings handed out are wrapped in
     `MappingProxyType`.
 
-Implemented 2026-09-25 as `ml/src/tramflow_ml/features/` — `records.py` (215 lines),
-`build.py` (155), `periods.py` (125), `history.py` (122), `__init__.py` (117),
-`calendar_features.py` (112), `policy.py` (95), `aggregate.py` (80), `events.py` (77),
-`coverage.py` (46) — every function under 50 lines, largest module 215 lines. Tests:
-`ml/tests/test_features_{calendar,aggregate,history,leakage,missing,fixtures}.py`
-(86 tests).
+Implemented 2026-09-25 as `ml/src/tramflow_ml/features/`; module sizes after the review
+fixes are recorded in the review record below. Every function stays under 50 lines and
+every module under 400. Tests live in
+`ml/tests/test_features_{calendar,aggregate,history,leakage,missing,availability,fixtures}.py`.
 
 Three test defects were found and corrected on first run, with no change to the
 implementation:
@@ -184,9 +188,19 @@ it so no path can construct such a boundary. Fixing that exposed the second defe
 `step()` caught `ValueError` broadly, and because `FeatureError` subclasses `ValueError`
 the specific message was being rewritten as "bucket step leaves the supported datetime
 range". `FeatureError` is now re-raised unchanged. This is a deliberate divergence from
-`contracts/calendar_v1.forecast_buckets`, which resolves those four wall times silently;
-the feature layer refuses rather than guess a service day. Every recorded digest was
+`contracts/calendar_v1.forecast_buckets`, which resolves such a wall time silently; the
+feature layer refuses rather than guess a service day. Every recorded digest was
 unchanged by the fix, as expected for 2024-2025 data.
+
+Two claims made at that point were wrong and are retracted here. The commit message for
+`5b8fb48` said "the monthly bucket start and the month step route through it so no code
+path can build such a boundary"; that was false, because `moscow()` did not normalize a
+datetime already tagged `MOSCOW` and `horizon_buckets` seeded its first bucket without
+passing through `bucket_start_of`. Both are fixed in the review batch below. And the
+sweep that produced "four dates" started at 1970; over 1900-2040 the current tz database
+gives seven (1916-07-03, 1918-09-16, 1930-06-21 and 1 April 1981-1984). Enumerating tz
+data is exactly the documentation that rots, so the rule is now stated instead: any date
+whose Moscow midnight is nonexistent or ambiguous is refused.
 
 ## Research evidence
 
@@ -262,6 +276,82 @@ Observed results:
   test cannot succeed by ignoring its input. `Observation.visible_at` agrees with
   `EventRow.visible_at` on all nine event/lag combinations tested.
 - `git diff --check`: no whitespace errors.
+
+### After the review batch (2026-09-25)
+
+- `make ml-check`: ruff "All checks passed!", mypy strict "Success: no issues found in 32
+  source files", **265 passed in 4.51s** (114 feature tests: calendar 30, leakage 21,
+  aggregate 15, availability 14, history 13, missing 13, fixtures 8; 151 pre-existing).
+- `make check`: **exit 0**. Architecture boundaries passed; backend ruff clean, mypy 42
+  files, **292 passed / 10 skipped**; ML **265 passed**; golden evaluation
+  `"passed": true`; frontend **8 files / 47 tests** and `built in 674ms`; contract check
+  current; reference contracts mypy 3 files, **119 passed**; Compose config valid.
+- Reconciliation, re-run unchanged: ingestion `input_rows` 67, `duplicates` 3,
+  `quarantined` 0, `valid` 64; hourly aggregate 64 cells summing 64, **equal cell for
+  cell** to the 64 `generation.json` `cell_totals` entries; daily and monthly conserve 64;
+  `AggregateIndex.total` equals `counts.unique_validations` (64). 12 entity keys.
+- Digests, with the change that moved each one named:
+
+  | Policy | Rows × columns | `digest` | Moved by |
+  |---|---|---|---|
+  | `day/hour` | 288 × 25 | `7e412bb01ce0072aa68d77bfde177581c185abdeaed8e95dbaf926b82735b999` | unchanged |
+  | `month/day` | 360 × 25 | `b3ad914c0ca53de67cb57fe785c296d042d5cd614de43566f636807489cb4170` | unchanged |
+  | `year/month` | 144 × 29 | `408d45807ce37fe661b2edb3e888e5afae19cc015cb093c6f485a7f687ab8445` | finding B only |
+
+  `year/month` superseded `1bf64c53cbbbf66d4c1541644b29b92f9ec8e7c1b379250deabd8a90d5314ef5`
+  (22 columns) when the `*_units` columns were added; its `feature_digest` is now
+  `3e8a211cb1e17e802424d1b17900d85ebefe2ed042f370437c82c93e2c6b208e`, superseding
+  `afc4d7af8e395eb43bc973a0d7977349a2a834cb6f503b46fff1891573e7a243`. The `day/hour` and
+  `month/day` digests and their `feature_digest` values (`2f7067776b125aad…`,
+  `0e84576dcd94e5fe…`) are byte-identical to the pre-review run, which is the evidence
+  that findings A, C, D, E, F and G change no behaviour on a calendar that states no
+  publication instants and a request that passes no capacities. Two builds and a build
+  from a second independent ingestion run agree on every digest.
+
+### Review record (2026-09-25)
+
+Independent validation ACCEPT; independent review ACCEPT WITH FINDINGS. All applied.
+
+| Severity | Finding | Fix |
+|---|---|---|
+| HIGH | Coverage was availability-blind: 24 real events published 26 hours late read as `lag_24h = 0.0`, `roll_24h_coverage = 1.0` — a full day of demand reported as a confident zero | `CoverageCalendar` now optionally records when each civil date's data arrived; a date unpublished at `C` is unavailable, so the bucket is `missing`. History reads `as_of(C)`, labels read `complete()`, so an as-of history never needs a mutilated calendar. `aggregate` still raises for a date the calendar does not cover at all, and skips a covered-but-unpublished one |
+| HIGH | Partial coverage was invisible in the feature vector: a February with 1 of 29 days covered was indistinguishable from a complete one, because `*_coverage` counts observed buckets and `available_value()` discarded `covered_units` | Each lag, window and season of a multi-date granularity emits a `*_units` ratio. Restricted to `year/month`: at hourly and daily granularity a bucket is one civil date, so the ratio is degenerate — see the disagreement note below |
+| MEDIUM-HIGH | `entity_capacity` was the one feature under no cutoff: an untimestamped mapping written straight into the row, so a 2026 capacity table could reach a 2024 origin | `CapacityRecord(value, available_at)` is resolved at `C` like every other input and is `None` when known only later. An unstamped capacity is refused at the `FeatureRequest` boundary, and the mapping is copied on construction so a caller-held dict cannot mutate a frozen request |
+| MEDIUM | `moscow()` did not normalize a datetime already tagged `MOSCOW` (`astimezone` short-circuits), so `horizon_buckets(datetime(1981,4,1,tzinfo=MOSCOW), "month")` returned 30 buckets while the same instant in UTC raised — laxer than the contract, and two spellings of one instant disagreed | Normalized through UTC unconditionally; the `horizon_buckets` seed routes through `bucket_start_of`. Both spellings now raise, matching `calendar_v1` |
+| MEDIUM | The "no code path can build such a boundary" claim in `5b8fb48` was false for that reason; the "four dates" enumeration missed 1930-06-21 and two more | Claim retracted above. The rule is stated instead of enumerated; a 1900-2040 sweep on the current tz database finds seven such dates, and the count is noted as tz-database-dependent |
+| MEDIUM | `periods.py` claimed "every historical Moscow offset is a whole hour"; 1918 Moscow ran at +04:31:19 | Docstring restated: UTC hour steps are offset-independent and DST-stable, not whole-hour-dependent. A test pins the 1918 bucket start carrying minutes and seconds |
+| MEDIUM | `target`/`unit` were only checked non-empty, so `("onboard_load", "passengers")` produced an event-row count labelled a passenger load | `validate_count_pair` at both the `FeatureRequest` and `aggregate` boundaries; only `synthetic_boardings` and `validation_count` in `event_count` are accepted |
+| LOW | `AggregateCell` and `FeatureRow` documented the missing-iff-null invariant but did not enforce it, unlike `Bucket` and `Observation` above them | `__post_init__` on both, covering the coverage/value pairing, the unit bounds and negative counts |
+| MEDIUM | `rolling_features` was recomputed per bucket though it is constant per entity | Hoisted into a per-entity step; `day/hour` drops from ~4.6k `available_value` calls per entity to 192 |
+| nit | `calendar_features` rebuilt its builder dict per row; `FEATURES_FOR_GRANULARITY` was a plain dict | Both are module-level `MappingProxyType` |
+| nit | `seasonal_features` computed sum and max then discarded them by name filtering | `_statistics` evaluates only the requested statistics |
+| nit | A fixture test summed `int \| None`, so a missing cell would raise `TypeError` instead of failing informatively | Absence asserted explicitly before the sum |
+| nit | The plan misquoted the forecast key, dropping direction; `periods.py` line count and a "(86 tests)"/"87 new" contradiction | All corrected above |
+
+One item was implemented more narrowly than the batch asked, deliberately. The batch
+expected `*_units` on all three policies and all three digests to move. A bucket at
+hourly or daily granularity is exactly one civil date, so the ratio there is `1.0`
+whenever the value exists and `None`-adjacent otherwise: nine provably constant columns
+on `day/hour` and seven on `month/day`, which is the same dead-weight the batch's own
+`seasonal` finding objected to. Both reproductions of the finding were monthly (a
+February at 1/29, May 2024 at 16/31), and both are fixed. If the uniform schema is wanted
+anyway for the downstream model code, it is a one-line change in
+`history.carries_unit_ratio`.
+
+## Open risks
+
+- `ForecastArtifact` keys forecast points on `(route_id, direction_id, stop_id)` while the
+  planned `forecast_points` table in `docs/architecture/README.md` keys on
+  `(route_id, stop_id, horizon, bucket_start)`, dropping direction. The feature layer
+  follows the contract and keeps direction; the table key needs a decision before
+  serving joins to these features.
+- Coverage availability has one-civil-date resolution. A source that delivers a date and
+  then trickles rows into it still reports an observed zero for the buckets those rows
+  belong to. Closing that needs per-row publication metadata, and no organizer format
+  for it exists yet.
+- The synthetic fixture spans 2024-2026, where Moscow is a fixed +03:00, so the
+  independent oracle never exercises the DST-sensitive part of bucketing. That rests
+  entirely on the hand-written calendar tests (2011-03-27, 2014-10-26, 1918, 1981).
 
 Recovery: the package has no consumer yet, so reverting the commits removes it
 cleanly and no other area changes behaviour.
