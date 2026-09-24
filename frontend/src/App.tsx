@@ -12,6 +12,7 @@ import { NetworkMap } from "@/features/forecast/components/network-map"
 import { ScenarioPanel } from "@/features/forecast/components/scenario-panel"
 import { useForecast, useRoutes, useRouteStops } from "@/features/forecast/hooks/use-forecast"
 import type { ForecastHorizon } from "@/features/forecast/types"
+import { bucketLabel, bucketScope, bucketStops, selectedBucket } from "@/features/forecast/lib/bucket"
 import { toMoscowInput, validateWindow } from "@/features/forecast/lib/selection"
 import { formatPassengers } from "@/lib/utils"
 
@@ -65,6 +66,7 @@ function App() {
   const selectedRouteId = routeId === null
     ? (routes.data?.[0]?.id ?? null)
     : routes.data?.some((route) => route.id === routeId) ? routeId : null
+  const [bucketSelection, setBucketSelection] = useState<{ scope: string; timestamp: string } | null>(null)
   const [stopId, setStopId] = useState<number | null>(null)
   const [startInput, setStartInput] = useState("")
   const [endInput, setEndInput] = useState("")
@@ -77,11 +79,14 @@ function App() {
   const resetWindow = () => { setStartInput(""); setEndInput("") }
   const filtered = stopId !== null || Boolean(startInput || endInput)
   const data = validSelection ? forecast.data : undefined
+  const timestamp = data ? selectedBucket(data, bucketSelection) : null
+  const currentPoint = data?.points.find((point) => point.timestamp === timestamp)
+  const currentStops = data ? bucketStops(data, timestamp) : []
+  const selectTimestamp = (value: string) => { if (data) setBucketSelection({ scope: bucketScope(data), timestamp: value }) }
   const queryStatus = forecast.error instanceof ApiError ? forecast.error.status : null
   const selectionError = queryStatus === 404 ? "Нет прогноза для выбранных параметров" : queryStatus === 422 ? "Интервал недоступен" : queryStatus === 409 ? "Данные прогноза несовместимы" : null
-  const busiestStop = data?.stops.length
-    ? data.stops.reduce((max, stop) => (stop.load_percent ?? -1) > (max.load_percent ?? -1) ? stop : max)
-    : undefined
+  const busiestRow = currentStops.length ? currentStops.reduce((max, row) => row.predicted_passengers > max.predicted_passengers ? row : max) : undefined
+  const busiestStop = data?.stops.find((stop) => stop.id === busiestRow?.stop_id)
   const reserve = data?.peak_load_percent == null ? null : 100 - data.peak_load_percent
   const reserveLabel = reserve === null ? "вместимость неизвестна" : reserve >= 0 ? "до расчётной вместимости" : "дефицит вместимости"
   const generatedAt = data
@@ -203,15 +208,34 @@ function App() {
               <section className="kpi-grid" aria-label="Ключевые показатели">
                 <article className="kpi"><span>Пиковый поток</span><strong>{formatPassengers(data.peak_passengers)}</strong><small>пассажиров / интервал</small></article>
                 <article className="kpi"><span>Пиковая загрузка</span><strong className={(data.peak_load_percent ?? -1) >= 100 ? "is-critical" : ""}>{data.peak_load_percent == null ? "—" : `${data.peak_load_percent.toFixed(0)}%`}</strong><small>{data.peak_load_percent == null ? "вместимость неизвестна" : data.peak_load_percent >= 100 ? "выше вместимости" : "в пределах вместимости"}</small></article>
-                <article className="kpi"><span>Напряжённый узел</span><strong className="kpi-text">{busiestStop?.name ?? "—"}</strong><small>{busiestStop?.load_percent != null ? `${busiestStop.load_percent.toFixed(0)}% загрузки` : "нет данных"}</small></article>
+                <article className="kpi"><span>Напряжённый узел</span><strong className="kpi-text">{busiestStop?.name ?? "—"}</strong><small>{busiestRow ? `${formatPassengers(busiestRow.predicted_passengers)} в выбранном интервале` : "нет данных выбранного интервала"}</small></article>
                 <article className="kpi"><span>{(reserve ?? 0) >= 0 ? "Резерв сети" : "Дефицит сети"}</span><strong className={(reserve ?? 0) < 0 ? "is-critical" : ""}>{reserve === null ? "—" : `${Math.abs(reserve).toFixed(0)}%`}</strong><small>{reserveLabel}</small></article>
               </section>
 
+              <section className="bucket-selection" aria-label="Выбранный интервал прогноза">
+                <div>
+                  <label htmlFor="bucket-select">Интервал на графике и карте · МСК</label>
+                  <select id="bucket-select" value={timestamp ?? ""} onChange={(event) => selectTimestamp(event.target.value)}>
+                    {data.points.map((point) => <option key={point.timestamp} value={point.timestamp}>{bucketLabel(point.timestamp)}</option>)}
+                  </select>
+                  <div className="bucket-step-controls">
+                    <Button variant="secondary" disabled={!timestamp || data.points[0].timestamp === timestamp} onClick={() => {
+                      const index = data.points.findIndex((point) => point.timestamp === timestamp)
+                      if (index > 0) selectTimestamp(data.points[index - 1].timestamp)
+                    }}>Предыдущий интервал</Button>
+                    <Button variant="secondary" disabled={!timestamp || data.points.at(-1)?.timestamp === timestamp} onClick={() => {
+                      const index = data.points.findIndex((point) => point.timestamp === timestamp)
+                      if (index >= 0 && index + 1 < data.points.length) selectTimestamp(data.points[index + 1].timestamp)
+                    }}>Следующий интервал</Button>
+                  </div>
+                </div>
+                <div aria-live="polite" data-testid="current-forecast-value"><span>Прогноз выбранного интервала</span><strong>{currentPoint ? formatPassengers(currentPoint.predicted_passengers) : "—"}</strong><span>{data.run?.unit ?? "единица не указана"}</span></div>
+              </section>
               <Suspense fallback={<Skeleton className="h-[360px]" />}>
-                <ForecastChart points={data.points} horizon={horizon} />
+                <ForecastChart points={data.points} horizon={horizon} selectedTimestamp={timestamp} onSelectTimestamp={selectTimestamp} />
               </Suspense>
               <section className="lower-grid">
-                <NetworkMap stops={data.stops} />
+                <NetworkMap snapshot={data} timestamp={timestamp} selectedStopId={stopId} onStopSelect={setStopId} />
                 <div id="scenario">{selectedRouteId !== null && !filtered && <ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} />}{filtered && <p>Сценарный расчёт для выбранного среза недоступен.</p>}</div>
               </section>
               <footer className="data-note" id="data"><Map />Синтетические демоданные · качество модели на реальных данных не подтверждено · версия {data.model_version}</footer>

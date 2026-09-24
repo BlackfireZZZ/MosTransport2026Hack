@@ -1,5 +1,6 @@
 """Strict offline crosswalk artifact adapter; no implicit canonical/OSM coercion."""
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Annotated, Literal
@@ -7,13 +8,17 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.application.services.forecast_geometry import ForecastGeometryService
+from app.application.services.forecast_map import ForecastMapService
+from app.domain.forecast import ForecastSnapshot
 from app.domain.forecast_geometry import (
     ForecastEntity,
     GeometryCrosswalk,
     GeometryMappingError,
     RouteGeometryLink,
+    ServingGeometryLink,
     StopGeometryLink,
 )
+from app.domain.tram_graph import TramGraphDataError
 from app.infrastructure.graph_artifacts import load_active_graph_snapshot
 from app.infrastructure.tram_graph_validation import parse_network
 
@@ -37,6 +42,19 @@ class _Stop(_StrictModel):
     osm_stop_ids: list[OsmId]
 
 
+class _Entity(_StrictModel):
+    route_id: Identifier
+    direction_id: Identifier
+    stop_id: Identifier
+
+
+class _ServingLink(_StrictModel):
+    route_id: OsmId
+    stop_id: OsmId
+    direction_id: Identifier
+    entity: _Entity
+
+
 class _Artifact(_StrictModel):
     synthetic: bool
     schema_version: Literal["forecast-geometry.v1"]
@@ -45,6 +63,7 @@ class _Artifact(_StrictModel):
     graph_version: Identifier
     routes: list[_Route]
     stops: list[_Stop]
+    serving_links: list[_ServingLink] = Field(default_factory=list)
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -76,6 +95,15 @@ def load_crosswalk(path: Path) -> GeometryCrosswalk:
             for row in artifact.stops
         ),
         artifact.synthetic,
+        tuple(
+            ServingGeometryLink(
+                row.route_id,
+                row.stop_id,
+                row.direction_id,
+                ForecastEntity(row.entity.route_id, row.entity.direction_id, row.entity.stop_id),
+            )
+            for row in artifact.serving_links
+        ),
     )
 
 
@@ -83,3 +111,28 @@ def load_geometry_service(mapping_path: Path, graph_root: Path) -> ForecastGeome
     """Only published, checksum-verified snapshots qualify for versioned joins."""
     version, graph, geo = load_active_graph_snapshot(graph_root)
     return ForecastGeometryService(load_crosswalk(mapping_path), parse_network(graph, geo), version)
+
+
+class FileForecastMapProvider:
+    def __init__(self, mapping_path: Path | None, graph_root: Path) -> None:
+        self._mapping_path = mapping_path
+        self._graph_root = graph_root
+        self._service: ForecastMapService | None = None
+        self._lock = asyncio.Lock()
+
+    async def enrich(self, snapshot: ForecastSnapshot) -> ForecastSnapshot:
+        if self._mapping_path is None:
+            return ForecastMapService().enrich(snapshot)
+        if self._service is None:
+            async with self._lock:
+                if self._service is None:
+                    try:
+                        mapper = await asyncio.to_thread(
+                            load_geometry_service, self._mapping_path, self._graph_root
+                        )
+                        self._service = ForecastMapService(mapper)
+                    except (GeometryMappingError, TramGraphDataError):
+                        return ForecastMapService(
+                            unavailable_reason="mapping_configuration_invalid"
+                        ).enrich(snapshot)
+        return self._service.enrich(snapshot)

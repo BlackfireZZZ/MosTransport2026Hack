@@ -8,6 +8,7 @@ import { forecastResponse, routes } from "../e2e/forecast-fixtures"
 
 vi.mock("@/api/client", () => ({ ApiError: class extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status } }, api: { routes: vi.fn(), routeStops: vi.fn(), forecast: vi.fn() } }))
 vi.mock("@/features/forecast/components/forecast-chart", () => ({ ForecastChart: () => <p>Тестовый график</p> }))
+vi.mock("@/features/forecast/components/network-map", () => ({ NetworkMap: () => <p>Тестовая карта</p> }))
 vi.mock("@/features/forecast/components/scenario-panel", () => ({ ScenarioPanel: () => <p>Тестовый сценарий</p> }))
 beforeEach(() => { vi.mocked(api.routeStops).mockResolvedValue([]) })
 afterEach(() => { cleanup(); vi.resetAllMocks() })

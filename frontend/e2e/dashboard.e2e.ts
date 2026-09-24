@@ -7,6 +7,7 @@ import type {
   ScenarioResponse,
 } from "../src/features/forecast/types"
 
+import { graph } from "./network-fixtures"
 import { forecastResponse, routes } from "./forecast-fixtures"
 
 function scenarioResponse(): ScenarioResponse {
@@ -35,6 +36,8 @@ async function mockDashboardApi(
     scenarioRequests?: ScenarioRequest[]
   } = {},
 ) {
+  await page.route("https://**/*", (route) => route.abort())
+  await page.route("**/api/v1/tram-graph/geojson", (route) => fulfillJson(route, graph()))
   await page.route("**/api/v1/routes/*/stops", (route) => {
     const routeId = Number(new URL(route.request().url()).pathname.split("/").at(-2))
     return fulfillJson(route, forecastResponse(routeId, "day").stops)

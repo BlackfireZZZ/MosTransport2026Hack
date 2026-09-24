@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -91,6 +92,35 @@ class StopForecastPointResponse(BaseModel):
     aggregation_scope: str
 
 
+class ForecastMapPositionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    stop_id: int
+    direction_id: str | None
+    status: Literal["matched", "unmatched", "ambiguous"]
+    reason: str
+    position_kind: Literal["osm", "synthetic_demo", "unavailable"]
+    osm_stop_id: int | None
+    longitude: float | None
+    latitude: float | None
+
+
+class ForecastMapResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    run_id: str | None
+    entity_version: str | None
+    graph_version: str | None
+    mapping_version: str | None
+    synthetic: bool
+    status: Literal["ready", "partial", "unavailable"]
+    reason: str
+    matched_count: int
+    unmatched_count: int
+    ambiguous_count: int
+    positions: list[ForecastMapPositionResponse]
+
+
 class ForecastResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -105,6 +135,7 @@ class ForecastResponse(BaseModel):
     stop_points: list[StopForecastPointResponse] | None = None
     run: ForecastRunResponse | None = None
     selection: ForecastSelectionResponse | None = None
+    map: ForecastMapResponse | None = None
 
 
 class ScenarioRequest(BaseModel):

@@ -11,3 +11,6 @@ export type ScenarioResponse = Schemas["ScenarioResponse"]
 export type StopLoad = Schemas["StopLoadResponse"]
 
 export type RouteStop = Schemas["RouteStopResponse"]
+
+export type StopForecastPoint = Schemas["StopForecastPointResponse"]
+export type ForecastMapPosition = Schemas["ForecastMapPositionResponse"]

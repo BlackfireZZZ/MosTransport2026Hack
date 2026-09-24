@@ -308,6 +308,59 @@ export interface components {
          * @enum {string}
          */
         readonly ForecastHorizon: "day" | "month" | "year";
+        /** ForecastMapPositionResponse */
+        readonly ForecastMapPositionResponse: {
+            /** Direction Id */
+            readonly direction_id: string | null;
+            /** Latitude */
+            readonly latitude: number | null;
+            /** Longitude */
+            readonly longitude: number | null;
+            /** Osm Stop Id */
+            readonly osm_stop_id: number | null;
+            /**
+             * Position Kind
+             * @enum {string}
+             */
+            readonly position_kind: "osm" | "synthetic_demo" | "unavailable";
+            /** Reason */
+            readonly reason: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "matched" | "unmatched" | "ambiguous";
+            /** Stop Id */
+            readonly stop_id: number;
+        };
+        /** ForecastMapResponse */
+        readonly ForecastMapResponse: {
+            /** Ambiguous Count */
+            readonly ambiguous_count: number;
+            /** Entity Version */
+            readonly entity_version: string | null;
+            /** Graph Version */
+            readonly graph_version: string | null;
+            /** Mapping Version */
+            readonly mapping_version: string | null;
+            /** Matched Count */
+            readonly matched_count: number;
+            /** Positions */
+            readonly positions: readonly components["schemas"]["ForecastMapPositionResponse"][];
+            /** Reason */
+            readonly reason: string;
+            /** Run Id */
+            readonly run_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "ready" | "partial" | "unavailable";
+            /** Synthetic */
+            readonly synthetic: boolean;
+            /** Unmatched Count */
+            readonly unmatched_count: number;
+        };
         /** ForecastPointResponse */
         readonly ForecastPointResponse: {
             /** Capacity */
@@ -332,6 +385,7 @@ export interface components {
              */
             readonly generated_at: string;
             readonly horizon: components["schemas"]["ForecastHorizon"];
+            readonly map?: components["schemas"]["ForecastMapResponse"] | null;
             /** Model Version */
             readonly model_version: string;
             /** Peak Load Percent */

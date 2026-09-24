@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
+from app.domain.forecast_geometry import ForecastMap
+
 
 class ForecastHorizon(StrEnum):
     DAY = "day"
@@ -155,6 +157,7 @@ class ForecastSnapshot:
     stop_points: list[StopForecastPoint] | None = None
     run: ForecastRunMetadata | None = None
     selection: ResolvedForecastSelection | None = None
+    map: ForecastMap | None = None
 
     @property
     def peak_passengers(self) -> float:

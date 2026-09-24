@@ -28,6 +28,14 @@ class StopGeometryLink:
 
 
 @dataclass(frozen=True, slots=True)
+class ServingGeometryLink:
+    route_id: int
+    stop_id: int
+    direction_id: str
+    entity: ForecastEntity
+
+
+@dataclass(frozen=True, slots=True)
 class GeometryCrosswalk:
     mapping_version: str
     entity_version: str
@@ -35,6 +43,7 @@ class GeometryCrosswalk:
     routes: tuple[RouteGeometryLink, ...]
     stops: tuple[StopGeometryLink, ...]
     synthetic: bool
+    serving_links: tuple[ServingGeometryLink, ...] = ()
 
 
 class GeometryMatchStatus(StrEnum):
@@ -65,3 +74,30 @@ class ForecastGeometry:
     ambiguous_count: int
     synthetic: bool
     route_semantics: str = "unordered_membership"
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastMapPosition:
+    stop_id: int
+    direction_id: str | None
+    status: GeometryMatchStatus
+    reason: str
+    position_kind: str
+    osm_stop_id: int | None = None
+    longitude: float | None = None
+    latitude: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastMap:
+    run_id: str | None
+    entity_version: str | None
+    graph_version: str | None
+    mapping_version: str | None
+    synthetic: bool
+    status: str
+    reason: str
+    matched_count: int
+    unmatched_count: int
+    ambiguous_count: int
+    positions: tuple[ForecastMapPosition, ...]

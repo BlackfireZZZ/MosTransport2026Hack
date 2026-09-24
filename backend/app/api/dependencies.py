@@ -9,6 +9,7 @@ from app.application.services.overpass import OverpassService
 from app.application.services.tram_graph import TramNetworkService
 from app.core.config import settings
 from app.infrastructure.db.session import get_session
+from app.infrastructure.forecast_geometry import FileForecastMapProvider
 from app.infrastructure.overpass import HttpOverpassGateway
 from app.infrastructure.repositories.forecast import SqlAlchemyForecastRepository
 from app.infrastructure.repositories.tram_graph import FileTramGraphRepository
@@ -16,8 +17,16 @@ from app.infrastructure.repositories.tram_graph import FileTramGraphRepository
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
+@lru_cache
+def get_forecast_map_provider() -> FileForecastMapProvider:
+    return FileForecastMapProvider(
+        settings.forecast_geometry_mapping,
+        settings.tram_graph_json.parent,
+    )
+
+
 def get_forecast_service(session: SessionDep) -> ForecastService:
-    return ForecastService(SqlAlchemyForecastRepository(session))
+    return ForecastService(SqlAlchemyForecastRepository(session), get_forecast_map_provider())
 
 
 ForecastServiceDep = Annotated[ForecastService, Depends(get_forecast_service)]
@@ -29,9 +38,7 @@ def get_tram_graph_repository() -> FileTramGraphRepository:
     return FileTramGraphRepository(settings.tram_graph_json, settings.tram_graph_geojson)
 
 
-TramGraphRepositoryDep = Annotated[
-    FileTramGraphRepository, Depends(get_tram_graph_repository)
-]
+TramGraphRepositoryDep = Annotated[FileTramGraphRepository, Depends(get_tram_graph_repository)]
 
 
 def get_tram_network_service(repository: TramGraphRepositoryDep) -> TramNetworkService:

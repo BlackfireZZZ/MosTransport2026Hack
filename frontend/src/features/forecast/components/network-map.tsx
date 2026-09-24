@@ -1,80 +1,86 @@
-import { CircleDot, TrainFront } from "lucide-react"
+import { lazy, Suspense } from "react"
 
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { StopLoad } from "@/features/forecast/types"
+import { Skeleton } from "@/components/ui/skeleton"
+import { bucketLabel, bucketStops } from "@/features/forecast/lib/bucket"
+import type { ForecastResponse } from "@/features/forecast/types"
+import { useNetworkGeoJson } from "@/features/tram-network/hooks/use-tram-network"
+import type { ForecastMarker } from "@/features/tram-network/types"
 import { formatPassengers } from "@/lib/utils"
 
+const TramMap = lazy(() => import("@/features/tram-network/components/tram-map").then((module) => ({ default: module.TramMap })))
+const ignoreNetworkStop = () => undefined
+
 interface NetworkMapProps {
-  stops: readonly StopLoad[]
+  snapshot: ForecastResponse
+  timestamp: string | null
+  selectedStopId: number | null
+  onStopSelect: (id: number) => void
 }
 
-function stopColor(load: number | null) {
-  if (load === null) return "var(--muted-foreground)"
-  if (load >= 95) return "var(--destructive)"
-  if (load >= 75) return "var(--warning)"
-  return "var(--chart-2)"
+const reasons: Record<string, string> = {
+  mapping_not_configured: "Соответствие остановкам OSM не настроено.",
+  mapping_configuration_invalid: "Файл соответствий или версия графа недоступны.",
+  forecast_graph_version_unavailable: "Версия графа для этого прогноза не указана.",
+  graph_version_mismatch: "Версия графа не совпадает с прогнозом.",
+  entity_version_mismatch: "Версия идентификаторов не совпадает с прогнозом.",
+  synthetic_mapping_for_real_forecast: "Синтетические соответствия нельзя применять к реальному прогнозу.",
+  run_metadata_unavailable: "Метаданные запуска недоступны.",
 }
 
-export function NetworkMap({ stops }: NetworkMapProps) {
-  if (stops.length === 0) {
-    return (
-      <Card className="map-card">
-        <CardHeader><CardTitle>Демонстрационная схема остановок</CardTitle></CardHeader>
-        <CardContent><p className="inline-error">Для выбранного среза нет узлов сети.</p></CardContent>
-      </Card>
-    )
-  }
-  const maxLoad = Math.max(...stops.map((stop) => stop.load_percent ?? 0), 1)
-  const longitudes = stops.map((stop) => stop.longitude)
-  const latitudes = stops.map((stop) => stop.latitude)
-  const minLongitude = Math.min(...longitudes)
-  const maxLongitude = Math.max(...longitudes)
-  const minLatitude = Math.min(...latitudes)
-  const maxLatitude = Math.max(...latitudes)
-  const longitudeSpan = maxLongitude - minLongitude || 1
-  const latitudeSpan = maxLatitude - minLatitude || 1
-  const points = stops.map((stop) => ({
-    ...stop,
-    x: 10 + ((stop.longitude - minLongitude) / longitudeSpan) * 80,
-    y: 64 - ((stop.latitude - minLatitude) / latitudeSpan) * 50,
-  }))
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ")
-
+export function NetworkMap({ snapshot, timestamp, selectedStopId, onStopSelect }: NetworkMapProps) {
+  const network = useNetworkGeoJson()
+  const rows = bucketStops(snapshot, timestamp)
+  const envelope = snapshot.run && snapshot.map?.run_id === snapshot.run.run_id
+    && snapshot.map.entity_version === snapshot.run.entity_version
+    && snapshot.map.graph_version === snapshot.run.graph_version ? snapshot.map : undefined
+  const positions = envelope?.positions ?? []
+  const stopNames = new Map(snapshot.stops.map((stop) => [stop.id, stop.name]))
+  const markers: ForecastMarker[] = rows.flatMap((row) => {
+    const position = positions.find((item) => item.stop_id === row.stop_id && item.direction_id === row.direction_id)
+    if (!position || position.position_kind === "unavailable" || position.longitude === null || position.latitude === null) return []
+    return [{ stopId: row.stop_id, longitude: position.longitude, latitude: position.latitude,
+      value: row.predicted_passengers, label: stopNames.get(row.stop_id) ?? `Остановка ${row.stop_id}`,
+      selected: row.stop_id === selectedStopId,
+      synthetic: position.position_kind === "synthetic_demo" || Boolean(envelope?.synthetic),
+    }]
+  })
   return (
     <Card className="map-card">
-      <CardHeader className="map-header">
-        <div>
-          <CardTitle>Демонстрационная схема остановок</CardTitle>
-          <CardDescription>Синтетические значения · линия показывает порядок остановок</CardDescription>
-        </div>
-        <Badge>демо-схема</Badge>
+      <CardHeader>
+        <CardTitle>Прогноз на карте Москвы</CardTitle>
+        <CardDescription>{timestamp ? `${bucketLabel(timestamp)} МСК` : "Интервал не выбран"} · {snapshot.run?.unit ?? "единица не указана"}</CardDescription>
       </CardHeader>
-      <CardContent className="map-content">
-        <div className="network-canvas">
-          <div className="map-grid" aria-hidden="true" />
-          <svg viewBox="0 0 100 76" role="img" aria-label="Схема остановок выбранного маршрута">
-            <path d={path} fill="none" stroke="var(--foreground)" strokeWidth="1.2" strokeLinecap="round" />
-            {points.map((point) => (
-              <g key={point.id}>
-                <circle cx={point.x} cy={point.y} r={4 + ((point.load_percent ?? 0) / maxLoad) * 2.5} fill="var(--card)" stroke={stopColor(point.load_percent)} strokeWidth="2" />
-                <circle cx={point.x} cy={point.y} r="1.5" fill={stopColor(point.load_percent)} />
-              </g>
-            ))}
-          </svg>
-          <div className="map-watermark">МОСКВА · СЕТЬ</div>
+      <CardContent>
+        <p>Фоновая сеть OSM — справочный слой. Размер точки показывает прогноз выбранного интервала; точки не соединены линиями маршрута.</p>
+        {(!envelope || envelope.status !== "ready") && <p role="status">{reasons[envelope?.reason ?? "run_metadata_unavailable"] ?? "Не все остановки имеют однозначное соответствие OSM."}</p>}
+        {envelope && <p>Сопоставление за выбранное окно — привязаны: {envelope.matched_count}; без соответствия: {envelope.unmatched_count}; неоднозначны: {envelope.ambiguous_count}.</p>}
+        {positions.some((position) => position.position_kind === "synthetic_demo") && <p role="status">Демонстрационные координаты; соответствие остановкам OSM не установлено. Жёлтые точки — синтетические данные.</p>}
+        {envelope?.synthetic && !positions.some((position) => position.position_kind === "synthetic_demo") && <p>Синтетические прогноз или соответствия; качество на реальных данных не подтверждено.</p>}
+        {network.isLoading && <p role="status">Загрузка фоновой сети…</p>}
+        {network.isError && <p role="alert">Фоновая сеть недоступна. Значения доступны в таблице. <Button variant="secondary" onClick={() => void network.refetch()}>Повторить фоновую сеть</Button></p>}
+        <Suspense fallback={<Skeleton className="h-[420px]" />}>
+          <TramMap network={network.data} routeGeoJson={undefined} selectedRoute={null} path={undefined}
+            fromStop={null} toStop={null} selectedStop={null} onStopClick={ignoreNetworkStop}
+            interactiveNetworkStops={false} forecastMarkers={markers} onForecastStopClick={onStopSelect} />
+        </Suspense>
+        {rows.length === 0 && <p role="status">Нет прогноза по остановкам для выбранного интервала. Значения других интервалов не подставляются.</p>}
+        <div className="forecast-stop-table" tabIndex={0} role="region" aria-label="Прокручиваемая таблица остановок">
+          <table aria-label="Прогноз остановок выбранного интервала">
+            <thead><tr><th scope="col">Остановка</th><th scope="col">Прогноз</th><th scope="col">Интервал</th><th scope="col">Карта</th></tr></thead>
+            <tbody>{rows.map((row) => {
+              const position = positions.find((item) => item.stop_id === row.stop_id && item.direction_id === row.direction_id)
+              return <tr key={`${row.stop_id}-${row.direction_id ?? "all"}`}>
+                <th scope="row"><Button variant="ghost" onClick={() => onStopSelect(row.stop_id)} aria-pressed={row.stop_id === selectedStopId}>{stopNames.get(row.stop_id) ?? `Остановка ${row.stop_id}`}</Button></th>
+                <td>{formatPassengers(row.predicted_passengers)} {snapshot.run?.unit ?? ""}</td>
+                <td>{row.lower_bound === null || row.upper_bound === null ? "недоступен" : `${formatPassengers(row.lower_bound)}–${formatPassengers(row.upper_bound)}`}</td>
+                <td>{position?.position_kind === "synthetic_demo" ? "демо, без привязки OSM" : position?.status === "matched" ? `OSM ${position.osm_stop_id}` : position?.status === "ambiguous" ? "неоднозначно" : "нет соответствия"}</td>
+              </tr>
+            })}</tbody>
+          </table>
         </div>
-        <ol className="stop-list" aria-label="Загрузка остановок">
-          {stops.map((stop) => (
-            <li key={stop.id}>
-              <span className="stop-icon" style={{ color: stopColor(stop.load_percent) }}>
-                {stop.sequence === 1 ? <TrainFront /> : <CircleDot />}
-              </span>
-              <span className="stop-name">{stop.name}</span>
-              <span className="stop-value">{formatPassengers(stop.predicted_passengers)} · {stop.load_percent == null ? "вместимость неизвестна" : `${stop.load_percent.toFixed(0)}%`}</span>
-            </li>
-          ))}
-        </ol>
+        {rows.some((row) => row.bucket_end === null) && <p>Конец отдельных интервалов в исходном демонаборе не указан.</p>}
       </CardContent>
     </Card>
   )

@@ -1,5 +1,6 @@
 from typing import Protocol
 
+from app.application.services.forecast_map import ForecastMapService
 from app.domain.forecast import (
     ForecastHorizon,
     ForecastSelection,
@@ -22,9 +23,16 @@ class ForecastRepository(Protocol):
     ) -> ForecastSnapshot | None: ...
 
 
+class ForecastMapProvider(Protocol):
+    async def enrich(self, snapshot: ForecastSnapshot) -> ForecastSnapshot: ...
+
+
 class ForecastService:
-    def __init__(self, repository: ForecastRepository) -> None:
+    def __init__(
+        self, repository: ForecastRepository, map_provider: ForecastMapProvider | None = None
+    ) -> None:
         self._repository = repository
+        self._map_provider = map_provider
 
     async def list_routes(self) -> list[RouteSummary]:
         return await self._repository.list_routes()
@@ -34,8 +42,14 @@ class ForecastService:
     ) -> ForecastSnapshot | None:
         if selection is not None:
             selection.validate(horizon)
-            return await self._repository.get_snapshot(route_id, horizon, selection)
-        return await self._repository.get_snapshot(route_id, horizon)
+            snapshot = await self._repository.get_snapshot(route_id, horizon, selection)
+        else:
+            snapshot = await self._repository.get_snapshot(route_id, horizon)
+        if snapshot is None:
+            return None
+        if self._map_provider:
+            return await self._map_provider.enrich(snapshot)
+        return ForecastMapService().enrich(snapshot)
 
     async def list_stops(self, route_id: int) -> list[RouteStopSummary] | None:
         return await self._repository.list_stops(route_id)

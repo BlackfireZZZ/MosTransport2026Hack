@@ -31,3 +31,33 @@ export function forecastResponse(routeId: number, horizon: ForecastHorizon): For
       name: "Тестовая остановка", sequence: 1, load_percent: peak / 10, predicted_passengers: peak }],
   }
 }
+
+export function mappedForecastResponse(routeId: number, horizon: ForecastHorizon): ForecastResponse {
+  const base = forecastResponse(routeId, horizon)
+  const firstStop = { ...base.stops[0], name: "Альфа прогноза" }
+  const secondStop = { ...firstStop, id: firstStop.id + 1, name: "Бета прогноза", sequence: 2, longitude: 37.603, latitude: 55.786 }
+  const run = {
+    run_id: `fixture-run-${horizon}`, dataset_id: "fixture", source_version: "fixture.v1",
+    feature_version: "fixture.v1", entity_version: "fixture-entities", calendar_version: "calendar.v1",
+    graph_version: null, target: "synthetic_boardings", unit: "event_count", synthetic: true,
+    forecast_origin: base.generated_at, data_cutoff: base.generated_at,
+    interval_level: null, interval_method: "synthetic_fixture", identity_namespace: "serving-surrogate-integer",
+  }
+  return { ...base, run, selection: { start: base.points[0].timestamp,
+    end: new Date(Date.parse(base.points.at(-1)!.timestamp) + 3600000).toISOString(), stop_id: null, direction_id: null,
+    aggregation_key: "route_bucket", interval_aggregation: "single_source_or_unavailable" }, stops: [firstStop, secondStop],
+    stop_points: base.points.flatMap((point) => [firstStop, secondStop].map((stop, index) => {
+      const value = Math.round(point.predicted_passengers * (index === 0 ? 0.4 : 0.6))
+      return { stop_id: stop.id, timestamp: point.timestamp, bucket_end: null, direction_id: "out",
+        predicted_passengers: value, lower_bound: value - 10, upper_bound: value + 10, capacity: null,
+        aggregation_scope: "stop_bucket_direction" }
+    })),
+    map: { run_id: run.run_id, entity_version: run.entity_version, graph_version: null, mapping_version: null,
+      synthetic: true, status: "unavailable", reason: "mapping_not_configured",
+      matched_count: 0, unmatched_count: 2, ambiguous_count: 0,
+      positions: [firstStop, secondStop].map((stop) => ({ stop_id: stop.id, direction_id: "out",
+        status: "unmatched", reason: "mapping_not_configured", position_kind: "synthetic_demo",
+        osm_stop_id: null, longitude: stop.longitude, latitude: stop.latitude })),
+    },
+  }
+}

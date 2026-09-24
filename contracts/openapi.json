@@ -10,6 +10,191 @@
         "title": "ForecastHorizon",
         "type": "string"
       },
+      "ForecastMapPositionResponse": {
+        "properties": {
+          "direction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Id"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "osm_stop_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Osm Stop Id"
+          },
+          "position_kind": {
+            "enum": [
+              "osm",
+              "synthetic_demo",
+              "unavailable"
+            ],
+            "title": "Position Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "matched",
+              "unmatched",
+              "ambiguous"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stop_id": {
+            "title": "Stop Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stop_id",
+          "direction_id",
+          "status",
+          "reason",
+          "position_kind",
+          "osm_stop_id",
+          "longitude",
+          "latitude"
+        ],
+        "title": "ForecastMapPositionResponse",
+        "type": "object"
+      },
+      "ForecastMapResponse": {
+        "properties": {
+          "ambiguous_count": {
+            "title": "Ambiguous Count",
+            "type": "integer"
+          },
+          "entity_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Version"
+          },
+          "graph_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Version"
+          },
+          "mapping_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapping Version"
+          },
+          "matched_count": {
+            "title": "Matched Count",
+            "type": "integer"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastMapPositionResponse"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "partial",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "synthetic": {
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "unmatched_count": {
+            "title": "Unmatched Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "run_id",
+          "entity_version",
+          "graph_version",
+          "mapping_version",
+          "synthetic",
+          "status",
+          "reason",
+          "matched_count",
+          "unmatched_count",
+          "ambiguous_count",
+          "positions"
+        ],
+        "title": "ForecastMapResponse",
+        "type": "object"
+      },
       "ForecastPointResponse": {
         "properties": {
           "capacity": {
@@ -78,6 +263,16 @@
           },
           "horizon": {
             "$ref": "#/components/schemas/ForecastHorizon"
+          },
+          "map": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ForecastMapResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "model_version": {
             "title": "Model Version",

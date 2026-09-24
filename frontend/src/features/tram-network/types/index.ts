@@ -26,3 +26,14 @@ export interface StopRef {
   readonly latitude: number
   readonly longitude: number
 }
+
+
+export interface ForecastMarker {
+  readonly stopId: number
+  readonly longitude: number
+  readonly latitude: number
+  readonly value: number
+  readonly label: string
+  readonly selected: boolean
+  readonly synthetic: boolean
+}

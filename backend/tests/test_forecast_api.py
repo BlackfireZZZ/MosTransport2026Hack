@@ -72,6 +72,7 @@ def test_forecast_response_contract(
     assert response.status_code == 200
     assert response.json() == {
         "run": None,
+        "map": None,
         "selection": None,
         "stop_points": None,
         "route": {"id": 1, "number": "Т1", "name": "Тестовый маршрут", "color": "#d9342b"},

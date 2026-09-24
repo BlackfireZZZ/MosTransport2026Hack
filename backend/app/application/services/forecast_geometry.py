@@ -39,6 +39,14 @@ class ForecastGeometryService:
             if len(set(ids)) != len(ids) or any(type(i) is not int or i <= 0 for i in ids):
                 raise GeometryMappingError("stop candidates must be distinct positive OSM ids")
 
+    @property
+    def crosswalk(self) -> GeometryCrosswalk:
+        return self._crosswalk
+
+    @property
+    def synthetic(self) -> bool:
+        return self._crosswalk.synthetic or self._network.metadata.synthetic
+
     def map_stops(
         self,
         entities: Sequence[ForecastEntity],
@@ -60,7 +68,7 @@ class ForecastGeometryService:
             matched_count=counts[GeometryMatchStatus.MATCHED],
             unmatched_count=counts[GeometryMatchStatus.UNMATCHED],
             ambiguous_count=counts[GeometryMatchStatus.AMBIGUOUS],
-            synthetic=self._crosswalk.synthetic,
+            synthetic=self.synthetic,
         )
 
     def _map(self, entity: ForecastEntity) -> MappedForecastStop:

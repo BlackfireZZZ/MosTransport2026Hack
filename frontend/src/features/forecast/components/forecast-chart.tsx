@@ -1,4 +1,4 @@
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { ForecastHorizon, ForecastPoint } from "@/features/forecast/types"
@@ -24,9 +24,11 @@ function formatTick(timestamp: string, horizon: ForecastHorizon) {
 interface ForecastChartProps {
   points: readonly ForecastPoint[]
   horizon: ForecastHorizon
+  selectedTimestamp?: string | null
+  onSelectTimestamp?: (timestamp: string) => void
 }
 
-export function ForecastChart({ points, horizon }: ForecastChartProps) {
+export function ForecastChart({ points, horizon, selectedTimestamp, onSelectTimestamp }: ForecastChartProps) {
   const data = points.map((point) => ({
     ...point,
     label: formatTick(point.timestamp, horizon),
@@ -52,11 +54,17 @@ export function ForecastChart({ points, horizon }: ForecastChartProps) {
         {points.some((point) => point.capacity === null) && <p>Вместимость неизвестна для части значений.</p>}
         <div className="chart-wrap" role="img" aria-label={`Пик прогноза ${formatPassengers(peak)} пассажиров`}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+            <ComposedChart data={data} onClick={(state) => {
+              if (state?.activeTooltipIndex == null || state.activeTooltipIndex === "") return
+              const index = Number(state.activeTooltipIndex)
+              if (Number.isInteger(index) && points[index]) onSelectTimestamp?.(points[index].timestamp)
+            }} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="2 4" />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={28} />
+              <XAxis dataKey="timestamp" tickFormatter={(value: string) => formatTick(value, horizon)} tickLine={false} axisLine={false} minTickGap={28} />
+              {selectedTimestamp && <ReferenceLine x={selectedTimestamp} stroke="var(--primary)" strokeDasharray="3 3" />}
               <YAxis tickLine={false} axisLine={false} width={50} />
               <Tooltip
+                labelFormatter={(value) => typeof value === "string" ? formatTick(value, horizon) : ""}
                 contentStyle={{
                   background: "var(--popover)",
                   border: "1px solid var(--border)",

@@ -28,7 +28,7 @@ import {
   pathCollection,
   type Bounds,
 } from "@/features/tram-network/lib/network"
-import type { StopRef, TramGraphGeoJson, TramPath } from "@/features/tram-network/types"
+import type { ForecastMarker, StopRef, TramGraphGeoJson, TramPath } from "@/features/tram-network/types"
 
 const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
 
@@ -96,6 +96,9 @@ interface TramMapProps {
   readonly toStop: StopRef | null
   readonly selectedStop: StopRef | null
   readonly onStopClick: (stopId: number) => void
+  readonly interactiveNetworkStops?: boolean
+  readonly forecastMarkers?: readonly ForecastMarker[]
+  readonly onForecastStopClick?: (stopId: number) => void
 }
 
 export function TramMap(props: TramMapProps) {
@@ -110,6 +113,8 @@ export function TramMap(props: TramMapProps) {
   const [styleError, setStyleError] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
+  const onForecastStopClickRef = useRef(props.onForecastStopClick)
+  useEffect(() => { onForecastStopClickRef.current = props.onForecastStopClick }, [props.onForecastStopClick])
   const onStopClickRef = useRef(onStopClick)
   useEffect(() => {
     onStopClickRef.current = onStopClick
@@ -153,6 +158,7 @@ export function TramMap(props: TramMapProps) {
       map.addSource("route", { type: "geojson", data: EMPTY_COLLECTION })
       map.addSource("path", { type: "geojson", data: EMPTY_COLLECTION })
       map.addSource("markers", { type: "geojson", data: EMPTY_COLLECTION })
+      map.addSource("forecast", { type: "geojson", data: EMPTY_COLLECTION })
 
       map.addLayer({
         id: "network-track",
@@ -221,10 +227,21 @@ export function TramMap(props: TramMapProps) {
         },
       })
 
+      map.addLayer({
+        id: "forecast-points", type: "circle", source: "forecast",
+        paint: {
+          "circle-radius": ["get", "radius"],
+          "circle-color": ["case", ["get", "synthetic"], "#b86e13", "#246b88"],
+          "circle-stroke-color": "#1f2529",
+          "circle-stroke-width": ["case", ["get", "selected"], 4, 1.5],
+          "circle-opacity": 0.9,
+        },
+      })
+
       setReady(true)
     })
 
-    const pickLayers = ["marker-points", "route-stops", "network-stops"]
+    const pickLayers = props.interactiveNetworkStops === false ? ["forecast-points"] : ["forecast-points", "marker-points", "route-stops", "network-stops"]
     const boxAround = (event: MapMouseEvent, slop: number): [PointLike, PointLike] => [
       [event.point.x - slop, event.point.y - slop],
       [event.point.x + slop, event.point.y + slop],
@@ -235,6 +252,11 @@ export function TramMap(props: TramMapProps) {
       if (layers.length === 0) return
       const hits = map.queryRenderedFeatures(boxAround(event, 6), { layers })
       for (const hit of hits) {
+        const servingId: unknown = hit.properties?.forecast_stop_id
+        if (hit.layer.id === "forecast-points" && typeof servingId === "number" && Number.isInteger(servingId)) {
+          onForecastStopClickRef.current?.(servingId)
+          return
+        }
         const id = featureStopId(hit.properties)
         if (id !== null) {
           onStopClickRef.current(id)
@@ -268,7 +290,7 @@ export function TramMap(props: TramMapProps) {
       framedRef.current = false
       setReady(false)
     }
-  }, [attempt])
+  }, [attempt, props.interactiveNetworkStops])
 
   useEffect(() => {
     const map = mapRef.current
@@ -337,6 +359,21 @@ export function TramMap(props: TramMapProps) {
     void source?.setData(markerCollection(fromStop, toStop, selectedStop))
   }, [fromStop, toStop, selectedStop, ready])
 
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const markers = props.forecastMarkers ?? []
+    const max = Math.max(1, ...markers.map((marker) => marker.value))
+    void map.getSource<GeoJSONSource>("forecast")?.setData({
+      type: "FeatureCollection",
+      features: markers.map((marker) => ({
+        type: "Feature", geometry: { type: "Point", coordinates: [marker.longitude, marker.latitude] },
+        properties: { forecast_stop_id: marker.stopId, label: marker.label, value: marker.value,
+          selected: marker.selected, synthetic: marker.synthetic, radius: 6 + 7 * Math.sqrt(marker.value / max) },
+      })),
+    })
+  }, [props.forecastMarkers, ready])
+
   return (
     <div className="tram-map-wrap">
       <div className="relative">
@@ -360,19 +397,19 @@ export function TramMap(props: TramMapProps) {
       {network?.metadata.synthetic && <p role="status">Синтетическая геометрия — демонстрационные данные.</p>}
       <details>
         <summary>Остановки и участки сети</summary>
-        <div className="max-h-80 overflow-auto">
+        <div className="max-h-80 overflow-auto" tabIndex={0} role="region" aria-label="Прокручиваемый список сети">
           {!network ? <p>Список появится после загрузки графа сети.</p> : (
             <ul aria-label="Объекты локального графа">
               {(routeGeoJson ?? network).features.map((feature, index) => (
                 <li key={index}>
                   {"id" in feature.properties ? (
                     <>
-                      <Button variant="ghost" onClick={() => {
+                      {props.interactiveNetworkStops === false ? <span>{feature.properties.name} · OSM {feature.properties.id}</span> : <Button variant="ghost" onClick={() => {
                         const id = featureStopId(feature.properties)
                         if (id !== null) onStopClick(id)
                       }}>
                         {feature.properties.name} · OSM {feature.properties.id}
-                      </Button>
+                      </Button>}
                       <span> · {feature.geometry.coordinates.join(", ")}</span>
                     </>
                   ) : (

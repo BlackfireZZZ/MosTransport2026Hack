@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     )
 
     # See docs/decisions/0003-tram-graph-file-repository.md.
+    forecast_geometry_mapping: Path | None = None
     tram_graph_json: Path = DATA_DIR / "tram_graph.json"
     tram_graph_geojson: Path = DATA_DIR / "tram_graph.geojson"
 
