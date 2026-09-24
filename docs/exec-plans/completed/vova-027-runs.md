@@ -55,3 +55,7 @@ uv/Node/npm were installed in /tmp solely as tooling; no manifest/lock changed.
 New migration downgrade must refuse ambiguous multi-run data or nulls incompatible
 with old schema; it must never silently discard forecast rows. Test roundtrip on
 a disposable database. Keep worktree for review until integration is authorized.
+
+## Integration
+Locally integrated into main at 202caed after independent review and parent combined
+make check (exit0). No remote push. Worktree retained because branch is unpushed.

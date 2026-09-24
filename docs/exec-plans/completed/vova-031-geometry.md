@@ -75,3 +75,7 @@ false and true graph flags with synthetic GeoJSON through segment/path/API outpu
 Focused `pytest backend/tests/test_graph_validation.py`: 98 passed.
 Repeated `make check`: exit 0; 303 backend passed (10 opt-in SQL skips), 151 ML,
 49 frontend and 119 contracts passed, with all static/build/Compose gates passing.
+
+## Integration
+Locally integrated into main at 202caed after independent review and parent combined
+make check (exit0). No remote push. Worktree retained because branch is unpushed.

@@ -82,3 +82,7 @@ Correction verification: mapping tests 20 passed; `make check` exit 0 (backend
 312 passed / 10 SQL skipped, ML 151, frontend 47, contracts 119). No dependency,
 API or publication-contract changes. Earlier implementation commit 734ef45 and
 this correction await lead integration.
+
+## Integration
+Locally integrated into main at 202caed after independent review and parent combined
+make check (exit0). No remote push. Worktree retained because branch is unpushed.
