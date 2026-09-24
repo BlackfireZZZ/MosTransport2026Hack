@@ -201,6 +201,26 @@ and 7 on the tiny fixture and after an index commit without a checkpoint.
 - Not verified: organizer data (no samples), and the RSS ceiling on a machine
   with a different SQLite build; the 8 MiB cache pragma is the only tunable.
 
+### Review record (2026-09-25)
+
+Independent review and acceptance validation of `88cd506`: ACCEPT, no CRITICAL or
+HIGH findings. Every finding is addressed in the follow-up commit.
+
+| Severity | Finding | Fix |
+|---|---|---|
+| MEDIUM | A line that is not valid UTF-8 reached quarantine only through `errors="replace"`, so the original bytes were unrecoverable | Such records now also carry `raw_base64` with the exact bytes; records for valid UTF-8 lines are unchanged, so output bytes for valid inputs stay identical |
+| LOW | `StreamState["done"]` was written but never observed across a restart — dead state | Field removed; a finished stream resumes at its end offset and yields no chunk, which is the same behaviour without the flag |
+| LOW | A crash between writing `manifest.json` and cleanup silently leaves `checkpoint.json` and `dedup.sqlite` | Documented in the README: deleting them is safe, and a rerun refuses the directory as already complete |
+| LOW | A UTF-8 BOM before a CSV header made the first column name unmatchable | Header decoded as `utf-8-sig`; a round-trip test with a BOM reproduces the plain `output_hash` |
+| LOW | `load_checkpoint` validated only `schema_version`, so a truncated checkpoint failed later with a `KeyError` | Required keys and per-stream counters are type-checked and refused as `IngestionError` (exit 2); four parametrised cases cover a mistyped scalar, a missing key, a missing stream and a mistyped stream field |
+| nit | README implied the adapter identity and the CSV path were both exercised through the CLI | README now states that the adapter is compared by name only and that CSV runs through the Python API, not `tramflow-ml ingest` |
+
+After the fixes: `make ml-check` ruff and mypy strict clean, 96 passed (26
+ingestion tests); an independent rerun of the tiny fixture reproduced
+`validations.jsonl` `5551a578…` and `telemetry.jsonl` `ceb0ea8c…` unchanged from
+before the fixes, confirming valid-input outputs are byte-identical;
+`make sync-backend && make check` exit 0.
+
 ## Validation / recovery
 
 Commands to run and record: `pytest ml/tests/test_ingestion*.py`, `make

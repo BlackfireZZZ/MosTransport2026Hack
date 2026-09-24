@@ -76,7 +76,6 @@ class StreamState(TypedDict):
     offset: int
     row_index: int
     chunks: int
-    done: bool
     counts: StreamCounts
     reasons: dict[str, int]
 

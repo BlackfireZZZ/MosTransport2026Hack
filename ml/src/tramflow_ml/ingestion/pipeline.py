@@ -1,5 +1,6 @@
 """One ingestion run: hash inputs, normalize in chunks, deduplicate, quarantine, checkpoint."""
 
+import base64
 import hashlib
 import json
 from collections import Counter
@@ -75,7 +76,6 @@ def _empty_stream() -> StreamState:
         "offset": 0,
         "row_index": 0,
         "chunks": 0,
-        "done": False,
         "counts": {"input_rows": 0, "valid": 0, "duplicates": 0, "quarantined": 0},
         "reasons": {},
     }
@@ -160,18 +160,27 @@ def _normalize_row(
     return _Normalized(str(normalized["event_id"]), encode(normalized))
 
 
+def _quarantine_record(stream: StreamName, row: RawRow, rejection: Rejection) -> dict[str, object]:
+    """``raw`` is best-effort text; ``raw_base64`` carries the exact bytes only when
+    the line is not valid UTF-8, so valid-input outputs keep their byte layout."""
+    record: dict[str, object] = {
+        "stream": stream,
+        "row_index": row.row_index,
+        "reason": rejection.reason,
+        "detail": rejection.detail,
+    }
+    try:
+        return {**record, "raw": row.raw.decode("utf-8")}
+    except UnicodeDecodeError:
+        return {
+            **record,
+            "raw": row.raw.decode("utf-8", errors="replace"),
+            "raw_base64": base64.b64encode(row.raw).decode("ascii"),
+        }
+
+
 def _quarantine(run: _Run, stream: StreamName, row: RawRow, rejection: Rejection) -> None:
-    run.writers["quarantine"].write(
-        encode(
-            {
-                "stream": stream,
-                "row_index": row.row_index,
-                "reason": rejection.reason,
-                "detail": rejection.detail,
-                "raw": row.raw.decode("utf-8", errors="replace"),
-            }
-        )
-    )
+    run.writers["quarantine"].write(encode(_quarantine_record(stream, row, rejection)))
 
 
 def _process_chunk(
@@ -221,7 +230,6 @@ def _advance(state: StreamState, outcome: _ChunkOutcome, chunk: Chunk) -> Stream
         "offset": chunk.end_offset,
         "row_index": chunk.rows[-1].row_index + 1,
         "chunks": state["chunks"] + 1,
-        "done": False,
         "counts": merged,
         "reasons": dict(sorted(reasons.items())),
     }
@@ -249,9 +257,8 @@ def _commit_chunk(
 
 
 def _process_stream(run: _Run, stream: StreamName, checkpoint: Checkpoint) -> Checkpoint:
+    """A finished stream resumes at its end offset, so re-scanning it yields no chunk."""
     state = checkpoint["streams"][stream]
-    if state["done"]:
-        return checkpoint
     path = run.config.input / run.config.stream_file(stream)
     decoder, data_start = open_decoder(path, run.config.source_format)
     normalizer = Normalizer(
@@ -262,8 +269,7 @@ def _process_stream(run: _Run, stream: StreamName, checkpoint: Checkpoint) -> Ch
     for chunk in iter_chunks(path, offset, state["row_index"], run.config.chunk_size):
         outcome = _process_chunk(run, stream, decoder, normalizer, chunk, current["commit_seq"] + 1)
         current = _commit_chunk(run, stream, current, outcome, chunk)
-    finished: StreamState = {**current["streams"][stream], "done": True}
-    return {**current, "streams": {**current["streams"], stream: finished}}
+    return current
 
 
 def _report(state: StreamState, input_file: str) -> StreamReport:

@@ -68,7 +68,8 @@ uv run --package tramflow-ml tramflow-ml ingest --input /tmp/synthetic-million -
 
 Output directory: `validations.jsonl`, `telemetry.jsonl` (canonical JSON lines,
 exactly the contract fields, timestamps re-emitted in `Europe/Moscow`),
-`quarantine.jsonl` (`stream`, `row_index`, `reason`, `detail`, `raw`), then
+`quarantine.jsonl` (`stream`, `row_index`, `reason`, `detail`, `raw`, plus
+`raw_base64` only when the source line is not valid UTF-8), then
 `manifest.json` (`ingestion.v1`) last. The manifest carries `normalization_version`,
 the SHA-256 and byte size of every input, the propagated source manifest, per-stream
 counts and an `output_hash`. Nothing in the outputs depends on wall clock or paths.
@@ -85,8 +86,15 @@ Restart: after every chunk the outputs are flushed, the SQLite `event_id` index 
 committed and `checkpoint.json` is replaced atomically. Rerunning the same command
 on a directory that holds `checkpoint.json` resumes from it and produces
 byte-identical files; it refuses if any input hash, the normalization version, the
-adapter, the format or the chunk size changed. A directory with `manifest.json` is
-complete and is never overwritten; a directory with unrelated files is refused.
+adapter, the format or the chunk size changed. The adapter is compared by name, so
+editing a `ColumnAdapter` without renaming it is not detected; give a changed mapping
+a new name. A checkpoint that is not valid `ingestion-checkpoint.v1` — a missing or
+mistyped key, a missing stream — is refused as an input error (exit 2) instead of
+being read as far as it parses. A directory with `manifest.json` is complete and is
+never overwritten; a directory with unrelated files is refused. `checkpoint.json` and
+`dedup.sqlite` are removed only after `manifest.json` is written, so a crash in that
+last step leaves both behind next to a complete manifest; deleting them by hand is
+safe and a rerun refuses the directory as already complete.
 Memory is bounded by `--chunk-size` plus an 8 MiB SQLite cache, not by row count
 (million-event run: 57 MB peak RSS, same as a 100 000-event run).
 
@@ -94,5 +102,8 @@ CSV sources need one record per physical line (quoted line breaks are unsupporte
 because resumption is by byte offset); strings are coerced to integers, booleans and
 floats. A `ColumnAdapter` maps canonical field → source column, supplies constants
 for absent columns and sets `timestamp_format` / `assume_timezone` for naive
-timestamps. Only the built-in `synthetic` adapter is exposed on the CLI; organizer
-adapters wait for real samples.
+timestamps. Only the built-in `synthetic` adapter is exposed on the CLI, so CSV sources are
+reachable through the Python API (`ingest(IngestionConfig(..., source_format="csv",
+adapter=...))`) and are covered by tests there, not through `tramflow-ml ingest`;
+organizer adapters wait for real samples. A UTF-8 byte-order mark before the CSV
+header is ignored.

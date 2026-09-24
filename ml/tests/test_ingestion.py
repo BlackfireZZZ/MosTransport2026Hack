@@ -1,3 +1,4 @@
+import base64
 import csv
 import hashlib
 import json
@@ -371,3 +372,81 @@ def test_csv_malformed_line_and_bad_timestamp_are_quarantined(fixture_dir, tmp_p
         "invalid_timestamp": 1,
     }
     assert counts(manifest, "validations")["input_rows"] == 67
+
+
+def test_invalid_utf8_line_keeps_the_exact_bytes_in_quarantine(fixture_dir, tmp_path):
+    path = fixture_dir / "validations.jsonl"
+    rows = path.read_bytes().splitlines()
+    undecodable = b'{"event_id":"\xff\xfe"}'
+    path.write_bytes(b"\n".join([undecodable, *rows]) + b"\n")
+
+    manifest = ingest(IngestionConfig(input=fixture_dir, output=tmp_path / "out", chunk_size=4))
+
+    assert manifest["streams"]["validations"]["quarantine_reasons"] == {"decode_error": 1}
+    [record] = lines(tmp_path / "out/quarantine.jsonl")
+    assert base64.b64decode(record["raw_base64"]) == undecodable
+    assert "�" in record["raw"]
+
+
+def test_valid_utf8_quarantine_records_carry_no_base64_copy(fixture_dir, tmp_path):
+    rewrite_validations(fixture_dir, lambda rows: ["{not json", *rows])
+
+    ingest(IngestionConfig(input=fixture_dir, output=tmp_path / "out", chunk_size=4))
+
+    [record] = lines(tmp_path / "out/quarantine.jsonl")
+    assert record["raw"] == "{not json"
+    assert "raw_base64" not in record
+
+
+def test_csv_header_tolerates_a_utf8_byte_order_mark(fixture_dir, tmp_path):
+    adapter = write_csv_fixture(fixture_dir, tmp_path / "csv")
+    plain = IngestionConfig(
+        input=tmp_path / "csv",
+        output=tmp_path / "plain",
+        chunk_size=9,
+        source_format="csv",
+        adapter=adapter,
+    )
+    expected = ingest(plain)
+    for name in ("validations.csv", "telemetry.csv"):
+        path = tmp_path / "csv" / name
+        path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes())
+
+    manifest = ingest(replace(plain, output=tmp_path / "bom"))
+
+    assert manifest["streams"] == expected["streams"]
+    assert manifest["output_hash"] == expected["output_hash"]
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected"),
+    [
+        (lambda payload: {**payload, "chunk_size": "10"}, "chunk_size"),
+        (
+            lambda payload: {key: value for key, value in payload.items() if key != "commit_seq"},
+            "commit_seq",
+        ),
+        (lambda payload: {**payload, "streams": {}}, "streams.validations"),
+        (
+            lambda payload: {
+                **payload,
+                "streams": {
+                    **payload["streams"],
+                    "telemetry": {**payload["streams"]["telemetry"], "offset": None},
+                },
+            },
+            "streams.telemetry",
+        ),
+    ],
+)
+def test_malformed_checkpoint_is_refused(fixture_dir, tmp_path, monkeypatch, mutate, expected):
+    config = IngestionConfig(input=fixture_dir, output=tmp_path / "out", chunk_size=10)
+    interrupt_after(monkeypatch, 2)
+    with pytest.raises(RuntimeError):
+        ingest(config)
+    monkeypatch.undo()
+    path = tmp_path / "out/checkpoint.json"
+    path.write_text(json.dumps(mutate(json.loads(path.read_text()))), encoding="utf-8")
+
+    with pytest.raises(IngestionError, match=expected):
+        ingest(config)

@@ -66,7 +66,10 @@ class JsonLineDecoder:
 
 
 class CsvLineDecoder:
-    """One record per physical line; quoted line breaks are not supported."""
+    """One record per physical line; quoted line breaks are not supported.
+
+    A UTF-8 byte-order mark before the header is dropped when the header is read.
+    """
 
     def __init__(self, header: tuple[str, ...]) -> None:
         self.header = header
@@ -89,7 +92,7 @@ def read_csv_header(path: Path) -> tuple[tuple[str, ...], int]:
     if not line:
         raise IngestionError(f"{path.name} has no CSV header line")
     try:
-        header = next(csv.reader([line.decode("utf-8").rstrip("\r\n")]), [])
+        header = next(csv.reader([line.decode("utf-8-sig").rstrip("\r\n")]), [])
     except (UnicodeDecodeError, csv.Error) as error:
         raise IngestionError(f"{path.name}: unreadable CSV header") from error
     if not header or "" in header or len(set(header)) != len(header):

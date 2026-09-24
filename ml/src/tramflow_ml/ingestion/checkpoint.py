@@ -9,10 +9,23 @@ from typing import cast
 from tramflow_ml.ingestion.records import (
     CHECKPOINT_SCHEMA,
     HASH_BLOCK_BYTES,
+    STREAMS,
     Checkpoint,
     FileInventory,
     IngestionError,
 )
+
+REQUIRED_CHECKPOINT_KEYS: dict[str, type] = {
+    "normalization_version": str,
+    "adapter": str,
+    "source_format": str,
+    "chunk_size": int,
+    "commit_seq": int,
+    "inputs": dict,
+    "streams": dict,
+    "outputs": dict,
+}
+STREAM_COUNT_KEYS = ("input_rows", "valid", "duplicates", "quarantined")
 
 
 def write_atomic(path: Path, payload: bytes) -> None:
@@ -36,7 +49,36 @@ def load_checkpoint(path: Path) -> Checkpoint:
         raise IngestionError(f"{path.name} is not valid JSON") from error
     if not isinstance(payload, dict) or payload.get("schema_version") != CHECKPOINT_SCHEMA:
         raise IngestionError(f"{path.name} is not a {CHECKPOINT_SCHEMA} checkpoint")
+    malformed = sorted(
+        key
+        for key, expected in REQUIRED_CHECKPOINT_KEYS.items()
+        if not isinstance(payload.get(key), expected) or isinstance(payload.get(key), bool)
+    )
+    streams = payload.get("streams", {})
+    malformed += sorted(
+        f"streams.{name}"
+        for name in STREAMS
+        if not _is_stream_state(streams.get(name) if isinstance(streams, dict) else None)
+    )
+    if malformed:
+        raise IngestionError(f"{path.name} is missing or mistyped: {malformed}")
     return cast(Checkpoint, payload)
+
+
+def _is_stream_state(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    counts = value.get("counts")
+    scalars = all(
+        isinstance(value.get(key), int) and not isinstance(value.get(key), bool)
+        for key in ("offset", "row_index", "chunks")
+    )
+    return (
+        scalars
+        and isinstance(counts, dict)
+        and all(isinstance(counts.get(key), int) for key in STREAM_COUNT_KEYS)
+        and isinstance(value.get("reasons"), dict)
+    )
 
 
 class OutputWriter:
