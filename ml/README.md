@@ -54,3 +54,55 @@ zero, a gap date means missing coverage. Timestamps are ISO-8601 with the
 `Europe/Moscow` offset. `cell_totals` (route, direction, stop, date, hour) and
 `hour_totals` sum to `N` for independent reconciliation. File order is event time,
 not an availability guarantee.
+
+## Identity alignment
+
+`tramflow_ml.identity` joins source validation/telemetry rows to canonical catalog
+ids through an explicit, versioned crosswalk and per-source clock rules. It is a
+pure-Python API (CLI wiring is a later task) and never guesses: each row becomes an
+`AlignedEvent` whose `match` is `Matched` (kind `exact_id`, `name_route_direction`
+or `geo_nearest`), `Unmatched(reason)`, `Ambiguous(field, candidates)` or
+`Stale(lag_seconds)`.
+
+```python
+from tramflow_ml.identity import (
+    AlignmentConfig, CanonicalCatalog, SourceEvent, align_events, load_crosswalk, quality_report,
+)
+
+catalog = CanonicalCatalog.from_dict(entities_json)          # entities.json shape (data.v1)
+crosswalk = load_crosswalk(crosswalk_json, catalog)          # unknown canonical ids raise
+config = AlignmentConfig.from_dict({"clocks": {"validations": {"timezone": "UTC"}}})
+aligned = align_events(catalog, crosswalk, config, source_events)
+report = quality_report(crosswalk, aligned).to_dict()
+```
+
+Crosswalk payload: `crosswalk_version`, `entity_version` (must equal the catalog),
+`routes`, `directions`, `stops` (source id → canonical id), `stop_names`
+(`name` + `route_id` + `direction_id` → `stop_id`, for sources that only carry a
+name), `stop_positions` (canonical stop → `latitude`/`longitude`) and `vehicles`
+(half-open `[valid_from, valid_to)` route assignments, ISO-8601 with offset).
+
+Rules that make the acceptance failure modes explicit:
+
+| Situation | Outcome |
+|---|---|
+| Two stops share a name on the pattern and no qualified `stop_names` entry | `Ambiguous("stop", …)` |
+| Direction missing or unknown | `Unmatched`; a direction is never inferred from the stop |
+| Stop visited twice on a pattern without `stop_sequence` or `previous_stop_id` | `Ambiguous("stop_sequence", …)` |
+| Vehicle assignment at event time disagrees with the source route | `Unmatched("vehicle_route_conflict")`; fires only when a covering assignment interval exists for the vehicle, so unassigned vehicles never veto and route/direction always come from the source row |
+| GPS is the join key (no `stop_id`/`stop_name`) and `abs(fix_at - event_at)` exceeds `gps_staleness_seconds` | `Stale`, not joined; a fix newer than the event counts too. A row carrying `stop_id` joins `exact_id` regardless of `fix_at` |
+| Naive timestamp falls in a DST gap or overlap of the source zone | `Unmatched("nonexistent_local_time")` / `Unmatched("ambiguous_local_time")`; `time` is `UnresolvedLocalTime`, no instant is guessed |
+| Two pattern stops within `geo_tolerance_metres` | `Ambiguous`; none within → `Unmatched` |
+| `available_at` missing and no `availability_lag_seconds` | `Unmatched("availability_missing")` |
+
+Clock alignment: naive timestamps are read in the source `timezone` (a wall time
+that names zero or two instants is rejected as above), then `offset_seconds` is
+applied in UTC and the result is emitted in `Europe/Moscow`.
+`AlignedTime` keeps both the source and adjusted `event_at`/`available_at` and sets
+`service_day_shifted` when the offset moves the Moscow civil date. Source rows are
+frozen and never mutated. The quality report lists streams by `source_id`; rates
+exist per outcome (matched, unmatched, ambiguous, stale) and sum to one, while
+match kinds and unmatched reasons are counts only. Dict output has sorted keys.
+
+Thresholds and mappings are configuration: real organizer identifiers, name
+conventions and GPS tolerances cannot be certified before samples arrive.
