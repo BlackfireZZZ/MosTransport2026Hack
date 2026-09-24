@@ -54,3 +54,45 @@ zero, a gap date means missing coverage. Timestamps are ISO-8601 with the
 `Europe/Moscow` offset. `cell_totals` (route, direction, stop, date, hour) and
 `hour_totals` sum to `N` for independent reconciliation. File order is event time,
 not an availability guarantee.
+
+## Historical ingestion
+
+`ingest` normalizes a fixture directory (`entities.json`, `manifest.json`,
+`validations.jsonl`, `telemetry.jsonl`; or `.csv` streams with `--format csv`)
+into `data.v1` event rows in bounded, resumable chunks (TASK-017, RQ-01).
+
+```bash
+uv run --package tramflow-ml tramflow-ml ingest --input /tmp/synthetic-tiny --output /tmp/ingest-tiny
+uv run --package tramflow-ml tramflow-ml ingest --input /tmp/synthetic-million --output /tmp/ingest-million --chunk-size 10000
+```
+
+Output directory: `validations.jsonl`, `telemetry.jsonl` (canonical JSON lines,
+exactly the contract fields, timestamps re-emitted in `Europe/Moscow`),
+`quarantine.jsonl` (`stream`, `row_index`, `reason`, `detail`, `raw`), then
+`manifest.json` (`ingestion.v1`) last. The manifest carries `normalization_version`,
+the SHA-256 and byte size of every input, the propagated source manifest, per-stream
+counts and an `output_hash`. Nothing in the outputs depends on wall clock or paths.
+
+Counting contract per stream: `input_rows == valid + duplicates + quarantined`.
+A repeated `event_id` with an identical normalized payload is a *duplicate* (first
+kept, later ones counted); a repeated `event_id` with a different payload is
+quarantined as `conflicting_duplicate`. The command exits 1 when the identity fails,
+2 for input or usage errors. Reason codes: `decode_error`, `missing_field`,
+`invalid_type`, `invalid_value`, `invalid_timestamp`, `availability_before_event`,
+`unknown_entity`, `conflicting_duplicate`.
+
+Restart: after every chunk the outputs are flushed, the SQLite `event_id` index is
+committed and `checkpoint.json` is replaced atomically. Rerunning the same command
+on a directory that holds `checkpoint.json` resumes from it and produces
+byte-identical files; it refuses if any input hash, the normalization version, the
+adapter, the format or the chunk size changed. A directory with `manifest.json` is
+complete and is never overwritten; a directory with unrelated files is refused.
+Memory is bounded by `--chunk-size` plus an 8 MiB SQLite cache, not by row count
+(million-event run: 57 MB peak RSS, same as a 100 000-event run).
+
+CSV sources need one record per physical line (quoted line breaks are unsupported
+because resumption is by byte offset); strings are coerced to integers, booleans and
+floats. A `ColumnAdapter` maps canonical field → source column, supplies constants
+for absent columns and sets `timestamp_format` / `assume_timezone` for naive
+timestamps. Only the built-in `synthetic` adapter is exposed on the CLI; organizer
+adapters wait for real samples.

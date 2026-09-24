@@ -1,11 +1,66 @@
 import argparse
 import json
+import sys
+import time
 from datetime import date
 from pathlib import Path
 
 from tramflow_ml import __version__
 from tramflow_ml.evaluation import evaluate, load_cases
+from tramflow_ml.ingestion import (
+    ADAPTERS,
+    DEFAULT_CHUNK_SIZE,
+    IngestionConfig,
+    IngestionError,
+    ReconciliationError,
+    ingest,
+)
 from tramflow_ml.synthetic import SyntheticConfig, generate_dataset
+
+
+def _add_ingest_parser(subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    ingest_parser = subparsers.add_parser(
+        "ingest", help="normalize fixture event streams in bounded, resumable chunks"
+    )
+    ingest_parser.add_argument("--input", type=Path, required=True)
+    ingest_parser.add_argument("--output", type=Path, required=True)
+    ingest_parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
+    ingest_parser.add_argument("--format", choices=("jsonl", "csv"), default="jsonl")
+    ingest_parser.add_argument("--adapter", choices=sorted(ADAPTERS), default="synthetic")
+
+
+def _run_ingest(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Exit 2 for usage/input problems, 1 when counts do not reconcile, 0 on success."""
+    started = time.monotonic()
+    try:
+        config = IngestionConfig(
+            input=args.input,
+            output=args.output,
+            chunk_size=args.chunk_size,
+            source_format=args.format,
+            adapter=ADAPTERS[args.adapter],
+        )
+        manifest = ingest(config)
+    except ReconciliationError as error:
+        print(f"reconciliation failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from error
+    except (ValueError, OSError, IngestionError) as error:
+        parser.error(str(error))
+    elapsed = time.monotonic() - started
+    rows = sum(report["counts"]["input_rows"] for report in manifest["streams"].values())
+    print(
+        json.dumps(
+            {
+                "output_hash": manifest["output_hash"],
+                "streams": {
+                    name: report["counts"] for name, report in manifest["streams"].items()
+                },
+                "elapsed_seconds": round(elapsed, 3),
+                "rows_per_second": round(rows / elapsed) if elapsed else None,
+            },
+            sort_keys=True,
+        )
+    )
 
 
 def main() -> None:
@@ -31,7 +86,12 @@ def main() -> None:
     synthetic_parser.add_argument("--late-every", type=int, default=11)
     synthetic_parser.add_argument("--telemetry-every", type=int, default=5)
     synthetic_parser.add_argument("--gap-every-days", type=int, default=13)
+    _add_ingest_parser(subparsers)
     args = parser.parse_args()
+
+    if args.command == "ingest":
+        _run_ingest(parser, args)
+        return
 
     if args.command == "generate-synthetic":
         try:
