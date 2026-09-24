@@ -48,7 +48,7 @@ def main() -> None:
                 gap_every_days=args.gap_every_days,
             )
             result = generate_dataset(config, args.output)
-        except (ValueError, FileExistsError) as error:
+        except (ValueError, OSError) as error:
             parser.error(str(error))
         print(
             json.dumps(

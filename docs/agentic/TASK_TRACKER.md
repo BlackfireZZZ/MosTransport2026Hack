@@ -90,7 +90,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-013 | [Keep exception diagnostics free of raw secrets and identifiers](#task-013) | bug | backend | P1 | R1 | done | safe-error-diagnostics lead | OBSERVABILITY | none | A | S |
 | TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | done | integration lead | API-TEST | none | A | S |
 | TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-003 | B | M |
-| TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | in_progress | synthetic-transport-data lead | DATA | TASK-015 | B | M |
+| TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | done | synthetic-transport-data lead | DATA | TASK-015 | B | M |
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-016 | C | L |
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-015, TASK-016 | C | M |
 | TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-FEATURES | TASK-017, TASK-018 | D | L |
@@ -395,7 +395,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-016
 
-- **Execution:** `agent/synthetic-transport-data`, base `b36ece3`; [scope, ownership and predeclared scale budget](../exec-plans/active/synthetic-transport-data.md).
+- **Execution:** `agent/synthetic-transport-data`, base `b36ece3`; [scope, ownership, measured budget and review record](../exec-plans/completed/synthetic-transport-data.md).
+- **Verification (2026-09-24):** million-event run 13.95 s wall / 42 MB peak RSS / 543 MB output against 120 s / 256 MiB / 2 GiB ceilings; `source_hash` reproduced independently twice; independent review findings fixed with output bytes unchanged. `make check`: exit 0 — backend 292 passed / 10 SQL skipped, ML 72 passed, frontend 47 passed, reference contracts 119 passed; architecture, lint/types, golden evaluation, production build, API drift and Compose checks passed.
 
 **Generate reproducible multiyear synthetic transport datasets** — RQ-01–03.
 

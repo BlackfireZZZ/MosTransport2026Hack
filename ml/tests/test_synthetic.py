@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from tramflow_ml import cli
 from tramflow_ml.synthetic import SyntheticConfig, generate_dataset
 
 ROOT = Path(__file__).parents[2]
@@ -64,7 +65,7 @@ def test_hand_counted_injections_and_shared_schema(tmp_path):
     for row in telemetry:
         TelemetryEvent.model_validate_json(json.dumps(row)).validate_entities(catalog)
     assert sum(cell["count"] for cell in result["generation"]["cell_totals"]) == 12
-    assert sum(result["generation"]["hour_totals"].values()) == 12
+    assert result["generation"]["hour_totals"] == {"03": 2, "08": 4, "12": 2, "18": 4}
 
 
 def test_identical_config_reproduces_all_bytes_and_changed_seed_changes_content(tmp_path):
@@ -118,8 +119,7 @@ def test_multiyear_endpoints_gaps_and_directions(tmp_path):
     assert not dates & {date.fromisoformat(raw) for raw in result["generation"]["gap_dates"]}
     assert len({row["direction_id"] for row in rows}) == 2
     assert len({row["route_id"] for row in rows}) == 2
-    hours = result["generation"]["hour_totals"]
-    assert hours.get("08", 0) + hours.get("18", 0) > len({r["event_id"] for r in rows}) // 3
+    assert result["generation"]["hour_totals"] == {"03": 125, "08": 375, "12": 125, "18": 375}
 
 
 @pytest.mark.parametrize(
@@ -181,6 +181,37 @@ def test_cli_runs_outside_repository_and_rejects_overwrite(tmp_path):
     assert json.loads(run.stdout)["counts"]["unique_validations"] == 12
     again = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True)
     assert again.returncode == 2
+
+
+def test_cli_rejects_invalid_config_without_creating_output(tmp_path):
+    command = [
+        sys.executable,
+        "-m",
+        "tramflow_ml.cli",
+        "generate-synthetic",
+        "--gap-every-days",
+        "1",
+        "--output",
+        str(tmp_path / "data"),
+    ]
+    run = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True)
+    assert run.returncode == 2
+    assert "gap_every_days" in run.stderr
+    assert not (tmp_path / "data").exists()
+
+
+def test_cli_reports_write_failure_as_usage_error(tmp_path, monkeypatch, capsys):
+    def fail(config, output):
+        raise OSError("injected fixture disk failure")
+
+    monkeypatch.setattr(cli, "generate_dataset", fail)
+    monkeypatch.setattr(
+        sys, "argv", ["tramflow-ml", "generate-synthetic", "--output", str(tmp_path / "data")]
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+    assert exit_info.value.code == 2
+    assert "injected fixture disk failure" in capsys.readouterr().err
 
 
 def test_write_failure_never_leaves_completion_manifest(tmp_path, monkeypatch):

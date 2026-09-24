@@ -54,10 +54,10 @@ integration from clean recorded base. No deployment/DB/dependency change.
 
 ## Progress
 
-Paused at user request on 2026-09-23. Implementation and CLI are checkpointed in
-`agent/synthetic-transport-data`; not merged into main and not marked done.
+Paused at user request on 2026-09-23 with implementation and CLI checkpointed in
+`agent/synthetic-transport-data` at `65f455c`.
 
-Observed lead verification before checkpoint:
+Observed lead verification at that checkpoint:
 - `pytest ml/tests/test_synthetic.py -q`: 20 passed (wire schemas/catalog, counts,
   determinism/hash, calendar dates, gaps, destination preservation, failed writes,
   CLI outside repository cwd).
@@ -67,14 +67,44 @@ Observed lead verification before checkpoint:
   golden evaluation, production build, API drift and Compose passed.
 - `git diff --check`: passed. No new dependencies or generated datasets committed.
 
-Remaining before TASK-016 completion/integration:
-1. Independent review of generator and CLI; address findings with regression tests.
-2. Run the predeclared million-event budget measurement outside git and independently
-   reconcile stream hashes/counts; performance is currently unverified.
-3. Document CLI/count/gap semantics in ml/README.md and preserve measured evidence.
-4. Run any affected focused checks and lead final gate; integrate onto latest main
-   while preserving its session handoff/tracker changes.
+Resumed 2026-09-24 on a new machine (uv 0.12.18, Python 3.13, Node 24.21).
 
-Primary main contains completed contracts at b36ece3. Worktree and branch retained
-with no runtime containers or generation jobs running. No push performed. Resume
-this task before starting TASK-017; do not regenerate or discard another worktree.
+### Million-event budget measurement (2026-09-24)
+
+`/usr/bin/time -v tramflow-ml generate-synthetic --mode million --output <outside git>`
+on x86_64 (`nproc` 16):
+
+| Measure | Declared ceiling | Observed |
+|---|---|---|
+| Wall time | 120 s | 13.95 s (user 13.14 s, sys 0.79 s) |
+| Peak RSS | 256 MiB | 42.0 MB (`Maximum resident set size 42000 kB`) |
+| Output size | 2 GiB | 543 MB (validations 479 529 182 B, telemetry 87 877 784 B) |
+
+Counts: unique 1 000 000, duplicates 58 823 = ⌊10⁶/17⌋, late 90 909 = ⌊10⁶/11⌋,
+telemetry 200 000 = ⌊10⁶/5⌋; `validations.jsonl` has 1 058 823 lines,
+`telemetry.jsonl` 200 000; 56 gap dates; `cell_totals` (10 785 cells) and
+`hour_totals` both sum to 1 000 000. `source_hash`
+`f68c2eb03a4381ea000618bc00290dc1730181297bf1491c9d9b93cc6abcb96b` was reproduced
+by an independent script that re-hashed the four files and re-encoded the inventory.
+The independent reviewer repeated the run (11.97 s, 30.9 MiB peak via `getrusage`)
+into a different directory and obtained the same `source_hash`; 2 000 sampled rows
+per stream plus catalog and manifest validated against `contracts.data_v1` /
+`contracts.forecast_v1`. Two tiny runs into different paths produced identical
+SHA-256 for all five files. This measures fixture generation only.
+
+### Independent review and fixes (2026-09-24)
+
+Review found no correctness defect. Addressed: `generate_dataset` split into
+calendar/event/stream/report/manifest helpers with `TypedDict` return payloads so
+the CLI's key access is type-checked; exact `hour_totals` oracles replaced a loose
+peak inequality; dead re-validation removed; `.manifest.json.tmp` failure signal and
+the `HOURS` weighting documented; CLI now reports `OSError` as a usage error, with
+a subprocess test for invalid config and an in-process test for write failure.
+Output bytes unchanged:
+default, `--events 1000 --seed 7` and million runs before/after the refactor were
+`diff -r` empty / same `source_hash`. `ml/README.md` documents CLI and count
+semantics.
+
+### Final gate
+
+See tracker card for dated `make check` results at integration.
