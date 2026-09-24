@@ -20,6 +20,7 @@ from app.domain.forecast import (
     StopForecastPoint,
     StopLoad,
     finite_load_percent,
+    require_additive_target,
 )
 from app.infrastructure.db.models import (
     ForecastPointModel,
@@ -143,6 +144,7 @@ class SqlAlchemyForecastRepository:
         by_stop: dict[int, list[ForecastPoint]] = defaultdict(list)
         stop_ids = {stop.id for stop in stops}
         for row in rows:
+            require_additive_target(run.target, run.unit, row.sources)
             if row.stop_id is not None and row.stop_id not in stop_ids:
                 raise ForecastDataConflict("forecast stop is not in the selected route catalog")
             predicted = row.single_prediction if row.sources == 1 else float(row.predicted)
@@ -192,6 +194,7 @@ class SqlAlchemyForecastRepository:
             values = by_stop.get(stop.id, [])
             if not values:
                 continue
+            require_additive_target(run.target, run.unit, len(values))
             predicted = sum(value.predicted_passengers for value in values)
             if not math.isfinite(predicted):
                 raise ForecastDataConflict("aggregate passenger count exceeds finite range")

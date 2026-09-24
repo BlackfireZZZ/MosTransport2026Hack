@@ -56,6 +56,17 @@ WINDOW_LIMITS = {
 BUCKET_LIMITS = {ForecastHorizon.DAY: 24, ForecastHorizon.MONTH: 31, ForecastHorizon.YEAR: 12}
 
 
+def require_additive_target(target: str, unit: str, source_count: int) -> None:
+    if source_count > 1 and (target, unit) not in {
+        ("synthetic_boardings", "event_count"),
+        ("validation_count", "event_count"),
+        ("boarding_count", "passengers"),
+    }:
+        raise ForecastDataConflict(
+            "forecast target cannot be summed across sources or time buckets"
+        )
+
+
 def finite_load_percent(predicted: float, capacity: float | None) -> float | None:
     if capacity is None or capacity <= 0:
         return None

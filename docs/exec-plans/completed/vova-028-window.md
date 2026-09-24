@@ -108,3 +108,20 @@ independent Decimal arithmetic over serialized values, not Python binary additio
 
 Integration: retained clean task worktree for parent review/local integration;
 no main edit, remote push or worktree cleanup performed by this task.
+
+## Narrow post-integration correction: occupancy aggregation
+
+Base d2d063d, same clean task worktree; root authorized this follow-up. ADR-0005
+permits disjoint count sums and forbids summing occupancies across times/stops.
+The repository now rejects combined sources or time-bucket stop totals unless
+(target, unit) is one of synthetic_boardings/event_count,
+validation_count/event_count or boarding_count/passengers. Single-source,
+single-bucket onboard_load remains readable; unsupported aggregation returns 409.
+No API/schema/shared authored-contract or dependency change was needed.
+
+Observed verification 2026-09-25: focused domain tests 5 passed; disposable SQL
+suite 48 passed, including HTTP single-occupancy success and direction/time sum
+409 regressions. `make check` exit 0: backend 335 passed (48 SQL cases verified
+separately), ML 151 passed, frontend 62 passed, contracts 119 passed; all static,
+build, generated contract and Compose checks passed. Owned test database/volume
+removed; `git diff --check` clean. Separate fix commit retained for root integration.

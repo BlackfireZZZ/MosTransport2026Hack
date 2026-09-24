@@ -383,3 +383,59 @@ async def test_fractional_direction_sum_preserves_round_trip_precision(
     assert result is not None and result.points[0].predicted_passengers == float(
         Decimal(str(first)) + Decimal(str(second))
     )
+
+
+@pytest.mark.parametrize("mode", ["directions", "time", "single"])
+async def test_occupancy_rejects_unsupported_sums_and_preserves_single_bucket(
+    sql_session: AsyncSession,
+    mode: str,
+) -> None:
+    from httpx import ASGITransport, AsyncClient
+
+    from app.api.dependencies import get_forecast_service
+    from app.application.services.forecast import ForecastService
+    from app.infrastructure.db.models import ForecastRunModel
+    from app.main import create_app
+
+    old = await sql_session.get(ForecastRunModel, "legacy-day")
+    assert old is not None
+    metadata = {column.name: getattr(old, column.name) for column in old.__table__.columns}
+    metadata.update(id="occupancy-test", target="onboard_load", unit="passengers", synthetic=False)
+    sql_session.add(ForecastRunModel(**metadata))
+    await sql_session.flush()
+    specs = [(0, "outbound", 10)]
+    if mode == "directions":
+        specs.append((0, "inbound", 20))
+    if mode == "time":
+        specs.append((1, "outbound", 20))
+    for hour, direction, prediction in specs:
+        point = value(1, hour, direction, prediction)
+        point.run_id = "occupancy-test"
+        sql_session.add(point)
+    await sql_session.flush()
+    application = create_app()
+    application.dependency_overrides[get_forecast_service] = lambda: ForecastService(
+        SqlAlchemyForecastRepository(sql_session)
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=application), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/api/v1/forecasts",
+            params={
+                "route_id": 1,
+                "stop_id": 1,
+                "start": START.isoformat(),
+                "end": (START + timedelta(hours=2)).isoformat(),
+            },
+        )
+        if mode == "single":
+            assert response.status_code == 200, response.text
+            assert response.json()["points"][0]["predicted_passengers"] == 10
+            assert response.json()["run"]["target"] == "onboard_load"
+        else:
+            assert response.status_code == 409, response.text
+            assert (
+                response.json()["detail"]
+                == "forecast target cannot be summed across sources or time buckets"
+            )
