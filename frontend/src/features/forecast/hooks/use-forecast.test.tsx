@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -65,4 +65,18 @@ it("isolates a late response from the previous stop", async () => {
   await waitFor(() => expect(result.current.data).toEqual(current))
   await act(async () => { finish({ model_version: "old-stop" } as Response); await Promise.resolve() })
   expect(result.current.data).toEqual(current)
+})
+
+
+it("manual mode does not refetch on reconnect", async () => {
+  const data = { model_version: "manual" } as Awaited<ReturnType<typeof api.forecast>>
+  vi.mocked(api.forecast).mockResolvedValue(data)
+  const { result } = renderHook(() => useForecast(1, "day", {}, true, false), { wrapper: wrapper() })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  await act(async () => {
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  })
+  expect(api.forecast).toHaveBeenCalledTimes(1)
 })

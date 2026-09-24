@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ProvenancePanel } from "@/features/forecast/components/provenance-panel"
+import { dataKind } from "@/features/forecast/lib/provenance"
 import { NetworkMap } from "@/features/forecast/components/network-map"
 import { ScenarioPanel } from "@/features/forecast/components/scenario-panel"
 import { useForecast, useRoutes, useRouteStops } from "@/features/forecast/hooks/use-forecast"
@@ -67,6 +69,7 @@ function App() {
     ? (routes.data?.[0]?.id ?? null)
     : routes.data?.some((route) => route.id === routeId) ? routeId : null
   const [bucketSelection, setBucketSelection] = useState<{ scope: string; timestamp: string } | null>(null)
+  const [pollInterval, setPollInterval] = useState<number | false>(60_000)
   const [stopId, setStopId] = useState<number | null>(null)
   const [startInput, setStartInput] = useState("")
   const [endInput, setEndInput] = useState("")
@@ -75,7 +78,7 @@ function App() {
   const validStop = stopId === null || Boolean(routeStops.data?.some((stop) => stop.id === stopId))
   const validSelection = !window.error && validStop
   const filters = { stop_id: stopId ?? undefined, start: window.start, end: window.end }
-  const forecast = useForecast(selectedRouteId, horizon, filters, validSelection)
+  const forecast = useForecast(selectedRouteId, horizon, filters, validSelection, pollInterval)
   const resetWindow = () => { setStartInput(""); setEndInput("") }
   const filtered = stopId !== null || Boolean(startInput || endInput)
   const data = validSelection ? forecast.data : undefined
@@ -121,14 +124,14 @@ function App() {
         </nav>
         <div className="sidebar-foot">
           {data && <span className="status-dot" aria-hidden="true" />}
-          <span>{data ? "Демонстрационный прогноз" : forecast.isError ? "Демопрогноз недоступен" : "Ожидание демоданных"}<small>{data ? `сформирован ${generatedAt} МСК` : "качество модели не подтверждено"}</small></span>
+          <span>{data ? dataKind(data) : forecast.isError ? "Прогноз недоступен" : "Ожидание данных"}<small>{data ? `сформирован ${generatedAt} МСК` : "качество модели не подтверждено"}</small></span>
         </div>
       </aside>
 
       <main>
         <header className="topbar">
           <div><p className="eyebrow">ДИСПЕТЧЕРСКИЙ ЦЕНТР</p><h1>{section === "network" ? "Граф трамвайной сети Москвы" : "Пассажиропоток трамвайной сети"}</h1></div>
-          <div className="topbar-actions"><Badge>{section === "network" ? "Данные OpenStreetMap" : "Демо-данные"}</Badge><Button variant="ghost" size="icon" aria-label="Уведомления"><Bell /></Button></div>
+          <div className="topbar-actions"><Badge>{section === "network" ? "Данные OpenStreetMap" : data ? dataKind(data) : "Нет данных"}</Badge><Button variant="ghost" size="icon" aria-label="Уведомления"><Bell /></Button></div>
         </header>
 
         {section === "network" && (
@@ -179,6 +182,7 @@ function App() {
               <label htmlFor="window-end">Конец (не включительно) · МСК</label>
               <input id="window-end" type="datetime-local" value={endInput} aria-describedby="window-help" aria-invalid={Boolean(window.error)} onChange={(event) => setEndInput(event.target.value)} />
             </div>
+            <div className="filter-field"><label htmlFor="poll-interval">Автопроверка</label><select id="poll-interval" value={pollInterval === false ? "off" : String(pollInterval)} onChange={(event) => setPollInterval(event.target.value === "off" ? false : Number(event.target.value))}><option value="off">Вручную</option><option value="15000">Каждые 15 секунд</option><option value="60000">Каждую минуту</option><option value="300000">Каждые 5 минут</option></select></div>
             <div className="freshness"><span>Прогноз сформирован · МСК</span><strong>{generatedAt}</strong></div>
             <Button variant="secondary" disabled={selectedRouteId === null || !validSelection || forecast.isFetching} onClick={() => void forecast.refetch()}>Обновить прогноз</Button>
           </section>
@@ -195,7 +199,7 @@ function App() {
             <Card className="error-state"><CardContent><h2>{routes.data ? "Список маршрутов не обновлён" : "Маршруты временно недоступны"}</h2><p>Повторите загрузку списка маршрутов.</p><Button onClick={() => void routes.refetch()}>Повторить загрузку маршрутов</Button></CardContent></Card>
           )}
           {forecast.isError && validSelection && selectedRouteId !== null && (
-            <Card className="error-state"><CardContent><h2>{data ? "Показан сохранённый демопрогноз" : selectionError ?? "Прогноз временно недоступен"}</h2><p>{data ? `Не удалось обновить данные. Прогноз сформирован ${generatedAt} МСК; данные могут быть устаревшими.` : selectionError ? "Измените остановку или сократите интервал; можно сбросить фильтры." : "Проверьте соединение с API и повторите запрос."}</p><Button onClick={() => void forecast.refetch()}>Повторить прогноз</Button></CardContent></Card>
+            <Card className="error-state"><CardContent><h2>{data ? "Показан сохранённый прогноз" : selectionError ?? "Прогноз временно недоступен"}</h2><p>{data ? `Не удалось обновить данные. Прогноз сформирован ${generatedAt} МСК; данные могут быть устаревшими.` : selectionError ? "Измените остановку или сократите интервал; можно сбросить фильтры." : "Проверьте соединение с API и повторите запрос."}</p><Button onClick={() => void forecast.refetch()}>Повторить прогноз</Button></CardContent></Card>
           )}
           {routes.data?.length === 0 && !routes.isLoading && (
             <Card className="error-state"><CardContent><h2>Маршруты не найдены</h2><p>Загрузите сетевой граф и опубликуйте прогноз.</p></CardContent></Card>
@@ -238,7 +242,8 @@ function App() {
                 <NetworkMap snapshot={data} timestamp={timestamp} selectedStopId={stopId} onStopSelect={setStopId} />
                 <div id="scenario">{selectedRouteId !== null && !filtered && <ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} />}{filtered && <p>Сценарный расчёт для выбранного среза недоступен.</p>}</div>
               </section>
-              <footer className="data-note" id="data"><Map />Синтетические демоданные · качество модели на реальных данных не подтверждено · версия {data.model_version}</footer>
+              <div id="data"><ProvenancePanel forecast={data} updatedAt={forecast.dataUpdatedAt} failed={forecast.isRefetchError} fetching={forecast.isFetching} pollInterval={pollInterval} /></div>
+              <footer className="data-note"><Map />{dataKind(data)} · качество модели на реальных данных не подтверждено · версия {data.model_version}</footer>
             </>
           )}
         </div>

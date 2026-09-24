@@ -258,3 +258,5 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 
 .lower-grid > *, .map-card > div { min-width: 0; }
 .bucket-step-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.filter-field select { min-height: 40px; max-width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--foreground); font: inherit; }

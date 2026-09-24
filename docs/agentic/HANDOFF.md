@@ -76,3 +76,28 @@ Next:034map/timeline integration against stop_points from one snapshot. Legacy
 seed has per-stop rows only in first bucket; do not reuse values for other buckets.
 Cleanup:028ownedDocker resources removed;033temporaryVite stopped after verification.
 Worktrees retained (unpushed branches); no new dependencies or external publication.
+
+## 2026-09-25 — for-vova-huesos: TASK034–035 and aggregation guard
+
+TASK034 base d2d063d, branch agent/vova-034-map, worktree
+/Users/cute/MosTransport2026Hack-worktrees/vova-034-map; commit fbd952d locally
+fast-forwarded to main after parent make check. Backend346, ML151, frontend70,
+reference119 passed; Chrome E2E30 passed. Optional FORECAST_GEOMETRY_MAPPING uses
+explicit serving_links and version checks; default synthetic coordinates remain
+unmatched OSM. Cached valid mapping requires worker restart when artifacts change.
+
+TASK035 base d2d063d, branch agent/vova-035-freshness, worktree
+/Users/cute/MosTransport2026Hack-worktrees/vova-035-freshness; merges verified034.
+Panel distinguishes generated/source/UI times and missing coverage/live feed;
+legacy source cutoff unavailable. Polling off/15s/60s/300s is a UI check policy,
+not source SLA; manual mode disables reconnect polling too. Failure/expiry retains
+one response, recovery replaces it; out-of-order responses remain isolated.
+Chrome E2E34 passed, including fake-clock outage/recovery, delayed refresh,
+manual mode and late response. No dependency or lock changes.
+
+Additional TASK028 correction 91c0293 (original 1abd9d3): only supported count
+units may sum sources or stop-window buckets; onboard_load aggregation returns409.
+Single source/bucket remains readable. Domain5 and isolated SQL48 passed; no
+schema/API change. This protects future publications, not a real-data quality claim.
+Worktrees retained clean after commits because branches are unpushed. No remote
+publication. Dedicated previews and owned test databases stopped after checks.

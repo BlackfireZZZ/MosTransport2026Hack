@@ -41,7 +41,7 @@ export function ForecastChart({ points, horizon, selectedTimestamp, onSelectTime
       <CardHeader className="chart-header">
         <div>
           <CardTitle>{horizonTitles[horizon]}</CardTitle>
-          <CardDescription>Демонстрационный поток по маршруту · синтетические данные</CardDescription>
+          <CardDescription>Прогноз для выбранного среза</CardDescription>
         </div>
         <div className="chart-legend" aria-label="Легенда графика">
           <span><i className="legend-line legend-forecast" />Прогноз</span>

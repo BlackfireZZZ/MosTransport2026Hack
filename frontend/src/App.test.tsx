@@ -22,7 +22,7 @@ it("shows waiting then a scoped route error without requesting forecasts", async
   let reject!: (error: Error) => void
   vi.mocked(api.routes).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
   mount()
-  expect(screen.getByText("Ожидание демоданных")).toBeInTheDocument()
+  expect(screen.getByText("Ожидание данных")).toBeInTheDocument()
   expect(screen.getByRole("combobox", { name: "Маршрут" })).toBeDisabled()
   expect(api.forecast).not.toHaveBeenCalled()
   await act(async () => { reject(new Error("offline")); await Promise.resolve() })
@@ -44,16 +44,16 @@ it("distinguishes initial failure from retained demo data and recovers", async (
   vi.mocked(api.forecast).mockResolvedValueOnce(forecastResponse(1, "day"))
   fireEvent.click(screen.getByRole("button", { name: "Повторить прогноз" }))
   await screen.findByText("Тестовый график")
-  expect(screen.getByText(/Синтетические демоданные/)).toBeInTheDocument()
+  expect(screen.getAllByText(/Происхождение данных не указано/).length).toBeGreaterThan(0)
   expect(screen.getByText("Прогноз сформирован · МСК")).toBeInTheDocument()
   vi.mocked(api.forecast).mockRejectedValueOnce(new Error("offline"))
   fireEvent.click(screen.getByRole("button", { name: "Обновить прогноз" }))
-  await screen.findByText("Показан сохранённый демопрогноз")
+  await screen.findByText("Показан сохранённый прогноз")
   expect(screen.getByText("Тестовый график")).toBeInTheDocument()
   expect(screen.getByRole("region", { name: "Ключевые показатели" })).toHaveTextContent("600")
   vi.mocked(api.forecast).mockResolvedValueOnce(forecastResponse(1, "day"))
   fireEvent.click(screen.getByRole("button", { name: "Повторить прогноз" }))
-  await waitFor(() => expect(screen.queryByText("Показан сохранённый демопрогноз")).not.toBeInTheDocument())
+  await waitFor(() => expect(screen.queryByText("Показан сохранённый прогноз")).not.toBeInTheDocument())
 })
 
 it("shows unknown capacity without inventing a zero percentage", async () => {

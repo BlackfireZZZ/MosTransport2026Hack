@@ -132,12 +132,12 @@ test("retains the last forecast after a failed refresh and recovers", async ({ p
   await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
   unavailable = true
   await page.getByRole("button", { name: "Обновить прогноз" }).click()
-  await expect(page.getByRole("heading", { name: "Показан сохранённый демопрогноз" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Показан сохранённый прогноз" })).toBeVisible()
   await expect(page.locator("article.kpi", { hasText: "Пиковый поток" })).toContainText("600")
   await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
   unavailable = false
   await page.getByRole("button", { name: "Повторить прогноз" }).click()
-  await expect(page.getByRole("heading", { name: "Показан сохранённый демопрогноз" })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Показан сохранённый прогноз" })).toHaveCount(0)
 })
 
 test("does not request forecasts while routes are loading or empty", async ({ page }) => {
@@ -170,7 +170,7 @@ for (const width of [390, 768, 1440]) {
     await expect(page.getByRole("heading", { name: "Почасовой прогноз" })).toBeVisible()
     offline = true
     await page.getByRole("button", { name: "Обновить прогноз" }).click()
-    await expect(page.getByRole("heading", { name: "Показан сохранённый демопрогноз" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Показан сохранённый прогноз" })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
     await page.screenshot({ path: testInfo.outputPath(`saved-forecast-${width}.png`), fullPage: true })

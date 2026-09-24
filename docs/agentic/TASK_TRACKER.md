@@ -111,8 +111,8 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | done | for-vova-huesos | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
 | TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | done | for-vova-huesos | DATA-MAPPING | TASK-018, TASK-030 | D | M |
 | TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | done | for-vova-huesos | UI-SHELL | TASK-028, TASK-010 | F | M |
-| TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
-| TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
+| TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | done | for-vova-huesos | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
+| TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | done | for-vova-huesos | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
 | TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | for-vova-huesos | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
 | TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
 | TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | for-vova-huesos | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
