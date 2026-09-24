@@ -56,3 +56,23 @@ Next: TASK028 bounded API in agent/vova-028-window, then033 filters and034 map.
 Cleanup: temporary027Docker DB and smoke volumes removed; worktrees retained because
 branches remain unpushed. Tooling only in /tmp: uv0.12.13, Node24.21.0/npm11.19.0;
 no dependency manifests/locks changed. Playwright browsers installed by e2e-install.
+
+## Vova selection 2026-09-25
+
+Objective/status: TASK028 and033 verified and integrated through branch
+agent/vova-033-filters; remaining034/035/036/038/056.
+Worktree: /Users/cute/MosTransport2026Hack-worktrees/vova-033-filters; original
+base d8313a4, dependency main9bed644; owner for-vova-huesos.
+Contracts: optional stop/direction/start/end, half-open bounded windows, same-run
+stop_points, run/selection provenance, stable route-stop catalog. UI sends explicit
+Moscow instants and separates invalid/loading/empty/error/retained states.
+Evidence:02845SQL tests; EXPLAIN uses run/route/time index on10k synthetic rows;
+clean migration/no drift; live filteredHTTP and container smoke passed. Parent
+make check beforeUI passed.033 final make check331backend/151ML/62frontend/
+119reference; Chrome E2E24passed. Calendar ambiguity and late-stop response tests pass.
+Assumptions: limits24/31/12buckets and1/31/366days are local bounded-serving budgets,
+not organizerSLAs; compound intervals/capacity unavailable without valid aggregation.
+Next:034map/timeline integration against stop_points from one snapshot. Legacy
+seed has per-stop rows only in first bucket; do not reuse values for other buckets.
+Cleanup:028ownedDocker resources removed;033temporaryVite stopped after verification.
+Worktrees retained (unpushed branches); no new dependencies or external publication.

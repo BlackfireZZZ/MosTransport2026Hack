@@ -1,6 +1,7 @@
 import { Activity, Bell, Database, GitBranch, Map, Settings2, TramFront } from "lucide-react"
 import { lazy, Suspense, useState } from "react"
 
+import { ApiError } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,8 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NetworkMap } from "@/features/forecast/components/network-map"
 import { ScenarioPanel } from "@/features/forecast/components/scenario-panel"
-import { useForecast, useRoutes } from "@/features/forecast/hooks/use-forecast"
+import { useForecast, useRoutes, useRouteStops } from "@/features/forecast/hooks/use-forecast"
 import type { ForecastHorizon } from "@/features/forecast/types"
+import { toMoscowInput, validateWindow } from "@/features/forecast/lib/selection"
 import { formatPassengers } from "@/lib/utils"
 
 const horizons: Array<{ value: ForecastHorizon; label: string }> = [
@@ -63,9 +65,20 @@ function App() {
   const selectedRouteId = routeId === null
     ? (routes.data?.[0]?.id ?? null)
     : routes.data?.some((route) => route.id === routeId) ? routeId : null
-  const forecast = useForecast(selectedRouteId, horizon)
-
-  const data = forecast.data
+  const [stopId, setStopId] = useState<number | null>(null)
+  const [startInput, setStartInput] = useState("")
+  const [endInput, setEndInput] = useState("")
+  const routeStops = useRouteStops(selectedRouteId)
+  const window = validateWindow(startInput, endInput, horizon)
+  const validStop = stopId === null || Boolean(routeStops.data?.some((stop) => stop.id === stopId))
+  const validSelection = !window.error && validStop
+  const filters = { stop_id: stopId ?? undefined, start: window.start, end: window.end }
+  const forecast = useForecast(selectedRouteId, horizon, filters, validSelection)
+  const resetWindow = () => { setStartInput(""); setEndInput("") }
+  const filtered = stopId !== null || Boolean(startInput || endInput)
+  const data = validSelection ? forecast.data : undefined
+  const queryStatus = forecast.error instanceof ApiError ? forecast.error.status : null
+  const selectionError = queryStatus === 404 ? "Нет прогноза для выбранных параметров" : queryStatus === 422 ? "Интервал недоступен" : queryStatus === 409 ? "Данные прогноза несовместимы" : null
   const busiestStop = data?.stops.length
     ? data.stops.reduce((max, stop) => (stop.load_percent ?? -1) > (max.load_percent ?? -1) ? stop : max)
     : undefined
@@ -123,7 +136,7 @@ function App() {
           <section className="filters" aria-label="Параметры прогноза">
             <div className="filter-field">
               <label htmlFor="route-select">Маршрут</label>
-              <Select value={selectedRouteId === null ? "" : String(selectedRouteId)} onValueChange={(value) => setRouteId(Number(value))}>
+              <Select value={selectedRouteId === null ? "" : String(selectedRouteId)} onValueChange={(value) => { setRouteId(Number(value)); setStopId(null); resetWindow() }}>
                 <SelectTrigger id="route-select" disabled={!routes.data?.length}><SelectValue placeholder="Выберите маршрут" /></SelectTrigger>
                 <SelectContent>
                   {routes.data?.map((route) => <SelectItem key={route.id} value={String(route.id)}>{route.number} · {route.name}</SelectItem>)}
@@ -132,7 +145,7 @@ function App() {
             </div>
             <div className="filter-field horizon-field">
               <label>Горизонт планирования</label>
-              <Tabs value={horizon} onValueChange={(value) => setHorizon(value as ForecastHorizon)}>
+              <Tabs value={horizon} onValueChange={(value) => { setHorizon(value as ForecastHorizon); resetWindow() }}>
                 <TabsList aria-label="Горизонт планирования">{horizons.map((item) => <TabsTrigger key={item.value} value={item.value}>{item.label}</TabsTrigger>)}</TabsList>
                 {horizons.map((item) => (
                   <TabsContent key={item.value} value={item.value} className="sr-only">
@@ -141,22 +154,49 @@ function App() {
                 ))}
               </Tabs>
             </div>
+            <div className="filter-field">
+              <label htmlFor="stop-select">Остановка</label>
+              <Select value={stopId === null ? "all" : String(stopId)} onValueChange={(value) => setStopId(value === "all" ? null : Number(value))}>
+                <SelectTrigger id="stop-select" disabled={!routeStops.data?.length}><SelectValue placeholder="Весь маршрут" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Весь маршрут</SelectItem>
+                  {routeStops.data?.map((stop) => <SelectItem key={stop.id} value={String(stop.id)}>{stop.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {routeStops.isLoading && <small role="status">Загрузка остановок…</small>}
+              {routeStops.isError && <div role="alert">Список остановок недоступен. <Button variant="secondary" onClick={() => void routeStops.refetch()}>Повторить остановки</Button></div>}
+            </div>
+            <div className="filter-field">
+              <label htmlFor="window-start">Начало · МСК</label>
+              <input id="window-start" type="datetime-local" value={startInput} aria-describedby="window-help" aria-invalid={Boolean(window.error)} onChange={(event) => setStartInput(event.target.value)} />
+            </div>
+            <div className="filter-field">
+              <label htmlFor="window-end">Конец (не включительно) · МСК</label>
+              <input id="window-end" type="datetime-local" value={endInput} aria-describedby="window-help" aria-invalid={Boolean(window.error)} onChange={(event) => setEndInput(event.target.value)} />
+            </div>
             <div className="freshness"><span>Прогноз сформирован · МСК</span><strong>{generatedAt}</strong></div>
-            <Button variant="secondary" disabled={selectedRouteId === null || forecast.isFetching} onClick={() => void forecast.refetch()}>Обновить прогноз</Button>
+            <Button variant="secondary" disabled={selectedRouteId === null || !validSelection || forecast.isFetching} onClick={() => void forecast.refetch()}>Обновить прогноз</Button>
           </section>
 
+          <div className="window-help" id="window-help">
+            <p>{window.error ?? "Время Europe/Moscow. Пустые даты — опубликованный интервал целиком; конец не включается."}</p>
+            {window.error && <span role="alert">Запрос не выполнен: исправьте интервал.</span>}
+            {data?.selection && <p>Показано: {toMoscowInput(data.selection.start).replace("T", " ")} — {toMoscowInput(data.selection.end).replace("T", " ")} МСК (конец не включён).</p>}
+            {!validStop && !routeStops.isLoading && <p role="alert">Остановка недоступна в текущем списке. Сбросьте выбор или повторите загрузку остановок.</p>}
+            {filtered && <Button variant="secondary" onClick={() => { setStopId(null); resetWindow() }}>Сбросить остановку и интервал</Button>}
+          </div>
           {(routes.isLoading || forecast.isLoading) && <DashboardSkeleton />}
           {routes.isError && (
             <Card className="error-state"><CardContent><h2>{routes.data ? "Список маршрутов не обновлён" : "Маршруты временно недоступны"}</h2><p>Повторите загрузку списка маршрутов.</p><Button onClick={() => void routes.refetch()}>Повторить загрузку маршрутов</Button></CardContent></Card>
           )}
-          {forecast.isError && selectedRouteId !== null && (
-            <Card className="error-state"><CardContent><h2>{data ? "Показан сохранённый демопрогноз" : "Прогноз временно недоступен"}</h2><p>{data ? `Не удалось обновить данные. Прогноз сформирован ${generatedAt} МСК; данные могут быть устаревшими.` : "Проверьте соединение с API и повторите запрос."}</p><Button onClick={() => void forecast.refetch()}>Повторить прогноз</Button></CardContent></Card>
+          {forecast.isError && validSelection && selectedRouteId !== null && (
+            <Card className="error-state"><CardContent><h2>{data ? "Показан сохранённый демопрогноз" : selectionError ?? "Прогноз временно недоступен"}</h2><p>{data ? `Не удалось обновить данные. Прогноз сформирован ${generatedAt} МСК; данные могут быть устаревшими.` : selectionError ? "Измените остановку или сократите интервал; можно сбросить фильтры." : "Проверьте соединение с API и повторите запрос."}</p><Button onClick={() => void forecast.refetch()}>Повторить прогноз</Button></CardContent></Card>
           )}
           {routes.data?.length === 0 && !routes.isLoading && (
             <Card className="error-state"><CardContent><h2>Маршруты не найдены</h2><p>Загрузите сетевой граф и опубликуйте прогноз.</p></CardContent></Card>
           )}
           {data && data.points.length === 0 && (
-            <Card className="error-state"><CardContent><h2>Нет точек прогноза</h2><p>Для выбранного маршрута и горизонта опубликованный срез пуст.</p></CardContent></Card>
+            <Card className="error-state"><CardContent><h2>Нет точек прогноза</h2><p>Для выбранной остановки и временного интервала нет значений. Измените или сбросьте фильтры.</p></CardContent></Card>
           )}
           {data && data.points.length > 0 && (
             <>
@@ -172,7 +212,7 @@ function App() {
               </Suspense>
               <section className="lower-grid">
                 <NetworkMap stops={data.stops} />
-                <div id="scenario">{selectedRouteId !== null && <ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} />}</div>
+                <div id="scenario">{selectedRouteId !== null && !filtered && <ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} />}{filtered && <p>Сценарный расчёт для выбранного среза недоступен.</p>}</div>
               </section>
               <footer className="data-note" id="data"><Map />Синтетические демоданные · качество модели на реальных данных не подтверждено · версия {data.model_version}</footer>
             </>

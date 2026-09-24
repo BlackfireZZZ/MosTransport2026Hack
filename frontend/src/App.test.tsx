@@ -1,14 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { afterEach, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
-import { api } from "@/api/client"
+import { ApiError, api } from "@/api/client"
 import App from "./App"
 import { forecastResponse, routes } from "../e2e/forecast-fixtures"
 
-vi.mock("@/api/client", () => ({ api: { routes: vi.fn(), forecast: vi.fn() } }))
+vi.mock("@/api/client", () => ({ ApiError: class extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status } }, api: { routes: vi.fn(), routeStops: vi.fn(), forecast: vi.fn() } }))
 vi.mock("@/features/forecast/components/forecast-chart", () => ({ ForecastChart: () => <p>Тестовый график</p> }))
 vi.mock("@/features/forecast/components/scenario-panel", () => ({ ScenarioPanel: () => <p>Тестовый сценарий</p> }))
+beforeEach(() => { vi.mocked(api.routeStops).mockResolvedValue([]) })
 afterEach(() => { cleanup(); vi.resetAllMocks() })
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
@@ -67,4 +68,29 @@ it("shows unknown capacity without inventing a zero percentage", async () => {
   expect(kpis).toHaveTextContent("вместимость неизвестна")
   expect(kpis).not.toHaveTextContent("0%")
   expect(kpis).not.toHaveTextContent("в пределах вместимости")
+})
+
+
+it.each([[404, "Нет прогноза для выбранных параметров"], [422, "Интервал недоступен"], [409, "Данные прогноза несовместимы"]] as const)("explains selection error %i and hides retry on invalid draft", async (status, heading) => {
+  vi.mocked(api.routes).mockResolvedValue([...routes])
+  vi.mocked(api.forecast).mockRejectedValue(new ApiError("selection", status))
+  mount()
+  await screen.findByRole("heading", { name: heading })
+  fireEvent.change(screen.getByLabelText("Начало · МСК"), { target: { value: "2026-10-01T00:00" } })
+  expect(screen.queryByRole("button", { name: "Повторить прогноз" })).not.toBeInTheDocument()
+  expect(screen.getByText("Запрос не выполнен: исправьте интервал.")).toBeInTheDocument()
+})
+
+it("recovers the stop catalog without losing the route forecast", async () => {
+  vi.mocked(api.routes).mockResolvedValue([...routes])
+  vi.mocked(api.forecast).mockResolvedValue(forecastResponse(1, "day"))
+  vi.mocked(api.routeStops).mockRejectedValueOnce(new Error("offline"))
+  mount()
+  await screen.findByRole("button", { name: "Повторить остановки" })
+  expect(screen.getByRole("combobox", { name: "Остановка" })).toBeDisabled()
+  await screen.findByText("Тестовый график")
+  vi.mocked(api.routeStops).mockResolvedValueOnce([...forecastResponse(1, "day").stops])
+  fireEvent.click(screen.getByRole("button", { name: "Повторить остановки" }))
+  await waitFor(() => expect(screen.getByRole("combobox", { name: "Остановка" })).not.toBeDisabled())
+  expect(screen.getByText("Тестовый график")).toBeInTheDocument()
 })

@@ -9,3 +9,5 @@ export type RouteSummary = Schemas["RouteResponse"]
 export type ScenarioRequest = Schemas["ScenarioRequest"]
 export type ScenarioResponse = Schemas["ScenarioResponse"]
 export type StopLoad = Schemas["StopLoadResponse"]
+
+export type RouteStop = Schemas["RouteStopResponse"]

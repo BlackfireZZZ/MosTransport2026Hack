@@ -35,6 +35,10 @@ async function mockDashboardApi(
     scenarioRequests?: ScenarioRequest[]
   } = {},
 ) {
+  await page.route("**/api/v1/routes/*/stops", (route) => {
+    const routeId = Number(new URL(route.request().url()).pathname.split("/").at(-2))
+    return fulfillJson(route, forecastResponse(routeId, "day").stops)
+  })
   await page.route("**/api/v1/routes", (route) => fulfillJson(route, routes))
   await page.route("**/api/v1/forecasts?*", async (route) => {
     if (options.forecastHandler) {

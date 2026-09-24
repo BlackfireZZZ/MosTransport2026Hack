@@ -239,3 +239,9 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+.filters input[type="datetime-local"] { width: 100%; min-width: 0; min-height: 40px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); background: var(--card); }
+.filters .filter-field { min-width: 0; }
+.window-help { margin: -4px 0 20px; font-size: 13px; color: var(--muted-foreground); }
+.window-help p { margin: 6px 0; }
+.window-help [role="alert"] { display: block; color: var(--destructive); }

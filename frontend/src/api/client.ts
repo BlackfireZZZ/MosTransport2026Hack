@@ -1,7 +1,9 @@
+import type { ForecastFilters } from "@/features/forecast/lib/selection"
 import type {
   ForecastHorizon,
   ForecastResponse,
   RouteSummary,
+  RouteStop,
   ScenarioRequest,
   ScenarioResponse,
 } from "@/features/forecast/types"
@@ -53,8 +55,9 @@ const TRAM_GRAPH = "/api/v1/tram-graph"
 
 export const api = {
   routes: () => request<RouteSummary[]>("/api/v1/routes"),
-  forecast: (routeId: number, horizon: ForecastHorizon) =>
-    request<ForecastResponse>(`/api/v1/forecasts?route_id=${routeId}&horizon=${horizon}`),
+  routeStops: (routeId: number) => request<RouteStop[]>(`/api/v1/routes/${routeId}/stops`),
+  forecast: (routeId: number, horizon: ForecastHorizon, filters: ForecastFilters = {}, signal?: AbortSignal) =>
+    request<ForecastResponse>(`/api/v1/forecasts${search({ route_id: routeId, horizon, ...filters })}`, { signal }),
   evaluateScenario: (body: ScenarioRequest) =>
     request<ScenarioResponse>("/api/v1/scenarios/evaluate", {
       method: "POST",

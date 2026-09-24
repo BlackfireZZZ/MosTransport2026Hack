@@ -105,12 +105,12 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-015 | C | M |
 | TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | done | integration lead | INFRA | none | A | M |
 | TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | done | for-vova-huesos | SERVING | TASK-025, TASK-026 | D | L |
-| TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | for-vova-huesos | SERVING | TASK-027, TASK-015 | E | L |
+| TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | done | for-vova-huesos | SERVING | TASK-027, TASK-015 | E | L |
 | TASK-029 | [Publish validated batch artifacts atomically and idempotently](#task-029) | feature | backend,ml | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-025, TASK-027 | G | M |
 | TASK-030 | [Publish graph artifacts as a validated versioned set](#task-030) | feature | data,backend | P1 | R2 | done | Codex lead | GRAPH-EXPORT | TASK-011, TASK-012 | B | M |
 | TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | done | for-vova-huesos | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
 | TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | done | for-vova-huesos | DATA-MAPPING | TASK-018, TASK-030 | D | M |
-| TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-028, TASK-010 | F | M |
+| TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | done | for-vova-huesos | UI-SHELL | TASK-028, TASK-010 | F | M |
 | TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
 | TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
 | TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | for-vova-huesos | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
@@ -526,6 +526,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-028
 
+- **Verified result:** [execution evidence](../exec-plans/completed/vova-028-window.md), owned branch `agent/vova-028-window`; local integration only, no remote push.
+
 - **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Serve bounded route, stop and time-window forecast aggregates** — RQ-03.
@@ -595,6 +597,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Real mapping coverage is certified only in TASK-050; no graph-to-PostgreSQL migration solely for convenience.
 
 ## TASK-033
+
+- **Verified result:** [execution evidence](../exec-plans/completed/vova-033-filters.md), owned branch `agent/vova-033-filters`; local integration only, no remote push.
 
 - **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 

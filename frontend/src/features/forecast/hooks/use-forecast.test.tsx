@@ -47,3 +47,22 @@ describe("forecast selection and refresh", () => {
     expect(result.current.data).toEqual(current)
   })
 })
+
+it("does not request an incomplete window", () => {
+  const { result } = renderHook(() => useForecast(1, "day", {}, false), { wrapper: wrapper() })
+  expect(result.current.fetchStatus).toBe("idle")
+  expect(api.forecast).not.toHaveBeenCalled()
+})
+
+it("isolates a late response from the previous stop", async () => {
+  type Response = Awaited<ReturnType<typeof api.forecast>>
+  let finish!: (value: Response) => void
+  vi.mocked(api.forecast).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+  const current = { model_version: "selected-stop" } as Response
+  vi.mocked(api.forecast).mockResolvedValueOnce(current)
+  const { result, rerender } = renderHook(({ stop }) => useForecast(1, "day", { stop_id: stop, start: "2026-10-01T00:00:00Z", end: "2026-10-01T01:00:00Z" }), { initialProps: { stop: 11 }, wrapper: wrapper() })
+  rerender({ stop: 12 })
+  await waitFor(() => expect(result.current.data).toEqual(current))
+  await act(async () => { finish({ model_version: "old-stop" } as Response); await Promise.resolve() })
+  expect(result.current.data).toEqual(current)
+})
