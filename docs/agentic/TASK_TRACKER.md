@@ -96,7 +96,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | done | synthetic-transport-data lead | DATA | TASK-015 | B | M |
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | done | historical-ingestion lead | DATA | TASK-016 | C | L |
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | done | identity-alignment lead | DATA-MAPPING | TASK-015, TASK-016 | C | M |
-| TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-FEATURES | TASK-017, TASK-018 | D | L |
+| TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | in_progress | horizon-features lead | DATA-FEATURES | TASK-017, TASK-018 | D | L |
 | TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-004, TASK-019 | D | M |
 | TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | backlog | unassigned | ML-MODEL | TASK-020 | E | M |
 | TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-020 | E | M |
@@ -433,6 +433,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Real source mapping and matching tolerances cannot be certified before organizer samples; no invented NDTP dependency.
 
 ## TASK-019
+
+- **Execution:** `agent/horizon-features`, base `3e4ad59`, worktree `MosTransport2026Hack-worktrees/horizon-features`; [plan](../exec-plans/active/horizon-features.md).
 
 **Build leakage-safe aggregates and horizon-specific features** — RQ-01–03.
 
