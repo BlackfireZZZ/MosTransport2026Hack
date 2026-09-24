@@ -174,6 +174,20 @@ A fourth defect was caught before running: a draft of the missing test reference
 contrast `lag_24h` (an observed zero) with `lag_48h` (missing) inside one row, which is
 the sharper assertion anyway.
 
+Two real implementation defects were then found by checking an assumption instead of
+stating it. A sweep of all 23 741 civil dates from 1970 to 2035 asked which Moscow
+midnights do not name exactly one instant; the answer is 1 April 1981, 1982, 1983 and
+1984, when Moscow advanced the clock at 00:00. `midnight()` had been resolving those
+with `fold=0`, a guessed instant — exactly what `identity/clock.py` refuses. It now
+raises `FeatureError`, and the monthly bucket start and month step were routed through
+it so no path can construct such a boundary. Fixing that exposed the second defect:
+`step()` caught `ValueError` broadly, and because `FeatureError` subclasses `ValueError`
+the specific message was being rewritten as "bucket step leaves the supported datetime
+range". `FeatureError` is now re-raised unchanged. This is a deliberate divergence from
+`contracts/calendar_v1.forecast_buckets`, which resolves those four wall times silently;
+the feature layer refuses rather than guess a service day. Every recorded digest was
+unchanged by the fix, as expected for 2024-2025 data.
+
 ## Research evidence
 
 No new algorithm is introduced: lags, rolling windows and a per-origin availability
@@ -208,11 +222,11 @@ Plan, in order:
 Observed results:
 
 - `make ml-check`: `ruff check ml` → "All checks passed!"; `mypy ml/src` → "Success: no
-  issues found in 32 source files"; `pytest ml/tests` → **237 passed in 8.34s**
-  (86 new feature tests: calendar 25, leakage 21, aggregate 13, history 10, missing 9,
+  issues found in 32 source files"; `pytest ml/tests` → **238 passed in 9.58s**
+  (87 new feature tests: calendar 26, leakage 21, aggregate 13, history 10, missing 9,
   fixtures 8; 151 pre-existing).
 - `make check`: **exit 0**. Architecture boundaries passed; backend ruff clean, mypy 42
-  files, **292 passed / 10 skipped**; ML ruff clean, mypy 32 files, **237 passed**;
+  files, **292 passed / 10 skipped**; ML ruff clean, mypy 32 files, **238 passed**;
   golden evaluation `"passed": true`; frontend **8 files / 47 tests** passed and
   production build `built in 687ms`; contract check current (OpenAPI snapshot and
   generated TypeScript); reference contracts ruff clean, mypy 3 files,

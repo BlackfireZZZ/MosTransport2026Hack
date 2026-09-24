@@ -188,6 +188,19 @@ def test_misaligned_origins_are_refused_like_the_contract(origin, horizon):
         forecast_buckets(start, horizon)
 
 
+def test_a_date_without_a_moscow_midnight_is_refused_not_guessed():
+    """Moscow advanced the clock at 00:00 on 1 April 1981-1984, so 00:00 names no instant."""
+    with pytest.raises(FeatureError, match="1981-04-01"):
+        bucket_of(moscow("1981-04-01T12:00"), "daily")
+    with pytest.raises(FeatureError, match="1981-04-01"):
+        bucket_of(moscow("1981-04-01T12:00"), "monthly")
+    with pytest.raises(FeatureError, match="1981-04-01"):
+        step(moscow("1981-03-31T00:00"), "daily", 1)
+
+    assert bucket_of(moscow("1981-04-01T12:00"), "hourly").elapsed_hours == 1
+    assert bucket_of(moscow("1981-04-02T12:00"), "daily").elapsed_hours == HOURS_PER_DAY
+
+
 def test_naive_and_empty_intervals_are_refused():
     with pytest.raises(FeatureError):
         bucket_of(datetime(2024, 5, 6, 8, 0), "hourly")

@@ -41,7 +41,19 @@ def service_date(instant: datetime) -> date:
 
 
 def midnight(day: date) -> datetime:
-    return datetime.combine(day, time(0), tzinfo=MOSCOW)
+    """Moscow midnight of a civil date, refused when that wall time names no single instant.
+
+    Moscow advanced the clock at 00:00 on 1 April 1981-1984, so those dates have no
+    midnight. Resolving one would mean guessing an instant, which the identity clock
+    already refuses; a service day that cannot be located is an error, not a default.
+    """
+    naive = datetime.combine(day, time(0))
+    local = naive.replace(tzinfo=MOSCOW, fold=0)
+    if local.astimezone(UTC).astimezone(MOSCOW).replace(tzinfo=None) != naive:
+        raise FeatureError(f"{day.isoformat()} has no Moscow midnight")
+    if local.utcoffset() != naive.replace(tzinfo=MOSCOW, fold=1).utcoffset():
+        raise FeatureError(f"{day.isoformat()} has an ambiguous Moscow midnight")
+    return local
 
 
 def bucket_start_of(instant: datetime, granularity: Granularity) -> datetime:
@@ -53,7 +65,7 @@ def bucket_start_of(instant: datetime, granularity: Granularity) -> datetime:
     if granularity == "daily":
         return midnight(local.date())
     if granularity == "monthly":
-        return datetime(local.year, local.month, 1, tzinfo=MOSCOW)
+        return midnight(date(local.year, local.month, 1))
     raise FeatureError(f"unsupported granularity {granularity!r}")
 
 
@@ -67,6 +79,8 @@ def step(start: datetime, granularity: Granularity, steps: int) -> datetime:
             return midnight(local.date() + timedelta(days=steps))
         if granularity == "monthly":
             return _shift_months(local, steps)
+    except FeatureError:
+        raise
     except (OverflowError, ValueError) as error:
         raise FeatureError("bucket step leaves the supported datetime range") from error
     raise FeatureError(f"unsupported granularity {granularity!r}")
@@ -75,7 +89,7 @@ def step(start: datetime, granularity: Granularity, steps: int) -> datetime:
 def _shift_months(local: datetime, steps: int) -> datetime:
     total = local.year * MONTHS_PER_YEAR + (local.month - 1) + steps
     year, month = divmod(total, MONTHS_PER_YEAR)
-    return datetime(year, month + 1, 1, tzinfo=MOSCOW)
+    return midnight(date(year, month + 1, 1))
 
 
 def bucket_from_start(start: datetime, granularity: Granularity) -> Bucket:

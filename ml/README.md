@@ -228,6 +228,11 @@ February 2024 yields 29 daily buckets, 2024 yields 12 monthly buckets spanning 3
 days, and `lag_12m` lands on the same calendar month a year earlier. `bucket_hours` is
 measured on the instants, so the Moscow DST days 2011-03-27 and 2014-10-26 report 23
 and 25 hours; Moscow has had no DST since 2014, but the arithmetic does not rely on it.
+A civil date whose Moscow midnight names no instant or two — 1 April 1981 through 1984,
+when the clock advanced at 00:00 — raises instead of resolving to a guess, the same rule
+`identity/clock.py` applies to naive source times. This diverges from
+`contracts/calendar_v1.forecast_buckets`, which resolves those four wall times silently;
+a service day the layer cannot locate is an error, not a default.
 
 Determinism: entities are sorted by `(route_id, direction_id, stop_id)`, buckets run
 chronologically, feature names follow the policy's declared order, and
