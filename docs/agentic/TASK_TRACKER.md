@@ -37,6 +37,9 @@ not authorize actions outside the user's scope or [permission boundaries](PERMIS
   [AGENTS.md](../../AGENTS.md). Do not create an ExecPlan for every small task.
 - The lead owns this shared index during parallel work. Subagents report through
   [HANDOFF.md](HANDOFF.md); they do not compete to edit the same row.
+- The serving and map/UI block allocated to a second agent is defined in
+  [FOR_VOVA_HUESOS.md](FOR_VOVA_HUESOS.md); its ten rows and file boundaries
+  belong to that owner while the block is open.
 - Record the branch, worktree, base SHA, changed-file ownership, exact next action,
   and dated command results in the task detail. Update before handing off or ending
   a session. Never replace a failed check with an unsupported success claim.
@@ -91,8 +94,8 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-014 | [Cover current forecast HTTP and numerical boundary behavior](#task-014) | maintenance | backend | P1 | R1 | done | integration lead | API-TEST | none | A | S |
 | TASK-015 | [Define canonical targets, entities, calendar and dataset manifests](#task-015) | feature | data,ml,backend | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-003 | B | M |
 | TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | done | synthetic-transport-data lead | DATA | TASK-015 | B | M |
-| TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-016 | C | L |
-| TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-015, TASK-016 | C | M |
+| TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | done | historical-ingestion lead | DATA | TASK-016 | C | L |
+| TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | done | identity-alignment lead | DATA-MAPPING | TASK-015, TASK-016 | C | M |
 | TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA-FEATURES | TASK-017, TASK-018 | D | L |
 | TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-004, TASK-019 | D | M |
 | TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | backlog | unassigned | ML-MODEL | TASK-020 | E | M |
@@ -101,18 +104,18 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
 | TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-015 | C | M |
 | TASK-026 | [Add isolated PostgreSQL repository integration test support](#task-026) | maintenance | backend,ci | P1 | R2 | done | integration lead | INFRA | none | A | M |
-| TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-025, TASK-026 | D | L |
-| TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | unassigned | SERVING | TASK-027, TASK-015 | E | L |
+| TASK-027 | [Persist coherent forecast runs and enforce value invariants](#task-027) | feature | backend | P1 | R2 | ready | for-vova-huesos | SERVING | TASK-025, TASK-026 | D | L |
+| TASK-028 | [Serve bounded route, stop and time-window forecast aggregates](#task-028) | feature | backend | P1 | R2 | backlog | for-vova-huesos | SERVING | TASK-027, TASK-015 | E | L |
 | TASK-029 | [Publish validated batch artifacts atomically and idempotently](#task-029) | feature | backend,ml | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-025, TASK-027 | G | M |
 | TASK-030 | [Publish graph artifacts as a validated versioned set](#task-030) | feature | data,backend | P1 | R2 | done | Codex lead | GRAPH-EXPORT | TASK-011, TASK-012 | B | M |
-| TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | backlog | unassigned | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
-| TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | backlog | unassigned | DATA-MAPPING | TASK-018, TASK-030 | D | M |
-| TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | backlog | unassigned | UI-SHELL | TASK-028, TASK-010 | F | M |
-| TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | unassigned | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
-| TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | unassigned | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
-| TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | unassigned | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
+| TASK-031 | [Make missing per-edge geometry explicit](#task-031) | feature | backend,frontend | P2 | R2 | ready | for-vova-huesos | GRAPH-LOAD | TASK-012, TASK-030 | C | M |
+| TASK-032 | [Join forecast entities to versioned Moscow map geometry](#task-032) | feature | data,backend | P1 | R2 | ready | for-vova-huesos | DATA-MAPPING | TASK-018, TASK-030 | D | M |
+| TASK-033 | [Add dispatcher stop and time-window filters](#task-033) | feature | frontend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-028, TASK-010 | F | M |
+| TASK-034 | [Synchronize forecast map, time selection and chart state](#task-034) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-MAP | TASK-028, TASK-032, TASK-033, TASK-008 | G | L |
+| TASK-035 | [Expose provenance and trustworthy real-time refresh state](#task-035) | feature | frontend,backend | P1 | R2 | backlog | for-vova-huesos | UI-SHELL | TASK-025, TASK-028, TASK-007, TASK-034 | H | M |
+| TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | for-vova-huesos | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
 | TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
-| TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | unassigned | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
+| TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | for-vova-huesos | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
 | TASK-039 | [Build a first-data profiling and adaptation toolkit](#task-039) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-017, TASK-018, TASK-019 | E | M |
 | TASK-040 | [Observe batch quality, publication and forecast freshness](#task-040) | feature | backend,ml | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-029, TASK-035, TASK-013 | I | M |
 | TASK-041 | [Measure million-row ingestion and bounded query/UI budgets](#task-041) | research | data,backend,frontend | P1 | R1 | backlog | unassigned | PERFORMANCE | TASK-017, TASK-028, TASK-034, TASK-026 | H | M |
@@ -130,7 +133,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-053 | [Gate spatial or graph-model experiments on measured baseline failures](#task-053) | research | ml | P3 | R2 | backlog | unassigned | ML-MODEL | TASK-051, TASK-052 | OPTIONAL | L |
 | TASK-054 | [Assess multimodal expansion only after tram acceptance](#task-054) | research | data,ml | P3 | R2 | backlog | unassigned | CONTRACT | TASK-044, TASK-052 | OPTIONAL | M |
 | TASK-055 | [Bound shared Overpass requests and failure resource usage](#task-055) | maintenance | backend,infra | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-003 | B | M |
-| TASK-056 | [Export a self-describing dispatcher forecast report](#task-056) | feature | frontend | P2 | R1 | backlog | unassigned | UI-CHART | TASK-035, TASK-036 | I | S |
+| TASK-056 | [Export a self-describing dispatcher forecast report](#task-056) | feature | frontend | P2 | R1 | backlog | for-vova-huesos | UI-CHART | TASK-035, TASK-036 | I | S |
 | TASK-057 | [Explain model behavior and compare baseline errors](#task-057) | feature | ml,frontend | P2 | R2 | backlog | unassigned | ML-EVAL | TASK-023, TASK-022 | G | M |
 | TASK-058 | [Run an evaluation-gated offline forecasting pipeline](#task-058) | feature | ml,backend | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-019, TASK-020, TASK-021, TASK-022, TASK-024, TASK-029 | H | M |
 
@@ -407,6 +410,9 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-017
 
+- **Execution:** `agent/historical-ingestion`, base `4478d43`, merged into `main` as `80f3372`; [scope, measured budget and review record](../exec-plans/completed/historical-ingestion.md).
+- **Verification (2026-09-25):** million-event run 24.2 s / 57 MB peak RSS with an identical 100 000-event peak, so memory is bounded by `--chunk-size`, not row count; a SIGKILL'd run resumed to the same four SHA-256 digests and a byte-identical manifest; `input_rows == valid + duplicates + quarantined` per stream. Independent review ACCEPT (no CRITICAL/HIGH); its six findings are fixed in `fc59a76` with valid-input outputs byte-identical (`validations.jsonl` `5551a578…` reproduced after the fixes). `make check`: exit 0 — backend 292 passed / 10 SQL skipped, ML 96 passed, frontend 47 passed, reference contracts 119 passed.
+
 **Implement bounded historical ingestion with restart and quarantine** — RQ-01.
 
 - **Evidence / scope:** [ml/src/tramflow_ml/cli.py](../../ml/src/tramflow_ml/cli.py). Add offline chunked readers and configurable fixture-column adapters; preserve immutable input hash, versioned normalization, checkpoints, deduplication and quarantine counts.
@@ -415,6 +421,9 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Implement supported fixture CSV/JSONL first; actual organizer adapters wait for samples. No distributed stack commitment before measurement.
 
 ## TASK-018
+
+- **Execution:** `agent/identity-alignment`, base `4478d43`, merged into `main` as `3703f29`; [scope, matching rules and review record](../exec-plans/completed/identity-alignment.md).
+- **Verification (2026-09-25):** hand-calculated crosswalk fixtures cover duplicate stop names, opposite directions, repeated stops in one pattern, stale GPS, clock offsets and vehicle reassignment; every unresolved row stays `Unmatched`/`Ambiguous`/`Stale` and is counted in the quality report instead of joining. Independent review ACCEPT with findings, fixed in `628636d` — naive DST-gap and fall-back-overlap wall times are now refused instead of resolved with `fold=0`. `make check`: exit 0 — backend 292 passed / 10 SQL skipped, ML 127 passed, frontend 47 passed, reference contracts 119 passed.
 
 **Align validations and telemetry with explicit identity rules** — RQ-01, RQ-03–04.
 
@@ -500,6 +509,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-027
 
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
+
 **Persist coherent forecast runs and enforce value invariants** — RQ-02–03.
 
 - **Evidence / scope:** [backend/app/infrastructure/db/models.py](../../backend/app/infrastructure/db/models.py). Add new Alembic migration for immutable run identity/publication state and nonambiguous uniqueness; enforce valid counts/intervals/capacity under the agreed target contract.
@@ -508,6 +519,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Never rewrite initial migration; document recovery and backward-compatible seed handling.
 
 ## TASK-028
+
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Serve bounded route, stop and time-window forecast aggregates** — RQ-03.
 
@@ -551,6 +564,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-031
 
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
+
 **Make missing per-edge geometry explicit** — RQ-04.
 
 - **Evidence / scope:** [backend/app/domain/tram_graph.py](../../backend/app/domain/tram_graph.py). Decide and implement strict rejection or visible quality flags for missing edge geometry; current tested straight-line fallback is silent.
@@ -559,6 +574,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** This changes a tested behavior: document the decision and compatibility/rollback before editing.
 
 ## TASK-032
+
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Join forecast entities to versioned Moscow map geometry** — RQ-03–04.
 
@@ -569,6 +586,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-033
 
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
+
 **Add dispatcher stop and time-window filters** — RQ-03.
 
 - **Evidence / scope:** [frontend/src/api/client.ts](../../frontend/src/api/client.ts). Extend central client/hooks and controls with stop selection and start/end time; keep route/horizon filters visible and accessible.
@@ -577,6 +596,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
 ## TASK-034
+
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Synchronize forecast map, time selection and chart state** — RQ-03–04.
 
@@ -587,6 +608,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-035
 
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
+
 **Expose provenance and trustworthy real-time refresh state** — RQ-04–05.
 
 - **Evidence / scope:** [frontend/src/App.tsx](../../frontend/src/App.tsx). Show run/model/data version, synthetic status, source coverage/cutoff and generation time; define configurable polling/freshness behavior using existing query infrastructure.
@@ -595,6 +618,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Real-time cadence/SLA is unspecified. No invented live observations; replay/fixture updates are clearly marked.
 
 ## TASK-036
+
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Make forecast uncertainty and units inspectable without hover** — RQ-02–05.
 
@@ -615,6 +640,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Integration evidence:** Merged and verified with the other completed blocks; see [combined verification](../exec-plans/completed/integrate-prep-blocks.md).
 
 ## TASK-038
+
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Verify dispatcher accessibility and responsive operation** — RQ-03–05.
 
@@ -777,6 +804,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Choose documented local budgets, not invented organizer SLA; transport changes require official-library research.
 
 ## TASK-056
+
+- **Allocation:** parallel block [`for-vova-huesos`](FOR_VOVA_HUESOS.md) — owner, order and file boundaries are defined there.
 
 **Export a self-describing dispatcher forecast report** — RQ-05.
 
