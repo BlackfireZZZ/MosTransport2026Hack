@@ -7,7 +7,7 @@ from tramflow_ml.identity.catalog import (
     CanonicalStop,
     CatalogError,
 )
-from tramflow_ml.identity.clock import adjust, align_time, localize
+from tramflow_ml.identity.clock import LocalTimeError, adjust, align_time, localize
 from tramflow_ml.identity.config import MOSCOW, AlignmentConfig, ConfigError, SourceClock
 from tramflow_ml.identity.crosswalk import (
     Crosswalk,
@@ -24,6 +24,7 @@ from tramflow_ml.identity.types import (
     AlignedTime,
     Ambiguous,
     IdentityError,
+    LocalTimeReason,
     Matched,
     MatchKind,
     MatchResult,
@@ -31,6 +32,7 @@ from tramflow_ml.identity.types import (
     Stale,
     Unmatched,
     UnmatchedReason,
+    UnresolvedLocalTime,
 )
 
 __all__ = [
@@ -50,6 +52,8 @@ __all__ = [
     "CrosswalkError",
     "GeoPoint",
     "IdentityError",
+    "LocalTimeError",
+    "LocalTimeReason",
     "MatchKind",
     "MatchResult",
     "Matched",
@@ -60,6 +64,7 @@ __all__ = [
     "StreamQuality",
     "Unmatched",
     "UnmatchedReason",
+    "UnresolvedLocalTime",
     "VehicleAssignment",
     "adjust",
     "align_event",

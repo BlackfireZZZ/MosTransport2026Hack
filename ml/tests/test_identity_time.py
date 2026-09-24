@@ -11,6 +11,7 @@ from tramflow_ml.identity import (
     ConfigError,
     SourceClock,
     Unmatched,
+    UnresolvedLocalTime,
     align_event,
     align_time,
 )
@@ -145,3 +146,53 @@ def test_aligned_match_builds_a_valid_contract_row_and_leaves_the_source_untouch
     assert source == snapshot
     with pytest.raises(AttributeError):
         source.stop_id = "S-B"
+
+
+@pytest.mark.parametrize(
+    ("wall_time", "reason"),
+    [
+        (datetime(2024, 3, 31, 2, 30), "nonexistent_local_time"),
+        (datetime(2024, 10, 27, 2, 30), "ambiguous_local_time"),
+    ],
+)
+def test_naive_time_in_source_dst_gap_or_overlap_is_never_guessed(wall_time, reason):
+    clock = SourceClock(timezone="Europe/Berlin")
+
+    unresolved = align_time(clock, wall_time, None)
+    result = aligned(
+        event(stop_id="S-A1", event_at=wall_time, available_at=wall_time), timezone="Europe/Berlin"
+    )
+
+    assert unresolved == UnresolvedLocalTime(wall_time, None, "event_at", reason)
+    assert result.time == UnresolvedLocalTime(wall_time, wall_time, "event_at", reason)
+    assert result.match == Unmatched(reason)
+
+
+def test_unresolvable_availability_is_reported_on_its_own_field():
+    clock = SourceClock(timezone="Europe/Berlin")
+    event_at = datetime(2024, 3, 31, 1, 30)
+    gap = datetime(2024, 3, 31, 2, 30)
+
+    result = align_time(clock, event_at, gap)
+
+    assert result == UnresolvedLocalTime(event_at, gap, "available_at", "nonexistent_local_time")
+
+
+def test_unresolvable_fix_time_blocks_only_gps_joins():
+    gap = datetime(2024, 3, 31, 2, 30)
+    at = datetime(2024, 3, 31, 1, 30)
+    by_gps = event(
+        source_id="telemetry",
+        event_at=at,
+        available_at=at,
+        latitude=55.75,
+        longitude=37.6,
+        fix_at=gap,
+    )
+    by_id = event(source_id="telemetry", event_at=at, available_at=at, stop_id="S-A1", fix_at=gap)
+    berlin = AlignmentConfig(clocks={"telemetry": SourceClock(timezone="Europe/Berlin")})
+
+    assert align_event(catalog(), crosswalk(), berlin, by_gps).match == Unmatched(
+        "nonexistent_local_time"
+    )
+    assert align_event(catalog(), crosswalk(), berlin, by_id).match.kind == "exact_id"

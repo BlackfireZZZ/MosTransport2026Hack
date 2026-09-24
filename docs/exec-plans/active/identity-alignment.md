@@ -51,7 +51,9 @@ catalog deliberately violates; identity work therefore keys on ids, never names.
    R = 6 371 008.8 m; two stops within tolerance is `ambiguous`; none is
    `unmatched`. A GPS fix whose `fix_at` differs from the event by more than the
    staleness threshold is `stale` and not joined.
-6. Per-source clock: naive timestamps are interpreted in the source timezone,
+6. Per-source clock: naive timestamps are interpreted in the source timezone and
+   must name exactly one instant (DST gap → `nonexistent_local_time`, overlap →
+   `ambiguous_local_time`, both `Unmatched` with `time=UnresolvedLocalTime`);
    `offset_seconds` is added, output is `Europe/Moscow`; original and adjusted
    `event_at`/`available_at` are kept and `service_day_shifted` is set when the
    Moscow date changes. Missing `available_at` uses a configured lag or is
@@ -105,8 +107,26 @@ meridian on R = 6 371 008.8 m is 111 195.08 m, not 111 194.93 m.
 - Tiny synthetic fixture (64 events, January 2024): validations 100% `exact_id`,
   telemetry 100% `geo_nearest`, zero ambiguous/stale/unmatched, every match passes
   `EntityCatalog.validate_location`, no service-day shift.
+- After the review fixes: `make ml-check` ruff/mypy clean, 127 passed (55 identity
+  tests); `make sync-backend && make check` exit 0 with backend 292 passed /
+  10 skipped, ML 127 passed, golden evaluation passed, frontend 47 tests and
+  production build, contract and reference-contract (119) checks, Compose valid.
 - Recovery: the package has no consumer yet (CLI wiring is TASK-032-adjacent
   follow-up); reverting the commit removes it cleanly.
+
+### Review record (2026-09-24)
+
+Independent review of `2d09f75`: ACCEPT with findings, all addressed in the
+follow-up commit.
+
+| Severity | Finding | Fix |
+|---|---|---|
+| HIGH | `localize()` resolved naive DST-gap/overlap wall times with `fold=0`, a guessed instant | Gap detected by UTC round-trip, overlap by differing `fold` offsets; both become `Unmatched` with `UnresolvedLocalTime` recorded; an unresolvable `fix_at` is unmatched only when GPS is the join key. Tests for Berlin 2024-03-31 02:30 and 2024-10-27 02:30; the 01:30 test stays |
+| MEDIUM | No test at distance exactly equal to `geo_tolerance_metres` | Added closed-boundary test at 0.001° along the meridian (111.19508 m per the 111 195.08 m/degree constant) |
+| MEDIUM | README omitted that the vehicle veto needs a covering interval | Row rewritten; route/direction always from the source row |
+| nit | Staleness wording; "rates by kind/reason" | README states `abs(lag)`, GPS-join-key-only scope, and that rates exist per outcome only |
+| LOW | Plan said "sorted keys" but `to_dict` used insertion order | `to_dict` now sorts top-level keys in both report classes |
+| LOW | Immutable mappings | Crosswalk tables and per-stream counters wrapped in `MappingProxyType` |
 
 ## Open risks
 

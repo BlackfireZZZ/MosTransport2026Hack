@@ -8,6 +8,7 @@ from tramflow_ml.identity.crosswalk import Crosswalk
 from tramflow_ml.identity.geo import GeoPoint, stops_within
 from tramflow_ml.identity.types import (
     Ambiguous,
+    LocalTimeReason,
     Matched,
     MatchKind,
     MatchResult,
@@ -25,7 +26,7 @@ def match_event(
     config: AlignmentConfig,
     event: SourceEvent,
     event_at: datetime,
-    fix_at: datetime | None,
+    fix_at: datetime | LocalTimeReason | None,
 ) -> MatchResult:
     """Resolve route, direction, stop and visit for one event at its aligned instant."""
     pattern = _resolve_pattern(catalog, crosswalk, event)
@@ -79,7 +80,7 @@ def _resolve_stop(
     pattern: CanonicalPattern,
     event: SourceEvent,
     event_at: datetime,
-    fix_at: datetime | None,
+    fix_at: datetime | LocalTimeReason | None,
 ) -> _StopHit | Unmatched | Ambiguous | Stale:
     if event.stop_id is not None:
         return _stop_by_id(crosswalk, pattern, event.stop_id)
@@ -125,8 +126,10 @@ def _stop_by_position(
     pattern: CanonicalPattern,
     position: GeoPoint,
     event_at: datetime,
-    fix_at: datetime | None,
+    fix_at: datetime | LocalTimeReason | None,
 ) -> _StopHit | Unmatched | Ambiguous | Stale:
+    if isinstance(fix_at, str):
+        return Unmatched(fix_at)
     if fix_at is not None:
         lag = abs((fix_at - event_at).total_seconds())
         if lag > config.gps_staleness_seconds:

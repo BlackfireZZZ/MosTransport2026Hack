@@ -14,6 +14,7 @@ from tramflow_ml.identity import (
 )
 
 METRES_PER_DEGREE_LATITUDE = 111_195.08
+ONE_MILLIDEGREE_METRES = METRES_PER_DEGREE_LATITUDE / 1000
 
 
 def align(source_event, **config_overrides):
@@ -44,6 +45,20 @@ def test_position_just_inside_tolerance_matches_and_just_outside_is_unmatched():
         "geo_nearest", "route:1", "dir:0", "stop:A1", 0
     )
     assert align(telemetry(outside), geo_tolerance_metres=100) == Unmatched(
+        "no_stop_within_tolerance"
+    )
+
+
+def test_distance_exactly_equal_to_tolerance_counts_as_within_tolerance():
+    stop_a1 = GeoPoint(55.75, 37.60)
+    one_millidegree_north = GeoPoint(55.751, 37.60)
+    boundary = haversine_metres(stop_a1, one_millidegree_north)
+
+    assert boundary == pytest.approx(ONE_MILLIDEGREE_METRES, abs=1e-6)
+    assert align(telemetry(55.751), geo_tolerance_metres=boundary) == Matched(
+        "geo_nearest", "route:1", "dir:0", "stop:A1", 0
+    )
+    assert align(telemetry(55.751), geo_tolerance_metres=boundary - 1e-9) == Unmatched(
         "no_stop_within_tolerance"
     )
 

@@ -3,6 +3,7 @@
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from types import MappingProxyType
 
 from tramflow_ml.identity._payload import (
     optional_mapping,
@@ -71,12 +72,18 @@ def load_crosswalk(payload: Mapping[str, object], catalog: CanonicalCatalog) -> 
     return Crosswalk(
         crosswalk_version=require_str(root, "crosswalk_version", "crosswalk"),
         entity_version=entity_version,
-        routes=routes,
-        directions=directions,
-        stops=stops,
-        stop_names=_stop_names(optional_sequence(root, "stop_names", "crosswalk"), catalog),
-        stop_positions=_positions(optional_mapping(root, "stop_positions", "crosswalk"), catalog),
-        vehicles=_vehicles(optional_sequence(root, "vehicles", "crosswalk"), catalog),
+        routes=MappingProxyType(routes),
+        directions=MappingProxyType(directions),
+        stops=MappingProxyType(stops),
+        stop_names=MappingProxyType(
+            _stop_names(optional_sequence(root, "stop_names", "crosswalk"), catalog)
+        ),
+        stop_positions=MappingProxyType(
+            _positions(optional_mapping(root, "stop_positions", "crosswalk"), catalog)
+        ),
+        vehicles=MappingProxyType(
+            _vehicles(optional_sequence(root, "vehicles", "crosswalk"), catalog)
+        ),
     )
 
 
@@ -85,12 +92,14 @@ def identity_crosswalk(catalog: CanonicalCatalog, crosswalk_version: str) -> Cro
     return Crosswalk(
         crosswalk_version=crosswalk_version,
         entity_version=catalog.entity_version,
-        routes={route: route for route in sorted(catalog.routes)},
-        directions={direction: direction for direction in sorted(catalog.direction_ids)},
-        stops={stop: stop for stop in sorted(catalog.stops)},
-        stop_names={},
-        stop_positions={},
-        vehicles={},
+        routes=MappingProxyType({route: route for route in sorted(catalog.routes)}),
+        directions=MappingProxyType(
+            {direction: direction for direction in sorted(catalog.direction_ids)}
+        ),
+        stops=MappingProxyType({stop: stop for stop in sorted(catalog.stops)}),
+        stop_names=MappingProxyType({}),
+        stop_positions=MappingProxyType({}),
+        vehicles=MappingProxyType({}),
     )
 
 

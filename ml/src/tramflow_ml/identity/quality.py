@@ -3,10 +3,12 @@
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from tramflow_ml.identity.crosswalk import Crosswalk
 from tramflow_ml.identity.types import (
     AlignedEvent,
+    AlignedTime,
     Ambiguous,
     IdentityError,
     Matched,
@@ -43,7 +45,8 @@ class StreamQuality:
         return {outcome: count / self.total for outcome, count in counts.items()}
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        """Top-level and nested keys are sorted so serialized output is byte-stable."""
+        fields: dict[str, object] = {
             "source_id": self.source_id,
             "total": self.total,
             "matched": {
@@ -59,6 +62,7 @@ class StreamQuality:
             "service_day_shifted": self.service_day_shifted,
             "rates": self.rates(),
         }
+        return dict(sorted(fields.items()))
 
 
 @dataclass(frozen=True)
@@ -68,11 +72,12 @@ class QualityReport:
     streams: tuple[StreamQuality, ...]
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        fields: dict[str, object] = {
             "entity_version": self.entity_version,
             "crosswalk_version": self.crosswalk_version,
             "streams": [stream.to_dict() for stream in self.streams],
         }
+        return dict(sorted(fields.items()))
 
 
 def quality_report(crosswalk: Crosswalk, events: Iterable[AlignedEvent]) -> QualityReport:
@@ -109,9 +114,12 @@ def _stream(source_id: str, events: list[AlignedEvent]) -> StreamQuality:
     return StreamQuality(
         source_id=source_id,
         total=len(events),
-        matched_by_kind=dict(sorted(kinds.items())),
-        unmatched_by_reason=dict(sorted(reasons.items())),
+        matched_by_kind=MappingProxyType(dict(sorted(kinds.items()))),
+        unmatched_by_reason=MappingProxyType(dict(sorted(reasons.items()))),
         ambiguous=ambiguous,
         stale=stale,
-        service_day_shifted=sum(event.time.service_day_shifted for event in events),
+        service_day_shifted=sum(
+            isinstance(event.time, AlignedTime) and event.time.service_day_shifted
+            for event in events
+        ),
     )

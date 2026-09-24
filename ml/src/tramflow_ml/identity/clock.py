@@ -3,14 +3,34 @@
 from datetime import UTC, datetime, timedelta
 
 from tramflow_ml.identity.config import MOSCOW, SourceClock
-from tramflow_ml.identity.types import AlignedTime, IdentityError
+from tramflow_ml.identity.types import (
+    AlignedTime,
+    IdentityError,
+    LocalTimeReason,
+    UnresolvedLocalTime,
+)
+
+
+class LocalTimeError(IdentityError):
+    """A naive wall time falls in a DST gap or overlap of the source zone."""
+
+    def __init__(self, reason: LocalTimeReason) -> None:
+        super().__init__(reason)
+        self.reason: LocalTimeReason = reason
 
 
 def localize(clock: SourceClock, value: datetime) -> datetime:
-    """Aware values keep their own offset; naive values are read in the source timezone."""
-    if value.tzinfo is None or value.utcoffset() is None:
-        return value.replace(tzinfo=clock.zone)
-    return value
+    """Aware values keep their offset; a naive value must name exactly one instant."""
+    if value.tzinfo is not None and value.utcoffset() is not None:
+        return value
+    zone = clock.zone
+    local = value.replace(tzinfo=zone, fold=0)
+    round_trip = local.astimezone(UTC).astimezone(zone).replace(tzinfo=None)
+    if round_trip != value.replace(fold=0):
+        raise LocalTimeError("nonexistent_local_time")
+    if local.utcoffset() != value.replace(tzinfo=zone, fold=1).utcoffset():
+        raise LocalTimeError("ambiguous_local_time")
+    return local
 
 
 def adjust(clock: SourceClock, value: datetime) -> datetime:
@@ -24,15 +44,21 @@ def adjust(clock: SourceClock, value: datetime) -> datetime:
 
 def align_time(
     clock: SourceClock, event_at: datetime, available_at: datetime | None
-) -> AlignedTime:
+) -> AlignedTime | UnresolvedLocalTime:
+    try:
+        aligned_event_at = adjust(clock, event_at)
+    except LocalTimeError as error:
+        return UnresolvedLocalTime(event_at, available_at, "event_at", error.reason)
+    try:
+        aligned_available_at = _availability(clock, aligned_event_at, available_at)
+    except LocalTimeError as error:
+        return UnresolvedLocalTime(event_at, available_at, "available_at", error.reason)
     source_event_at = localize(clock, event_at)
-    aligned_event_at = adjust(clock, event_at)
-    source_available_at = None if available_at is None else localize(clock, available_at)
     return AlignedTime(
         source_event_at=source_event_at,
         event_at=aligned_event_at,
-        source_available_at=source_available_at,
-        available_at=_availability(clock, aligned_event_at, available_at),
+        source_available_at=None if available_at is None else localize(clock, available_at),
+        available_at=aligned_available_at,
         offset_seconds=clock.offset_seconds,
         service_day_shifted=source_event_at.astimezone(MOSCOW).date() != aligned_event_at.date(),
     )

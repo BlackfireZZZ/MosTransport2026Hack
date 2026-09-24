@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal
 
 MatchKind = Literal["exact_id", "name_route_direction", "geo_nearest"]
+LocalTimeReason = Literal["nonexistent_local_time", "ambiguous_local_time"]
 UnmatchedReason = Literal[
     "route_missing",
     "unknown_route",
@@ -24,6 +25,8 @@ UnmatchedReason = Literal[
     "previous_stop_mismatch",
     "availability_missing",
     "availability_precedes_event",
+    "nonexistent_local_time",
+    "ambiguous_local_time",
 ]
 AmbiguousField = Literal["stop", "stop_sequence"]
 
@@ -97,10 +100,20 @@ class AlignedTime:
 
 
 @dataclass(frozen=True)
+class UnresolvedLocalTime:
+    """A naive source wall time that names zero or two instants in the source zone."""
+
+    source_event_at: datetime
+    source_available_at: datetime | None
+    field: Literal["event_at", "available_at"]
+    reason: LocalTimeReason
+
+
+@dataclass(frozen=True)
 class AlignedEvent:
     event_id: str
     source_id: str
     entity_version: str
     crosswalk_version: str
-    time: AlignedTime
+    time: AlignedTime | UnresolvedLocalTime
     match: MatchResult
