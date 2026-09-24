@@ -34,6 +34,7 @@ class GeometryCrosswalk:
     graph_version: str
     routes: tuple[RouteGeometryLink, ...]
     stops: tuple[StopGeometryLink, ...]
+    synthetic: bool
 
 
 class GeometryMatchStatus(StrEnum):
@@ -62,4 +63,5 @@ class ForecastGeometry:
     matched_count: int
     unmatched_count: int
     ambiguous_count: int
+    synthetic: bool
     route_semantics: str = "unordered_membership"

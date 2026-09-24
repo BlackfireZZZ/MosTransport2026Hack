@@ -22,6 +22,8 @@ class ForecastGeometryService:
             raise GeometryMappingError("mapping graph version does not match loaded snapshot")
         if not crosswalk.entity_version or not crosswalk.mapping_version:
             raise GeometryMappingError("entity and mapping versions are required")
+        if type(crosswalk.synthetic) is not bool:
+            raise GeometryMappingError("mapping synthetic marker must be a boolean")
         self._crosswalk = crosswalk
         self._network = network
         self._routes = {item.route_id: item.osm_route_refs for item in crosswalk.routes}
@@ -58,6 +60,7 @@ class ForecastGeometryService:
             matched_count=counts[GeometryMatchStatus.MATCHED],
             unmatched_count=counts[GeometryMatchStatus.UNMATCHED],
             ambiguous_count=counts[GeometryMatchStatus.AMBIGUOUS],
+            synthetic=self._crosswalk.synthetic,
         )
 
     def _map(self, entity: ForecastEntity) -> MappedForecastStop:

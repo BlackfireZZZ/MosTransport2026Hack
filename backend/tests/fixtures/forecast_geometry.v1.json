@@ -1,4 +1,5 @@
 {
+  "synthetic": true,
   "schema_version": "forecast-geometry.v1",
   "mapping_version": "synthetic-map.v1",
   "entity_version": "synthetic-entities.v1",

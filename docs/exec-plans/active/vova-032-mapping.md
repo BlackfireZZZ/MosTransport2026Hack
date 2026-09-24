@@ -69,3 +69,16 @@ forecast runs/API/UI in TASK-034. Actual canonical-to-OSM correspondence awaits
 organizer evidence and TASK-050; this task intentionally supplies only labeled
 synthetic mapping fixtures, not fabricated real coverage. Worktree retained for
 lead review/integration; no push, main edit or cleanup performed.
+
+## Independent review correction
+The block lead found mapping provenance lacked an explicit synthetic marker.
+The artifact now requires a strict `synthetic` boolean, which is preserved on the
+crosswalk and result. The marker describes mapping evidence, independently of the
+forecast model/run's synthetic status. Multiple OSM refs in one route row mean an
+intentional membership union; they do not indicate alternate candidate matches,
+trip order or direction. Stop candidate multiplicity always remains ambiguous.
+
+Correction verification: mapping tests 20 passed; `make check` exit 0 (backend
+312 passed / 10 SQL skipped, ML 151, frontend 47, contracts 119). No dependency,
+API or publication-contract changes. Earlier implementation commit 734ef45 and
+this correction await lead integration.

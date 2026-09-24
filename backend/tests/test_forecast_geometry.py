@@ -187,3 +187,32 @@ def test_snapshot_version_is_from_the_single_manifest_read(
     loaded_version, graph, _ = graph_artifacts.load_active_graph_snapshot(tmp_path)
     assert loaded_version == version
     assert len(graph["nodes"]) == 856
+
+
+@pytest.mark.parametrize("synthetic", [True, False])
+def test_mapping_synthetic_provenance_is_preserved(tmp_path: Path, synthetic: bool) -> None:
+    raw = json.loads(FIXTURE.read_text())
+    raw["synthetic"] = synthetic
+    path = tmp_path / "map.json"
+    path.write_text(json.dumps(raw))
+    crosswalk = load_crosswalk(path)
+    assert crosswalk.synthetic is synthetic
+    result = ForecastGeometryService(crosswalk, network(), crosswalk.graph_version).map_stops(
+        [entity("same-name")],
+        entity_version=crosswalk.entity_version,
+        graph_version=crosswalk.graph_version,
+    )
+    assert result.synthetic is synthetic
+
+
+@pytest.mark.parametrize("value", [None, "true", 1])
+def test_mapping_synthetic_marker_requires_explicit_boolean(tmp_path: Path, value: object) -> None:
+    raw = json.loads(FIXTURE.read_text())
+    if value is None:
+        del raw["synthetic"]
+    else:
+        raw["synthetic"] = value
+    path = tmp_path / "map.json"
+    path.write_text(json.dumps(raw))
+    with pytest.raises(GeometryMappingError):
+        load_crosswalk(path)

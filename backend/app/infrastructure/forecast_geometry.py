@@ -38,6 +38,7 @@ class _Stop(_StrictModel):
 
 
 class _Artifact(_StrictModel):
+    synthetic: bool
     schema_version: Literal["forecast-geometry.v1"]
     mapping_version: Identifier
     entity_version: Identifier
@@ -74,6 +75,7 @@ def load_crosswalk(path: Path) -> GeometryCrosswalk:
             )
             for row in artifact.stops
         ),
+        artifact.synthetic,
     )
 
 
