@@ -30,7 +30,7 @@ export function ForecastChart({ points, horizon }: ForecastChartProps) {
   const data = points.map((point) => ({
     ...point,
     label: formatTick(point.timestamp, horizon),
-    uncertainty: point.upper_bound - point.lower_bound,
+    uncertainty: point.upper_bound === null || point.lower_bound === null ? null : point.upper_bound - point.lower_bound,
   }))
   const peak = Math.max(...points.map((point) => point.predicted_passengers))
 
@@ -48,6 +48,8 @@ export function ForecastChart({ points, horizon }: ForecastChartProps) {
         </div>
       </CardHeader>
       <CardContent>
+        {points.some((point) => point.lower_bound === null || point.upper_bound === null) && <p>Интервал неопределённости недоступен для части значений.</p>}
+        {points.some((point) => point.capacity === null) && <p>Вместимость неизвестна для части значений.</p>}
         <div className="chart-wrap" role="img" aria-label={`Пик прогноза ${formatPassengers(peak)} пассажиров`}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>

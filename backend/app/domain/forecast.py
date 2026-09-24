@@ -21,9 +21,9 @@ class RouteSummary:
 class ForecastPoint:
     timestamp: datetime
     predicted_passengers: float
-    lower_bound: float
-    upper_bound: float
-    capacity: float
+    lower_bound: float | None
+    upper_bound: float | None
+    capacity: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +33,7 @@ class StopLoad:
     latitude: float
     longitude: float
     predicted_passengers: float
-    load_percent: float
+    load_percent: float | None
     sequence: int
 
 
@@ -51,9 +51,17 @@ class ForecastSnapshot:
         return max((point.predicted_passengers for point in self.points), default=0)
 
     @property
-    def peak_load_percent(self) -> float:
-        percentages = [point.predicted_passengers / point.capacity * 100 for point in self.points]
-        return max(percentages, default=0)
+    def peak_load_percent(self) -> float | None:
+        if not self.points or any(
+            point.capacity is None or point.capacity <= 0 for point in self.points
+        ):
+            return None
+        percentages = [
+            point.predicted_passengers / point.capacity * 100
+            for point in self.points
+            if point.capacity
+        ]
+        return max(percentages)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,8 +73,8 @@ class ScenarioParameters:
 
 @dataclass(frozen=True, slots=True)
 class ScenarioResult:
-    baseline_peak_load_percent: float
-    scenario_peak_load_percent: float
+    baseline_peak_load_percent: float | None
+    scenario_peak_load_percent: float | None
     passenger_delta: float
     capacity_delta: float
     affected_stops: list[StopLoad]

@@ -67,10 +67,10 @@ function App() {
 
   const data = forecast.data
   const busiestStop = data?.stops.length
-    ? data.stops.reduce((max, stop) => stop.load_percent > max.load_percent ? stop : max)
+    ? data.stops.reduce((max, stop) => (stop.load_percent ?? -1) > (max.load_percent ?? -1) ? stop : max)
     : undefined
-  const reserve = data ? 100 - data.peak_load_percent : 0
-  const reserveLabel = reserve >= 0 ? "до расчётной вместимости" : "дефицит вместимости"
+  const reserve = data?.peak_load_percent == null ? null : 100 - data.peak_load_percent
+  const reserveLabel = reserve === null ? "вместимость неизвестна" : reserve >= 0 ? "до расчётной вместимости" : "дефицит вместимости"
   const generatedAt = data
     ? new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(data.generated_at))
     : "—"
@@ -162,9 +162,9 @@ function App() {
             <>
               <section className="kpi-grid" aria-label="Ключевые показатели">
                 <article className="kpi"><span>Пиковый поток</span><strong>{formatPassengers(data.peak_passengers)}</strong><small>пассажиров / интервал</small></article>
-                <article className="kpi"><span>Пиковая загрузка</span><strong className={data.peak_load_percent >= 100 ? "is-critical" : ""}>{data.peak_load_percent.toFixed(0)}%</strong><small>{data.peak_load_percent >= 100 ? "выше вместимости" : "в пределах вместимости"}</small></article>
-                <article className="kpi"><span>Напряжённый узел</span><strong className="kpi-text">{busiestStop?.name ?? "—"}</strong><small>{busiestStop ? `${busiestStop.load_percent.toFixed(0)}% загрузки` : "нет данных"}</small></article>
-                <article className="kpi"><span>{reserve >= 0 ? "Резерв сети" : "Дефицит сети"}</span><strong className={reserve < 0 ? "is-critical" : ""}>{Math.abs(reserve).toFixed(0)}%</strong><small>{reserveLabel}</small></article>
+                <article className="kpi"><span>Пиковая загрузка</span><strong className={(data.peak_load_percent ?? -1) >= 100 ? "is-critical" : ""}>{data.peak_load_percent == null ? "—" : `${data.peak_load_percent.toFixed(0)}%`}</strong><small>{data.peak_load_percent == null ? "вместимость неизвестна" : data.peak_load_percent >= 100 ? "выше вместимости" : "в пределах вместимости"}</small></article>
+                <article className="kpi"><span>Напряжённый узел</span><strong className="kpi-text">{busiestStop?.name ?? "—"}</strong><small>{busiestStop?.load_percent != null ? `${busiestStop.load_percent.toFixed(0)}% загрузки` : "нет данных"}</small></article>
+                <article className="kpi"><span>{(reserve ?? 0) >= 0 ? "Резерв сети" : "Дефицит сети"}</span><strong className={(reserve ?? 0) < 0 ? "is-critical" : ""}>{reserve === null ? "—" : `${Math.abs(reserve).toFixed(0)}%`}</strong><small>{reserveLabel}</small></article>
               </section>
 
               <Suspense fallback={<Skeleton className="h-[360px]" />}>

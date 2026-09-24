@@ -45,7 +45,11 @@ class ForecastService:
             0.25,
             1 + parameters.additional_vehicles * 0.08 - parameters.interval_change_percent / 100,
         )
-        scenario_load = snapshot.peak_load_percent * demand_factor / capacity_factor
+        scenario_load = (
+            snapshot.peak_load_percent * demand_factor / capacity_factor
+            if snapshot.peak_load_percent is not None
+            else None
+        )
         baseline_total = sum(point.predicted_passengers for point in snapshot.points)
 
         return ScenarioResult(
@@ -60,7 +64,11 @@ class ForecastService:
                     latitude=stop.latitude,
                     longitude=stop.longitude,
                     predicted_passengers=stop.predicted_passengers * demand_factor,
-                    load_percent=stop.load_percent * demand_factor / capacity_factor,
+                    load_percent=(
+                        stop.load_percent * demand_factor / capacity_factor
+                        if stop.load_percent is not None
+                        else None
+                    ),
                     sequence=stop.sequence,
                 )
                 for stop in snapshot.stops
