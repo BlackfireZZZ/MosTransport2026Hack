@@ -1,7 +1,7 @@
 import math
 from collections import defaultdict
 
-from sqlalchemy import Numeric, cast, func, select
+from sqlalchemy import Numeric, Text, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.forecast import (
@@ -104,11 +104,14 @@ class SqlAlchemyForecastRepository:
                     "stored forecast window exceeds supported range"
                 ) from error
         assert end is not None
+        # Direct float8-to-numeric conversion rounds significant digits; round-trip text
+        # preserves serialized values while numeric SUM avoids float accumulator overflow.
         statement = (
             select(
                 point.stop_id,
                 point.bucket_start,
-                func.sum(cast(point.predicted_passengers, Numeric)).label("predicted"),
+                func.sum(cast(cast(point.predicted_passengers, Text), Numeric)).label("predicted"),
+                func.min(point.predicted_passengers).label("single_prediction"),
                 func.min(point.lower_bound).label("lower"),
                 func.max(point.upper_bound).label("upper"),
                 func.min(point.capacity).label("capacity"),
@@ -142,7 +145,7 @@ class SqlAlchemyForecastRepository:
         for row in rows:
             if row.stop_id is not None and row.stop_id not in stop_ids:
                 raise ForecastDataConflict("forecast stop is not in the selected route catalog")
-            predicted = float(row.predicted)
+            predicted = row.single_prediction if row.sources == 1 else float(row.predicted)
             if not math.isfinite(predicted):
                 raise ForecastDataConflict("aggregate passenger count exceeds finite range")
             if row.unspecified and row.sources > 1:

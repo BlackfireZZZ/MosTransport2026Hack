@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import delete, text
@@ -156,7 +157,7 @@ async def test_bounded_query_plan(
             await sql_session.execute(
                 text("""
         EXPLAIN (ANALYZE, BUFFERS)
-        SELECT stop_id,bucket_start,sum(predicted_passengers::numeric),count(*)
+        SELECT stop_id,bucket_start,sum(predicted_passengers::text::numeric),count(*)
         FROM forecast_points WHERE run_id='legacy-day' AND route_id=1
           AND bucket_start >= '2026-09-20T00:00:00Z'
           AND bucket_start < '2026-09-21T00:00:00Z'
@@ -339,3 +340,46 @@ async def test_unrepresentable_load_fails_before_http_serialization(
         response = await client.get("/api/v1/forecasts", params={"route_id": 1})
         assert response.status_code == 409
         assert response.json()["detail"] == "load percentage exceeds finite range"
+
+
+async def test_single_source_preserves_float_precision(sql_session: AsyncSession) -> None:
+    from sqlalchemy import update
+
+    expected = 1.2345678901234567
+    await sql_session.execute(
+        update(ForecastPointModel)
+        .where(
+            ForecastPointModel.run_id == "legacy-day",
+            ForecastPointModel.route_id == 1,
+            ForecastPointModel.stop_id.is_(None),
+        )
+        .values(predicted_passengers=expected, lower_bound=None, upper_bound=None)
+    )
+    result = await SqlAlchemyForecastRepository(sql_session).get_snapshot(1, ForecastHorizon.DAY)
+    assert result is not None and all(
+        point.predicted_passengers == expected for point in result.points
+    )
+
+
+async def test_fractional_direction_sum_preserves_round_trip_precision(
+    sql_session: AsyncSession,
+) -> None:
+    from sqlalchemy import update
+
+    await replace_values(sql_session)
+    first, second = 1.2345678901234567, 2.3456789012345678
+    for direction, prediction in [("outbound", first), ("inbound", second)]:
+        await sql_session.execute(
+            update(ForecastPointModel)
+            .where(
+                ForecastPointModel.run_id == "legacy-day",
+                ForecastPointModel.route_id == 1,
+                ForecastPointModel.stop_id.is_(None),
+                ForecastPointModel.direction_id == direction,
+            )
+            .values(predicted_passengers=prediction, lower_bound=0, upper_bound=4)
+        )
+    result = await SqlAlchemyForecastRepository(sql_session).get_snapshot(1, ForecastHorizon.DAY)
+    assert result is not None and result.points[0].predicted_passengers == float(
+        Decimal(str(first)) + Decimal(str(second))
+    )
