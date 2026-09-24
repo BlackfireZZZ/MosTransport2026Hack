@@ -5,7 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.forecast import ForecastHorizon
+from app.domain.forecast import ForecastHorizon, ForecastSelection
 from app.infrastructure.db.models import ForecastPointModel, ForecastRunModel
 from app.infrastructure.repositories.forecast import SqlAlchemyForecastRepository
 
@@ -74,7 +74,14 @@ async def test_runs_coexist_and_draft_is_invisible(sql_session: AsyncSession) ->
     sql_session.add(point())
     await sql_session.flush()
     repository = SqlAlchemyForecastRepository(sql_session)
-    result = await repository.get_snapshot(1, ForecastHorizon.DAY)
+    result = await repository.get_snapshot(
+        1,
+        ForecastHorizon.DAY,
+        ForecastSelection(
+            start=datetime(2027, 1, 1, tzinfo=UTC),
+            end=datetime(2027, 1, 2, tzinfo=UTC),
+        ),
+    )
     assert result is not None and result.model_version == "graph-baseline-v1"
     assert len([p for p in result.points if p.timestamp.year == 2027]) == 1
 

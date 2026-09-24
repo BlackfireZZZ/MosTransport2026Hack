@@ -2,7 +2,9 @@ from typing import Protocol
 
 from app.domain.forecast import (
     ForecastHorizon,
+    ForecastSelection,
     ForecastSnapshot,
+    RouteStopSummary,
     RouteSummary,
     ScenarioParameters,
     ScenarioResult,
@@ -13,8 +15,10 @@ from app.domain.forecast import (
 class ForecastRepository(Protocol):
     async def list_routes(self) -> list[RouteSummary]: ...
 
+    async def list_stops(self, route_id: int) -> list[RouteStopSummary] | None: ...
+
     async def get_snapshot(
-        self, route_id: int, horizon: ForecastHorizon
+        self, route_id: int, horizon: ForecastHorizon, selection: ForecastSelection | None = None
     ) -> ForecastSnapshot | None: ...
 
 
@@ -26,9 +30,15 @@ class ForecastService:
         return await self._repository.list_routes()
 
     async def get_forecast(
-        self, route_id: int, horizon: ForecastHorizon
+        self, route_id: int, horizon: ForecastHorizon, selection: ForecastSelection | None = None
     ) -> ForecastSnapshot | None:
+        if selection is not None:
+            selection.validate(horizon)
+            return await self._repository.get_snapshot(route_id, horizon, selection)
         return await self._repository.get_snapshot(route_id, horizon)
+
+    async def list_stops(self, route_id: int) -> list[RouteStopSummary] | None:
+        return await self._repository.list_stops(route_id)
 
     async def evaluate_scenario(
         self,

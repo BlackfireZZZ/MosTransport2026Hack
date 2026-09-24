@@ -10,6 +10,7 @@ from app.application.services.forecast import ForecastService
 from app.domain.forecast import (
     ForecastHorizon,
     ForecastPoint,
+    ForecastSelection,
     ForecastSnapshot,
     RouteSummary,
     StopLoad,
@@ -40,7 +41,7 @@ class ForecastRepositoryFixture:
         return [self.route]
 
     async def get_snapshot(
-        self, route_id: int, horizon: ForecastHorizon
+        self, route_id: int, horizon: ForecastHorizon, selection: ForecastSelection | None = None
     ) -> ForecastSnapshot | None:
         self.calls.append((route_id, horizon))
         return self.snapshots.get(horizon) if route_id == self.route.id else None
@@ -70,6 +71,9 @@ def test_forecast_response_contract(
 
     assert response.status_code == 200
     assert response.json() == {
+        "run": None,
+        "selection": None,
+        "stop_points": None,
         "route": {"id": 1, "number": "Т1", "name": "Тестовый маршрут", "color": "#d9342b"},
         "horizon": horizon.value,
         "generated_at": "2026-09-19T00:00:00Z",
@@ -271,3 +275,25 @@ def test_inclusive_scenario_bounds_and_capacity_floor(
     assert result["scenario_peak_load_percent"] == pytest.approx(load)
     assert result["passenger_delta"] == pytest.approx(passengers)
     assert result["capacity_delta"] == pytest.approx(capacity)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"start": "2026-09-20T00:00:00Z"},
+        {"end": "2026-09-21T00:00:00Z"},
+        {"start": "2026-09-20T00:00:00", "end": "2026-09-21T00:00:00"},
+        {"start": "2026-09-20T00:00:00Z", "end": "2026-09-20T00:00:00Z"},
+        {"start": "2026-09-20T00:00:00Z", "end": "2026-09-22T00:00:00Z"},
+        {"direction_id": " "},
+        {"stop_id": 0},
+    ],
+)
+def test_invalid_bounded_selection_is_rejected_before_query(
+    client: TestClient,
+    repository: ForecastRepositoryFixture,
+    params: dict,
+) -> None:
+    response = client.get("/api/v1/forecasts", params={"route_id": 1, **params})
+    assert response.status_code == 422
+    assert not repository.calls

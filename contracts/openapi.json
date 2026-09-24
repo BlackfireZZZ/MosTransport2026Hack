@@ -108,6 +108,40 @@
           "route": {
             "$ref": "#/components/schemas/RouteResponse"
           },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ForecastRunResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ForecastSelectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stop_points": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/StopForecastPointResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Points"
+          },
           "stops": {
             "items": {
               "$ref": "#/components/schemas/StopLoadResponse"
@@ -127,6 +161,166 @@
           "stops"
         ],
         "title": "ForecastResponse",
+        "type": "object"
+      },
+      "ForecastRunResponse": {
+        "properties": {
+          "calendar_version": {
+            "title": "Calendar Version",
+            "type": "string"
+          },
+          "data_cutoff": {
+            "format": "date-time",
+            "title": "Data Cutoff",
+            "type": "string"
+          },
+          "dataset_id": {
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "entity_version": {
+            "title": "Entity Version",
+            "type": "string"
+          },
+          "feature_version": {
+            "title": "Feature Version",
+            "type": "string"
+          },
+          "forecast_origin": {
+            "format": "date-time",
+            "title": "Forecast Origin",
+            "type": "string"
+          },
+          "graph_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Version"
+          },
+          "identity_namespace": {
+            "title": "Identity Namespace",
+            "type": "string"
+          },
+          "interval_level": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Level"
+          },
+          "interval_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Method"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "source_version": {
+            "title": "Source Version",
+            "type": "string"
+          },
+          "synthetic": {
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "dataset_id",
+          "source_version",
+          "feature_version",
+          "entity_version",
+          "calendar_version",
+          "graph_version",
+          "target",
+          "unit",
+          "synthetic",
+          "forecast_origin",
+          "data_cutoff",
+          "interval_level",
+          "interval_method",
+          "identity_namespace"
+        ],
+        "title": "ForecastRunResponse",
+        "type": "object"
+      },
+      "ForecastSelectionResponse": {
+        "properties": {
+          "aggregation_key": {
+            "title": "Aggregation Key",
+            "type": "string"
+          },
+          "direction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Id"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "interval_aggregation": {
+            "title": "Interval Aggregation",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          },
+          "stop_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Id"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "stop_id",
+          "direction_id",
+          "aggregation_key",
+          "interval_aggregation"
+        ],
+        "title": "ForecastSelectionResponse",
         "type": "object"
       },
       "GeoJsonMetadataResponse": {
@@ -555,6 +749,39 @@
         "title": "RouteResponse",
         "type": "object"
       },
+      "RouteStopResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "sequence"
+        ],
+        "title": "RouteStopResponse",
+        "type": "object"
+      },
       "ScenarioRequest": {
         "properties": {
           "additional_vehicles": {
@@ -821,6 +1048,96 @@
           "routes"
         ],
         "title": "StopFeatureProperties",
+        "type": "object"
+      },
+      "StopForecastPointResponse": {
+        "properties": {
+          "aggregation_scope": {
+            "title": "Aggregation Scope",
+            "type": "string"
+          },
+          "bucket_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket End"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "direction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Id"
+          },
+          "lower_bound": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Bound"
+          },
+          "predicted_passengers": {
+            "title": "Predicted Passengers",
+            "type": "number"
+          },
+          "stop_id": {
+            "title": "Stop Id",
+            "type": "integer"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "upper_bound": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Bound"
+          }
+        },
+        "required": [
+          "stop_id",
+          "timestamp",
+          "bucket_end",
+          "direction_id",
+          "predicted_passengers",
+          "lower_bound",
+          "upper_bound",
+          "capacity",
+          "aggregation_scope"
+        ],
+        "title": "StopForecastPointResponse",
         "type": "object"
       },
       "StopLoadResponse": {
@@ -1198,6 +1515,75 @@
               "$ref": "#/components/schemas/ForecastHorizon",
               "default": "day"
             }
+          },
+          {
+            "in": "query",
+            "name": "stop_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stop Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
           }
         ],
         "responses": {
@@ -1362,6 +1748,52 @@
           }
         },
         "summary": "List Routes",
+        "tags": [
+          "forecast"
+        ]
+      }
+    },
+    "/api/v1/routes/{route_id}/stops": {
+      "get": {
+        "operationId": "list_route_stops_api_v1_routes__route_id__stops_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "title": "Route Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RouteStopResponse"
+                  },
+                  "title": "Response List Route Stops Api V1 Routes  Route Id  Stops Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Route Stops",
         "tags": [
           "forecast"
         ]

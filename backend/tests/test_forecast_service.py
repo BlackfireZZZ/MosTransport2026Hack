@@ -6,6 +6,7 @@ from app.application.services.forecast import ForecastService
 from app.domain.forecast import (
     ForecastHorizon,
     ForecastPoint,
+    ForecastSelection,
     ForecastSnapshot,
     RouteSummary,
     ScenarioParameters,
@@ -21,7 +22,7 @@ class FakeForecastRepository:
         return [self.snapshot.route]
 
     async def get_snapshot(
-        self, route_id: int, horizon: ForecastHorizon
+        self, route_id: int, horizon: ForecastHorizon, selection: ForecastSelection | None = None
     ) -> ForecastSnapshot | None:
         if route_id != self.snapshot.route.id or horizon != self.snapshot.horizon:
             return None

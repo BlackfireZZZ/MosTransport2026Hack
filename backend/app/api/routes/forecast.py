@@ -1,10 +1,19 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.dependencies import ForecastServiceDep
-from app.domain.forecast import ForecastHorizon, ScenarioParameters
+from app.domain.forecast import (
+    ForecastDataConflict,
+    ForecastHorizon,
+    ForecastQueryError,
+    ForecastSelection,
+    ScenarioParameters,
+)
 from app.schemas.forecast import (
     ForecastResponse,
     RouteResponse,
+    RouteStopResponse,
     ScenarioRequest,
     ScenarioResponse,
 )
@@ -23,14 +32,35 @@ async def get_forecast(
     service: ForecastServiceDep,
     route_id: int = Query(gt=0),
     horizon: ForecastHorizon = ForecastHorizon.DAY,
+    stop_id: int | None = Query(default=None, gt=0),
+    direction_id: str | None = Query(default=None, min_length=1, max_length=128),
+    start: datetime | None = None,
+    end: datetime | None = None,
 ) -> ForecastResponse:
-    snapshot = await service.get_forecast(route_id, horizon)
+    try:
+        selection = ForecastSelection(stop_id, direction_id, start, end)
+        snapshot = await service.get_forecast(route_id, horizon, selection)
+    except ForecastQueryError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except ForecastDataConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     if snapshot is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Forecast not found for the selected route and horizon",
         )
     return ForecastResponse.model_validate(snapshot)
+
+
+@router.get("/routes/{route_id}/stops", response_model=list[RouteStopResponse])
+async def list_route_stops(route_id: int, service: ForecastServiceDep) -> list[RouteStopResponse]:
+    try:
+        stops = await service.list_stops(route_id)
+    except ForecastQueryError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if stops is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+    return [RouteStopResponse.model_validate(stop) for stop in stops]
 
 
 @router.post("/scenarios/evaluate", response_model=ScenarioResponse)

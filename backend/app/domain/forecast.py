@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 
@@ -37,6 +37,103 @@ class StopLoad:
     sequence: int
 
 
+class ForecastQueryError(ValueError):
+    """Invalid or excessive forecast selection."""
+
+
+class ForecastDataConflict(RuntimeError):
+    """Stored rows cannot be combined without double counting."""
+
+
+WINDOW_LIMITS = {
+    ForecastHorizon.DAY: timedelta(days=1),
+    ForecastHorizon.MONTH: timedelta(days=31),
+    ForecastHorizon.YEAR: timedelta(days=366),
+}
+BUCKET_LIMITS = {ForecastHorizon.DAY: 24, ForecastHorizon.MONTH: 31, ForecastHorizon.YEAR: 12}
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastSelection:
+    stop_id: int | None = None
+    direction_id: str | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+
+    def validate(self, horizon: ForecastHorizon) -> None:
+        if self.stop_id is not None and self.stop_id <= 0:
+            raise ForecastQueryError("stop_id must be positive")
+        if self.direction_id is not None and (
+            not self.direction_id.strip() or len(self.direction_id) > 128
+        ):
+            raise ForecastQueryError("direction_id must contain 1 to 128 characters")
+        if (self.start is None) != (self.end is None):
+            raise ForecastQueryError("start and end must be supplied together")
+        if self.start is not None and self.end is not None:
+            if any(
+                value.tzinfo is None or value.utcoffset() is None
+                for value in (self.start, self.end)
+            ):
+                raise ForecastQueryError("start and end must include timezone offsets")
+            try:
+                duration = self.end.astimezone(UTC) - self.start.astimezone(UTC)
+            except (OverflowError, ValueError) as error:
+                raise ForecastQueryError("window timestamps exceed supported range") from error
+            if not timedelta(0) < duration <= WINDOW_LIMITS[horizon]:
+                raise ForecastQueryError("window must be positive and within the horizon limit")
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedForecastSelection:
+    start: datetime
+    end: datetime
+    stop_id: int | None
+    direction_id: str | None
+    aggregation_key: str
+    interval_aggregation: str = "single_source_or_unavailable"
+
+
+@dataclass(frozen=True, slots=True)
+class RouteStopSummary:
+    id: int
+    name: str
+    latitude: float
+    longitude: float
+    sequence: int
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastRunMetadata:
+    run_id: str
+    dataset_id: str
+    source_version: str
+    feature_version: str
+    entity_version: str
+    calendar_version: str
+    graph_version: str | None
+    target: str
+    unit: str
+    synthetic: bool
+    forecast_origin: datetime
+    data_cutoff: datetime
+    interval_level: float | None
+    interval_method: str | None
+    identity_namespace: str = "serving-surrogate-integer"
+
+
+@dataclass(frozen=True, slots=True)
+class StopForecastPoint:
+    stop_id: int
+    timestamp: datetime
+    bucket_end: datetime | None
+    direction_id: str | None
+    predicted_passengers: float
+    lower_bound: float | None
+    upper_bound: float | None
+    capacity: float | None
+    aggregation_scope: str
+
+
 @dataclass(frozen=True, slots=True)
 class ForecastSnapshot:
     route: RouteSummary
@@ -45,6 +142,9 @@ class ForecastSnapshot:
     model_version: str
     points: list[ForecastPoint]
     stops: list[StopLoad]
+    stop_points: list[StopForecastPoint] | None = None
+    run: ForecastRunMetadata | None = None
+    selection: ResolvedForecastSelection | None = None
 
     @property
     def peak_passengers(self) -> float:

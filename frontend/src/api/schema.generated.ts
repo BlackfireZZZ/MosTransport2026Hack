@@ -119,6 +119,23 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/v1/routes/{route_id}/stops": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** List Route Stops */
+        readonly get: operations["list_route_stops_api_v1_routes__route_id__stops_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/v1/scenarios/evaluate": {
         readonly parameters: {
             readonly query?: never;
@@ -324,8 +341,72 @@ export interface components {
             /** Points */
             readonly points: readonly components["schemas"]["ForecastPointResponse"][];
             readonly route: components["schemas"]["RouteResponse"];
+            readonly run?: components["schemas"]["ForecastRunResponse"] | null;
+            readonly selection?: components["schemas"]["ForecastSelectionResponse"] | null;
+            /** Stop Points */
+            readonly stop_points?: readonly components["schemas"]["StopForecastPointResponse"][] | null;
             /** Stops */
             readonly stops: readonly components["schemas"]["StopLoadResponse"][];
+        };
+        /** ForecastRunResponse */
+        readonly ForecastRunResponse: {
+            /** Calendar Version */
+            readonly calendar_version: string;
+            /**
+             * Data Cutoff
+             * Format: date-time
+             */
+            readonly data_cutoff: string;
+            /** Dataset Id */
+            readonly dataset_id: string;
+            /** Entity Version */
+            readonly entity_version: string;
+            /** Feature Version */
+            readonly feature_version: string;
+            /**
+             * Forecast Origin
+             * Format: date-time
+             */
+            readonly forecast_origin: string;
+            /** Graph Version */
+            readonly graph_version: string | null;
+            /** Identity Namespace */
+            readonly identity_namespace: string;
+            /** Interval Level */
+            readonly interval_level: number | null;
+            /** Interval Method */
+            readonly interval_method: string | null;
+            /** Run Id */
+            readonly run_id: string;
+            /** Source Version */
+            readonly source_version: string;
+            /** Synthetic */
+            readonly synthetic: boolean;
+            /** Target */
+            readonly target: string;
+            /** Unit */
+            readonly unit: string;
+        };
+        /** ForecastSelectionResponse */
+        readonly ForecastSelectionResponse: {
+            /** Aggregation Key */
+            readonly aggregation_key: string;
+            /** Direction Id */
+            readonly direction_id: string | null;
+            /**
+             * End
+             * Format: date-time
+             */
+            readonly end: string;
+            /** Interval Aggregation */
+            readonly interval_aggregation: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            readonly start: string;
+            /** Stop Id */
+            readonly stop_id: number | null;
         };
         /** GeoJsonMetadataResponse */
         readonly GeoJsonMetadataResponse: {
@@ -491,6 +572,19 @@ export interface components {
             /** Number */
             readonly number: string;
         };
+        /** RouteStopResponse */
+        readonly RouteStopResponse: {
+            /** Id */
+            readonly id: number;
+            /** Latitude */
+            readonly latitude: number;
+            /** Longitude */
+            readonly longitude: number;
+            /** Name */
+            readonly name: string;
+            /** Sequence */
+            readonly sequence: number;
+        };
         /** ScenarioRequest */
         readonly ScenarioRequest: {
             /**
@@ -598,6 +692,30 @@ export interface components {
             readonly name: string;
             /** Routes */
             readonly routes: readonly string[];
+        };
+        /** StopForecastPointResponse */
+        readonly StopForecastPointResponse: {
+            /** Aggregation Scope */
+            readonly aggregation_scope: string;
+            /** Bucket End */
+            readonly bucket_end: string | null;
+            /** Capacity */
+            readonly capacity: number | null;
+            /** Direction Id */
+            readonly direction_id: string | null;
+            /** Lower Bound */
+            readonly lower_bound: number | null;
+            /** Predicted Passengers */
+            readonly predicted_passengers: number;
+            /** Stop Id */
+            readonly stop_id: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            readonly timestamp: string;
+            /** Upper Bound */
+            readonly upper_bound: number | null;
         };
         /** StopLoadResponse */
         readonly StopLoadResponse: {
@@ -751,8 +869,12 @@ export interface operations {
     readonly get_forecast_api_v1_forecasts_get: {
         readonly parameters: {
             readonly query: {
+                readonly direction_id?: string | null;
+                readonly end?: string | null;
                 readonly horizon?: components["schemas"]["ForecastHorizon"];
                 readonly route_id: number;
+                readonly start?: string | null;
+                readonly stop_id?: number | null;
             };
             readonly header?: never;
             readonly path?: never;
@@ -893,6 +1015,37 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": readonly components["schemas"]["RouteResponse"][];
+                };
+            };
+        };
+    };
+    readonly list_route_stops_api_v1_routes__route_id__stops_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly route_id: number;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["RouteStopResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
