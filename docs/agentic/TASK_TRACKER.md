@@ -96,7 +96,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-016 | [Generate reproducible multiyear synthetic transport datasets](#task-016) | feature | data,ml | P1 | R2 | done | synthetic-transport-data lead | DATA | TASK-015 | B | M |
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | done | historical-ingestion lead | DATA | TASK-016 | C | L |
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | done | identity-alignment lead | DATA-MAPPING | TASK-015, TASK-016 | C | M |
-| TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | in_progress | horizon-features lead | DATA-FEATURES | TASK-017, TASK-018 | D | L |
+| TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | done | horizon-features lead | DATA-FEATURES | TASK-017, TASK-018 | D | L |
 | TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-004, TASK-019 | D | M |
 | TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | backlog | unassigned | ML-MODEL | TASK-020 | E | M |
 | TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-020 | E | M |
@@ -434,7 +434,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-019
 
-- **Execution:** `agent/horizon-features`, base `3e4ad59`, worktree `MosTransport2026Hack-worktrees/horizon-features`; [plan](../exec-plans/active/horizon-features.md).
+- **Execution:** `agent/horizon-features`, base `3e4ad59`, merged into `main` as `fd621d0`; [scope, cutoff policies and review record](../exec-plans/completed/horizon-features.md).
+- **Verification (2026-09-25):** fixture reconciliation holds through the real `synthetic → ingestion → features` path — 64 valid rows, 64 hourly cells summing to 64, equal cell for cell to the generator's own `cell_totals`, conserved at daily and monthly granularity; the oracle never passes through the feature code. Independent review ACCEPT WITH FINDINGS (900 randomized post-cutoff perturbations with working negative controls moved no feature byte) and independent acceptance validation ACCEPT (all four criteria met by reproduction, late-arriving rows correct to the microsecond, 3456 lag cells recomputed with 0 mismatches). Both reviewers' findings are fixed in `3392f99` and `80b93c4`: a covered-but-unpublished date now yields `missing` instead of a confident zero, monthly features carry a covered-units ratio, capacity is availability-stamped and resolved at the cutoff, and three overstated calendar claims are retracted. The lead reproduced all three recorded digests (`7e412bb0…`, `b3ad914c…`, `408d4580…`) and the publication-lag case independently. `make check`: exit 0 — backend 292 passed / 10 SQL skipped, ML 265 passed, frontend 47 passed, reference contracts 119 passed.
 
 **Build leakage-safe aggregates and horizon-specific features** — RQ-01–03.
 
