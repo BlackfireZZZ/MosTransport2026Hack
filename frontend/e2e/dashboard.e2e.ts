@@ -85,22 +85,14 @@ test("loads the dashboard and refreshes forecast by route and horizon", async ({
   expect(accessibility.violations).toEqual([])
 })
 
-test("submits a what-if scenario and clears stale output when context changes", async ({ page }) => {
+test("does not request a scenario without compatible capacity and run scope", async ({ page }) => {
   const scenarioRequests: ScenarioRequest[] = []
   await mockDashboardApi(page, { scenarioRequests })
   await page.goto("/")
-
-  await page.getByRole("slider", { name: /Дополнительные трамваи/ }).fill("4")
-  await page.getByRole("button", { name: "Рассчитать сценарий" }).click()
-
-  await expect(page.getByTestId("scenario-result")).toContainText("80%")
-  await expect(page.getByTestId("scenario-result")).toContainText("68%")
-  expect(scenarioRequests).toEqual([
-    expect.objectContaining({ additional_vehicles: 4, horizon: "day", route_id: 1 }),
-  ])
-
-  await page.getByRole("tab", { name: "1 год" }).click()
-  await expect(page.getByTestId("scenario-result")).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Сценарный расчёт недоступен" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Рассчитать сценарий" })).toHaveCount(0)
+  await expect(page.locator("#scenario")).toContainText("Привязка сценария к выбранному запуску не задана")
+  expect(scenarioRequests).toEqual([])
 })
 
 test("shows an API error and recovers through retry", async ({ page }) => {

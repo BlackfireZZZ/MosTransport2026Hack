@@ -260,3 +260,8 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 .bucket-step-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .filter-field select { min-height: 40px; max-width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--foreground); font: inherit; }
+
+.forecast-values { margin-top: 16px; font-size: 14px; }
+.forecast-values summary { min-height: 40px; padding: 10px 0; cursor: pointer; font-weight: 600; }
+.forecast-values p { margin: 8px 0; }
+.forecast-values caption { text-align: left; padding: 8px 0; color: var(--muted-foreground); }

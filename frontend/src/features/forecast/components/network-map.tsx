@@ -7,7 +7,7 @@ import { bucketLabel, bucketStops } from "@/features/forecast/lib/bucket"
 import type { ForecastResponse } from "@/features/forecast/types"
 import { useNetworkGeoJson } from "@/features/tram-network/hooks/use-tram-network"
 import type { ForecastMarker } from "@/features/tram-network/types"
-import { formatPassengers } from "@/lib/utils"
+import { formatForecastValue, intervalBounds } from "@/features/forecast/lib/values"
 
 const TramMap = lazy(() => import("@/features/tram-network/components/tram-map").then((module) => ({ default: module.TramMap })))
 const ignoreNetworkStop = () => undefined
@@ -73,8 +73,8 @@ export function NetworkMap({ snapshot, timestamp, selectedStopId, onStopSelect }
               const position = positions.find((item) => item.stop_id === row.stop_id && item.direction_id === row.direction_id)
               return <tr key={`${row.stop_id}-${row.direction_id ?? "all"}`}>
                 <th scope="row"><Button variant="ghost" onClick={() => onStopSelect(row.stop_id)} aria-pressed={row.stop_id === selectedStopId}>{stopNames.get(row.stop_id) ?? `Остановка ${row.stop_id}`}</Button></th>
-                <td>{formatPassengers(row.predicted_passengers)} {snapshot.run?.unit ?? ""}</td>
-                <td>{row.lower_bound === null || row.upper_bound === null ? "недоступен" : `${formatPassengers(row.lower_bound)}–${formatPassengers(row.upper_bound)}`}</td>
+                <td>{formatForecastValue(row.predicted_passengers)} {snapshot.run?.unit ?? ""}</td>
+                <td>{!intervalBounds(row) ? "недоступен" : `${formatForecastValue(row.lower_bound)}–${formatForecastValue(row.upper_bound)}`}</td>
                 <td>{position?.position_kind === "synthetic_demo" ? "демо, без привязки OSM" : position?.status === "matched" ? `OSM ${position.osm_stop_id}` : position?.status === "ambiguous" ? "неоднозначно" : "нет соответствия"}</td>
               </tr>
             })}</tbody>

@@ -66,7 +66,7 @@ it("shows unknown capacity without inventing a zero percentage", async () => {
   mount()
   await screen.findByText("Тестовый график")
   const kpis = screen.getByRole("region", { name: "Ключевые показатели" })
-  expect(kpis).toHaveTextContent("вместимость неизвестна")
+  expect(kpis).toHaveTextContent("Сопоставимая вместимость не определена")
   expect(kpis).not.toHaveTextContent("0%")
   expect(kpis).not.toHaveTextContent("в пределах вместимости")
 })

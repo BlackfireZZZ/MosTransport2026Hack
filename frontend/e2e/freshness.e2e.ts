@@ -48,8 +48,8 @@ test("polling outage retains a snapshot and recovery replaces its provenance", a
   mode = "recovered"
   await page.clock.runFor(65_000)
   await expect(value(page, "Запуск прогноза")).toHaveText("run-B")
-  await expect(page.getByTestId("current-forecast-value")).toContainText("1 480")
-  await expect(page.getByRole("table", { name: "Прогноз остановок выбранного интервала" })).toContainText("1 192")
+  await expect(page.getByTestId("current-forecast-value")).toContainText("1480")
+  await expect(page.getByRole("table", { name: "Прогноз остановок выбранного интервала" })).toContainText("1192")
   await expect(page.getByTestId("forecast-freshness")).not.toContainText("Устаревший")
   await expect(value(page, "Граница исходных данных")).toContainText("00:00:00")
 })

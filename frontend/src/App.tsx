@@ -9,14 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProvenancePanel } from "@/features/forecast/components/provenance-panel"
-import { dataKind } from "@/features/forecast/lib/provenance"
+import { CAPACITY_UNAVAILABLE, formatForecastValue } from "@/features/forecast/lib/values"
+import { dataKind, forecastUnit } from "@/features/forecast/lib/provenance"
 import { NetworkMap } from "@/features/forecast/components/network-map"
-import { ScenarioPanel } from "@/features/forecast/components/scenario-panel"
 import { useForecast, useRoutes, useRouteStops } from "@/features/forecast/hooks/use-forecast"
 import type { ForecastHorizon } from "@/features/forecast/types"
 import { bucketLabel, bucketScope, bucketStops, selectedBucket } from "@/features/forecast/lib/bucket"
 import { toMoscowInput, validateWindow } from "@/features/forecast/lib/selection"
-import { formatPassengers } from "@/lib/utils"
 
 const horizons: Array<{ value: ForecastHorizon; label: string }> = [
   { value: "day", label: "1 день" },
@@ -90,8 +89,6 @@ function App() {
   const selectionError = queryStatus === 404 ? "Нет прогноза для выбранных параметров" : queryStatus === 422 ? "Интервал недоступен" : queryStatus === 409 ? "Данные прогноза несовместимы" : null
   const busiestRow = currentStops.length ? currentStops.reduce((max, row) => row.predicted_passengers > max.predicted_passengers ? row : max) : undefined
   const busiestStop = data?.stops.find((stop) => stop.id === busiestRow?.stop_id)
-  const reserve = data?.peak_load_percent == null ? null : 100 - data.peak_load_percent
-  const reserveLabel = reserve === null ? "вместимость неизвестна" : reserve >= 0 ? "до расчётной вместимости" : "дефицит вместимости"
   const generatedAt = data
     ? new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(data.generated_at))
     : "—"
@@ -210,10 +207,10 @@ function App() {
           {data && data.points.length > 0 && (
             <>
               <section className="kpi-grid" aria-label="Ключевые показатели">
-                <article className="kpi"><span>Пиковый поток</span><strong>{formatPassengers(data.peak_passengers)}</strong><small>пассажиров / интервал</small></article>
-                <article className="kpi"><span>Пиковая загрузка</span><strong className={(data.peak_load_percent ?? -1) >= 100 ? "is-critical" : ""}>{data.peak_load_percent == null ? "—" : `${data.peak_load_percent.toFixed(0)}%`}</strong><small>{data.peak_load_percent == null ? "вместимость неизвестна" : data.peak_load_percent >= 100 ? "выше вместимости" : "в пределах вместимости"}</small></article>
-                <article className="kpi"><span>Напряжённый узел</span><strong className="kpi-text">{busiestStop?.name ?? "—"}</strong><small>{busiestRow ? `${formatPassengers(busiestRow.predicted_passengers)} в выбранном интервале` : "нет данных выбранного интервала"}</small></article>
-                <article className="kpi"><span>{(reserve ?? 0) >= 0 ? "Резерв сети" : "Дефицит сети"}</span><strong className={(reserve ?? 0) < 0 ? "is-critical" : ""}>{reserve === null ? "—" : `${Math.abs(reserve).toFixed(0)}%`}</strong><small>{reserveLabel}</small></article>
+                <article className="kpi"><span>Пиковый поток</span><strong>{formatForecastValue(data.peak_passengers)}</strong><small>{forecastUnit(data)} · значение интервала</small></article>
+                <article className="kpi"><span>Пиковая загрузка</span><strong>—</strong><small>Сопоставимая вместимость не определена</small></article>
+                <article className="kpi"><span>Напряжённый узел</span><strong className="kpi-text">{busiestStop?.name ?? "—"}</strong><small>{busiestRow ? `${formatForecastValue(busiestRow.predicted_passengers)} в выбранном интервале` : "нет данных выбранного интервала"}</small></article>
+                <article className="kpi"><span>Резерв вместимости</span><strong>—</strong><small>Единицы и область действия не подтверждены</small></article>
               </section>
 
               <section className="bucket-selection" aria-label="Выбранный интервал прогноза">
@@ -233,14 +230,14 @@ function App() {
                     }}>Следующий интервал</Button>
                   </div>
                 </div>
-                <div aria-live="polite" data-testid="current-forecast-value"><span>Прогноз выбранного интервала</span><strong>{currentPoint ? formatPassengers(currentPoint.predicted_passengers) : "—"}</strong><span>{data.run?.unit ?? "единица не указана"}</span></div>
+                <div aria-live="polite" data-testid="current-forecast-value"><span>Прогноз выбранного интервала</span><strong>{currentPoint ? formatForecastValue(currentPoint.predicted_passengers) : "—"}</strong><span>{data.run?.unit ?? "единица не указана"}</span></div>
               </section>
               <Suspense fallback={<Skeleton className="h-[360px]" />}>
-                <ForecastChart points={data.points} horizon={horizon} selectedTimestamp={timestamp} onSelectTimestamp={selectTimestamp} />
+                <ForecastChart snapshot={data} selectedTimestamp={timestamp} onSelectTimestamp={selectTimestamp} />
               </Suspense>
               <section className="lower-grid">
                 <NetworkMap snapshot={data} timestamp={timestamp} selectedStopId={stopId} onStopSelect={setStopId} />
-                <div id="scenario">{selectedRouteId !== null && !filtered && <ScenarioPanel key={`${selectedRouteId}-${horizon}`} routeId={selectedRouteId} horizon={horizon} />}{filtered && <p>Сценарный расчёт для выбранного среза недоступен.</p>}</div>
+                <div id="scenario"><Card><CardContent><h2>Сценарный расчёт недоступен</h2><p>{filtered ? "Сценарий не поддерживает выбранный срез. " : ""}{CAPACITY_UNAVAILABLE} Привязка сценария к выбранному запуску не задана.</p></CardContent></Card></div>
               </section>
               <div id="data"><ProvenancePanel forecast={data} updatedAt={forecast.dataUpdatedAt} failed={forecast.isRefetchError} fetching={forecast.isFetching} pollInterval={pollInterval} /></div>
               <footer className="data-note"><Map />{dataKind(data)} · качество модели на реальных данных не подтверждено · версия {data.model_version}</footer>

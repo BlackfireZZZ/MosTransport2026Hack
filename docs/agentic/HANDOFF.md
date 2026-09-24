@@ -101,3 +101,18 @@ Single source/bucket remains readable. Domain5 and isolated SQL48 passed; no
 schema/API change. This protects future publications, not a real-data quality claim.
 Worktrees retained clean after commits because branches are unpushed. No remote
 publication. Dedicated previews and owned test databases stopped after checks.
+
+## 2026-09-25 — for-vova-huesos: TASK036
+
+Base373bfdf; branch agent/vova-036-values; worktree
+/Users/cute/MosTransport2026Hack-worktrees/vova-036-values. Accessible values table
+uses the exact selected snapshot, full Moscow timestamps and exact numeric display;
+missing intervals differ from zero. No bucket end is fabricated. Interval quality
+remains unavailable until lead024 and measured evidence land.
+API lacks capacity unit/source/scope metadata, so capacity line and load/reserve
+percentages are suppressed. Optional scenario is visibly unavailable: its contract
+also lacks run/window binding. It must not silently compute against another run.
+make check350backend/151ML/79frontend/119reference and Chrome E2E37 passed.
+No dependencies/API/schema/ML/authored-contract edits. Parent local fast-forward
+integration after checks; worktree retained unpushed. Recovery is revert, with caveat
+that older interface exposes unsupported capacity ratios.
