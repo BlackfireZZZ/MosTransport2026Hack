@@ -25,14 +25,37 @@ DayPart = Literal["morning_peak", "evening_peak", "offpeak"]
 SliceAxis = Literal[
     "overall",
     "horizon",
+    "fold",
     "route",
     "direction",
     "stop",
     "entity",
     "daypart",
     "route_daypart",
+    "entity_daypart",
     "event",
 ]
+SLICE_AXES: frozenset[str] = frozenset(
+    {
+        "overall",
+        "horizon",
+        "fold",
+        "route",
+        "direction",
+        "stop",
+        "entity",
+        "daypart",
+        "route_daypart",
+        "entity_daypart",
+        "event",
+    }
+)
+SINGLE_ORIGIN_AXES: frozenset[str] = frozenset({"fold"})
+"""Axes whose slices are one origin by construction, so the fold floor cannot apply.
+
+A per-fold slice exists precisely to expose a model that collapsed on one origin. Gating
+it on having two origins would make the axis unable to report the thing it was added for.
+"""
 
 MORNING_PEAK_HOURS: frozenset[int] = frozenset({7, 8, 9})
 EVENING_PEAK_HOURS: frozenset[int] = frozenset({17, 18, 19})
@@ -185,7 +208,11 @@ class ScoredPoint:
 
     @property
     def keys(self) -> tuple[SliceKey, ...]:
-        keys = [SliceKey("overall", OVERALL_VALUE), SliceKey("horizon", self.horizon)]
+        keys = [
+            SliceKey("overall", OVERALL_VALUE),
+            SliceKey("horizon", self.horizon),
+            SliceKey("fold", self.fold_id),
+        ]
         if self.event is not None:
             keys.append(SliceKey("event", self.event))
         daypart = self.daypart
@@ -207,4 +234,7 @@ class ScoredPoint:
         ]
         if daypart is not None:
             keys.append(SliceKey("route_daypart", AXIS_SEPARATOR.join((route, daypart))))
+            keys.append(
+                SliceKey("entity_daypart", AXIS_SEPARATOR.join((route, direction, stop, daypart)))
+            )
         return keys

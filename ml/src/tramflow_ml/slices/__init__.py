@@ -1,8 +1,10 @@
 """Operational slice and interval-quality reporting for offline forecast evaluation."""
 
 from tramflow_ml.slices.metrics import (
+    COUNT_LABEL,
     LOAD_TARGET,
     LOAD_UNIT,
+    RATIO_UNIT,
     IntervalQuality,
     OverloadQuality,
     SliceMetrics,
@@ -12,6 +14,8 @@ from tramflow_ml.slices.metrics import (
 from tramflow_ml.slices.records import (
     EVENING_PEAK_HOURS,
     MORNING_PEAK_HOURS,
+    SINGLE_ORIGIN_AXES,
+    SLICE_AXES,
     DayPart,
     IntervalBounds,
     ScoredPoint,
@@ -19,24 +23,26 @@ from tramflow_ml.slices.records import (
     SliceError,
     SliceKey,
 )
-from tramflow_ml.slices.report import (
-    OVERALL_KEY,
-    SliceFailure,
-    SliceReport,
-    UnprovenSlice,
-    build_report,
-)
+from tramflow_ml.slices.report import OVERALL_KEY, SliceReport, build_report
 from tramflow_ml.slices.thresholds import (
     MAX_COVERAGE_SHORTFALL,
     MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL,
     MAX_WAPE,
     MAX_WAPE_RATIO_TO_BASELINE,
     MIN_FOLDS_FOR_GATE,
+    MIN_INTERVAL_LEVEL,
+    MIN_INTERVAL_SCORE_ALLOWANCE,
     MIN_SAMPLES_FOR_GATE,
     GateThresholds,
 )
+from tramflow_ml.slices.verdict import (
+    SliceFailure,
+    UngatedSummary,
+    UnprovenSlice,
+)
 
 __all__ = [
+    "COUNT_LABEL",
     "EVENING_PEAK_HOURS",
     "LOAD_TARGET",
     "LOAD_UNIT",
@@ -45,9 +51,14 @@ __all__ = [
     "MAX_WAPE",
     "MAX_WAPE_RATIO_TO_BASELINE",
     "MIN_FOLDS_FOR_GATE",
+    "MIN_INTERVAL_LEVEL",
+    "MIN_INTERVAL_SCORE_ALLOWANCE",
     "MIN_SAMPLES_FOR_GATE",
     "MORNING_PEAK_HOURS",
     "OVERALL_KEY",
+    "RATIO_UNIT",
+    "SINGLE_ORIGIN_AXES",
+    "SLICE_AXES",
     "DayPart",
     "GateThresholds",
     "IntervalBounds",
@@ -61,6 +72,7 @@ __all__ = [
     "SliceMetrics",
     "SliceReport",
     "SliceStatus",
+    "UngatedSummary",
     "UnprovenSlice",
     "build_report",
     "interval_score",

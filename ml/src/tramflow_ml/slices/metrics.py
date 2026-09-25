@@ -22,14 +22,28 @@ from tramflow_ml.slices.records import IntervalBounds, ScoredPoint, SliceError, 
 LOAD_TARGET = "onboard_load"
 LOAD_UNIT = "passengers"
 RATIO_UNIT = "ratio"
+COUNT_LABEL = "count"
+"""Units a reader needs to not misapply a number.
+
+``SliceMetrics.unit`` is the *target's* unit and applies to the quantities measured in
+it. ``wape`` and coverage are dimensionless, and a consumer that applies the target unit
+to them is simply wrong, so every metric names its own unit in ``units``.
+"""
 
 SliceStatus = Literal[
     "evaluated",
     "insufficient_history",
     "insufficient_samples",
     "insufficient_signal",
+    "missing",
 ]
 PASSING_STATUS: SliceStatus = "evaluated"
+MISSING_STATUS: SliceStatus = "missing"
+"""``missing`` says a required slice has no points at all, so no ``SliceMetrics`` carries
+it: a measured slice has at least one sample. It is kept distinct from
+``insufficient_samples`` because "this cut of the data does not exist" and "this cut is
+too small to judge" call for different responses -- the first is a declaration to fix or
+data to obtain, the second is more data on a cut that is already there."""
 
 
 def interval_score(bounds: IntervalBounds, actual: float) -> float:
@@ -74,7 +88,9 @@ class IntervalQuality:
     def mean_score(self) -> float:
         return self.score_total / self.samples
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self, target_unit: str) -> dict[str, object]:
+        """No ``folds``: this is ``None`` unless every point qualifies, so the slice's
+        fold count applies unchanged."""
         return {
             "level": self.level,
             "method": self.method,
@@ -83,6 +99,14 @@ class IntervalQuality:
             "coverage": self.coverage,
             "mean_width": self.mean_width,
             "mean_interval_score": self.mean_score,
+            "units": {
+                "level": RATIO_UNIT,
+                "coverage": RATIO_UNIT,
+                "covered": COUNT_LABEL,
+                "mean_interval_score": target_unit,
+                "mean_width": target_unit,
+                "samples": COUNT_LABEL,
+            },
         }
 
 
@@ -111,12 +135,20 @@ class OverloadQuality:
         return self.predicted_overloaded / self.samples
 
     def to_dict(self) -> dict[str, object]:
+        """No ``folds``: as with intervals, this is ``None`` unless every point qualifies."""
         return {
             "samples": self.samples,
             "actual_overloaded": self.actual_overloaded,
             "predicted_overloaded": self.predicted_overloaded,
             "actual_overload_rate": self.actual_rate,
             "predicted_overload_rate": self.predicted_rate,
+            "units": {
+                "actual_overload_rate": RATIO_UNIT,
+                "actual_overloaded": COUNT_LABEL,
+                "predicted_overload_rate": RATIO_UNIT,
+                "predicted_overloaded": COUNT_LABEL,
+                "samples": COUNT_LABEL,
+            },
         }
 
 
@@ -182,6 +214,7 @@ class SliceMetrics:
     folds: int
     totals: FoldMetrics
     baseline: FoldMetrics | None
+    baseline_absent_reason: str
     interval: IntervalQuality | None
     interval_absent_reason: str
     overload: OverloadQuality | None
@@ -219,10 +252,25 @@ class SliceMetrics:
             return None
         return self.interval.mean_width / self.mean_actual
 
+    def _units(self) -> dict[str, str]:
+        """``unit`` is the target's; these say which metric it actually applies to."""
+        return {
+            "actual_total": self.unit,
+            "baseline_wape": RATIO_UNIT,
+            "error_total": self.unit,
+            "folds": COUNT_LABEL,
+            "mae": self.unit,
+            "mean_actual": self.unit,
+            "relative_interval_width": RATIO_UNIT,
+            "samples": COUNT_LABEL,
+            "wape": RATIO_UNIT,
+        }
+
     def to_dict(self) -> dict[str, object]:
         return {
             **self.key.to_dict(),
             "unit": self.unit,
+            "units": self._units(),
             "samples": self.samples,
             "folds": self.folds,
             "status": self.status,
@@ -233,8 +281,9 @@ class SliceMetrics:
             "wape": self.wape,
             "mean_actual": self.mean_actual,
             "baseline_wape": self.baseline_wape,
+            "baseline_absent_reason": self.baseline_absent_reason,
             "relative_interval_width": self.relative_interval_width,
-            "interval": None if self.interval is None else self.interval.to_dict(),
+            "interval": None if self.interval is None else self.interval.to_dict(self.unit),
             "interval_absent_reason": self.interval_absent_reason,
             "overload": None if self.overload is None else self.overload.to_dict(),
             "overload_absent_reason": self.overload_absent_reason,
@@ -247,12 +296,25 @@ def error_totals(points: Sequence[ScoredPoint]) -> FoldMetrics:
     )
 
 
-def baseline_totals(points: Sequence[ScoredPoint]) -> FoldMetrics | None:
-    """``None`` unless every point in the slice carries a baseline to compare against."""
-    baselines = [point.baseline for point in points]
-    if any(value is None for value in baselines):
-        return None
-    return fold_metrics(
-        [point.actual for point in points],
-        [value for value in baselines if value is not None],
+def baseline_totals(points: Sequence[ScoredPoint]) -> tuple[FoldMetrics | None, str]:
+    """``None`` unless every point carries a baseline, with the count that made it absent.
+
+    One point without a baseline disables the comparison for every slice that point
+    belongs to, `overall` included, so the reason has to say whether that was the whole
+    run or a single row. Without it a reader cannot tell "no baselines this run" from
+    "one row of five thousand".
+    """
+    carried = [
+        (point.actual, point.baseline) for point in points if point.baseline is not None
+    ]
+    if not carried:
+        return None, "no point in this slice carries a baseline"
+    if len(carried) != len(points):
+        return None, (
+            f"only {len(carried)} of {len(points)} points carry a baseline; "
+            "a partial comparison would judge a different slice"
+        )
+    return (
+        fold_metrics([actual for actual, _ in carried], [value for _, value in carried]),
+        "",
     )

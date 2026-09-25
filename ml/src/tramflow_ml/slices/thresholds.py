@@ -15,6 +15,8 @@ MAX_WAPE = 0.40
 MAX_WAPE_RATIO_TO_BASELINE = 1.0
 MAX_COVERAGE_SHORTFALL = 0.10
 MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL = 2.0
+MIN_INTERVAL_LEVEL = 0.8
+MIN_INTERVAL_SCORE_ALLOWANCE = 8.0
 
 THRESHOLDS_CERTIFIED = False
 
@@ -29,6 +31,8 @@ class GateThresholds:
     max_wape_ratio_to_baseline: float = MAX_WAPE_RATIO_TO_BASELINE
     max_coverage_shortfall: float = MAX_COVERAGE_SHORTFALL
     max_interval_score_to_mean_actual: float = MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL
+    min_interval_level: float = MIN_INTERVAL_LEVEL
+    min_interval_score_allowance: float = MIN_INTERVAL_SCORE_ALLOWANCE
 
     def __post_init__(self) -> None:
         for name in ("min_samples", "min_folds"):
@@ -40,12 +44,18 @@ class GateThresholds:
             "max_wape_ratio_to_baseline",
             "max_coverage_shortfall",
             "max_interval_score_to_mean_actual",
+            "min_interval_score_allowance",
         ):
             value: float = getattr(self, name)
             if not math.isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be finite and non-negative")
-        if self.max_coverage_shortfall > 1:
-            raise ValueError("max_coverage_shortfall cannot exceed 1")
+        if not 0 < self.min_interval_level < 1:
+            raise ValueError("min_interval_level must lie strictly between 0 and 1")
+        if self.max_coverage_shortfall >= self.min_interval_level:
+            raise ValueError(
+                "max_coverage_shortfall must be below min_interval_level, or the coverage "
+                "requirement it produces would be zero or negative and judge nothing"
+            )
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -56,4 +66,6 @@ class GateThresholds:
             "MAX_WAPE_RATIO_TO_BASELINE": self.max_wape_ratio_to_baseline,
             "MAX_COVERAGE_SHORTFALL": self.max_coverage_shortfall,
             "MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL": self.max_interval_score_to_mean_actual,
+            "MIN_INTERVAL_LEVEL": self.min_interval_level,
+            "MIN_INTERVAL_SCORE_ALLOWANCE": self.min_interval_score_allowance,
         }
