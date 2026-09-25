@@ -21,7 +21,6 @@ from tramflow_ml.backtest.folds import (
     fold_id,
 )
 from tramflow_ml.backtest.horizons import (
-    PERIOD_STEP,
     bucket_ceiling,
     bucket_span,
     horizon_end,
@@ -40,6 +39,7 @@ from tramflow_ml.backtest.records import (
     BACKTEST_VERSION,
     BacktestError,
     Fold,
+    FoldView,
     Ineligible,
     IneligibleReason,
     Window,
@@ -63,7 +63,6 @@ __all__ = [
     "DEFAULT_VALIDATION_PERIODS",
     "MANIFEST_VERSION",
     "PASSING_STATUS",
-    "PERIOD_STEP",
     "BacktestConfig",
     "BacktestData",
     "BacktestError",
@@ -77,6 +76,7 @@ __all__ = [
     "FoldModel",
     "FoldResult",
     "FoldRules",
+    "FoldView",
     "FoldSet",
     "HorizonOutcome",
     "Ineligible",

@@ -7,6 +7,7 @@ from tramflow_ml.backtest import (
     BacktestData,
     BacktestError,
     FoldRules,
+    combine,
     fold_metrics,
     run_backtest,
 )
@@ -200,3 +201,90 @@ def test_fold_wape_agrees_with_the_golden_evaluation_gate():
     ours = fold_metrics(actual, prediction)
     assert ours.wape == pytest.approx(summary.by_horizon["day"].wape)
     assert ours.mae == pytest.approx(summary.by_horizon["day"].mae)
+
+
+class Vandal:
+    """A model that tries to rewrite the input the next model is about to read."""
+
+    name = "vandal"
+    version = "0.1.0"
+
+    def __init__(self):
+        self.refusals = 0
+
+    def predict(self, fold, data):
+        row = data.test_features[0]
+        try:
+            row["route_id"] = "HACKED"
+        except TypeError:
+            self.refusals += 1
+        try:
+            row["features"]["lag_1d"] = 999999.0
+        except TypeError:
+            self.refusals += 1
+        return [0.0] * data.rows
+
+
+def test_a_model_cannot_rewrite_the_input_the_next_model_reads():
+    vandal, victim = Vandal(), Recorder("victim", 0.0)
+
+    run_backtest(experiment(), dataset(), [vandal, victim])
+
+    assert vandal.refusals == 2 * len(victim.row_keys)
+    assert all("HACKED" not in keys[0] for keys in victim.row_keys)
+
+
+def test_the_rows_handed_to_a_model_reject_assignment():
+    recorded = []
+
+    class Peek:
+        name = "peek"
+        version = "0.1.0"
+
+        def predict(self, fold, data):
+            recorded.append(data.test_features[0])
+            return [0.0] * data.rows
+
+    run_backtest(experiment(), dataset(), [Peek()])
+
+    row = recorded[0]
+    with pytest.raises(TypeError):
+        row["route_id"] = "HACKED"
+    with pytest.raises(TypeError):
+        row["features"]["lag_1d"] = 1.0
+
+
+def test_wape_is_undefined_where_the_gate_refuses_to_score_at_all():
+    """The two definitions agree on the ratio and diverge only on zero demand."""
+    empty = fold_metrics([0.0, 0.0], [1.0, 2.0])
+
+    assert empty.wape is None
+    with pytest.raises(ValueError, match="zero passenger demand"):
+        evaluate(
+            [
+                ForecastCase(
+                    id=f"{horizon}-zero",
+                    horizon=horizon,
+                    scenario="zero",
+                    actual=[0.0, 0.0],
+                    prediction=[1.0, 2.0],
+                    baseline_prediction=[1.0, 2.0],
+                    lower_bound=[0.0, 0.0],
+                    upper_bound=[4.0, 4.0],
+                )
+                for horizon in ("day", "month", "year")
+            ]
+        )
+
+
+def test_pooling_folds_equals_scoring_their_concatenation():
+    first = fold_metrics([90.0, 140.0], [94.0, 145.0])
+    second = fold_metrics([210.0, 170.0], [202.0, 176.0])
+
+    pooled = combine([first, second])
+
+    whole = fold_metrics([90.0, 140.0, 210.0, 170.0], [94.0, 145.0, 202.0, 176.0])
+    assert pooled.scored == whole.scored
+    assert pooled.actual_total == whole.actual_total
+    assert pooled.error_total == whole.error_total
+    assert pooled.wape == whole.wape

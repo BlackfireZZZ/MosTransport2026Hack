@@ -182,3 +182,48 @@ def test_repeating_one_run_reproduces_every_hash(gapless):
     assert json.dumps(first.to_dict(), sort_keys=True) == json.dumps(
         second.to_dict(), sort_keys=True
     )
+
+
+class One:
+    name = "constant-one"
+    version = "0.1.0"
+
+    def predict(self, fold, data):
+        return [1.0] * data.rows
+
+
+PUBLISHED_MODELS = (Zero, One)
+PUBLISHED_HASHES = {
+    "config_hash": "da8ffcae72422a69b31add316766c715fe5e1929ed88df40ec2f40fa9073ee53",
+    "data_hash": "bc572e95e28d52341e3283f00330ba38f198b27c9170d0ff9a6b834ea00d1704",
+    "fold_hash": "755ca80bd8af1e72b570fae7abee5b2c40994619a011a919c05b96868317ec39",
+    "manifest_hash": "21a3b973a5ee94eeea49c0a3eaca2dd73884e8f349d96d79b0e18292655797f9",
+}
+
+
+def test_the_published_manifest_hashes_reproduce(gapless):
+    """Pins the row published in ml/README.md and the ExecPlan.
+
+    `manifest_hash` covers the model names and versions, so the model set is part of the
+    evidence and is named here: zero@0.1.0 then constant-one@0.1.0, in that order. Two
+    runs agreeing with each other proves determinism but not that a reader can reproduce
+    a published number; only a pinned value does that.
+    """
+    models = [factory() for factory in PUBLISHED_MODELS]
+
+    manifest = run_backtest(experiment(MONTH_DAY), data_of(gapless), models).manifest
+
+    assert [model.to_dict() for model in manifest.models] == [
+        {"name": "zero", "version": "0.1.0"},
+        {"name": "constant-one", "version": "0.1.0"},
+    ]
+    assert {name: getattr(manifest, name) for name in PUBLISHED_HASHES} == PUBLISHED_HASHES
+
+
+def test_the_model_order_is_part_of_the_published_hash(gapless):
+    swapped = [One(), Zero()]
+
+    manifest = run_backtest(experiment(MONTH_DAY), data_of(gapless), swapped).manifest
+
+    assert manifest.fold_hash == PUBLISHED_HASHES["fold_hash"]
+    assert manifest.manifest_hash != PUBLISHED_HASHES["manifest_hash"]

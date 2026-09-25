@@ -12,7 +12,14 @@ from tramflow_ml.backtest import (
     fold_id,
     run_backtest,
 )
-from tramflow_ml.features import MONTH_DAY, MOSCOW, CoverageCalendar, EntityKey, Observation
+from tramflow_ml.features import (
+    MONTH_DAY,
+    MOSCOW,
+    YEAR_MONTH,
+    CoverageCalendar,
+    EntityKey,
+    Observation,
+)
 
 TARGET = "synthetic_boardings"
 UNIT = "event_count"
@@ -202,3 +209,59 @@ def test_an_embargo_removes_information_the_model_would_otherwise_have(baseline)
     assert embargoed.fold.cutoff == ORIGIN - timedelta(days=7)
     assert embargoed.feature_digest != baseline.feature_digest
     assert len(embargoed.train_observations) < len(baseline.train_observations)
+
+
+def test_a_model_is_given_no_coverage_calendar(baseline):
+    """A CoverageView carries its whole calendar, which answers about the future."""
+    assert not hasattr(baseline, "coverage")
+    assert not hasattr(baseline, "calendar")
+
+
+def test_the_fold_a_model_sees_carries_no_label_unit_counts(baseline):
+    assert not hasattr(baseline.fold, "label_covered_units")
+    assert not hasattr(baseline.fold, "label_total_units")
+    assert baseline.fold.cutoff == ORIGIN
+    assert baseline.fold.train_covered_buckets == baseline.fold.train_buckets
+
+
+YEAR_START = date(2016, 1, 1)
+YEAR_END = date(2026, 1, 1)
+YEAR_ORIGIN = datetime(2025, 1, 1, tzinfo=MOSCOW)
+DILUTED_RATIO = 0.5
+
+
+def year_coverage(*gaps):
+    return CoverageCalendar.from_range(YEAR_START, YEAR_END, gaps=gaps)
+
+
+def year_view(coverage):
+    rules = FoldRules(policy=YEAR_MONTH, minimum_label_unit_ratio=DILUTED_RATIO)
+    experiment = BacktestConfig(rules=(rules,), target=TARGET, unit=UNIT)
+    fold_set = build_fold_set(experiment, coverage)
+    fold = next(
+        item for item in fold_set.for_horizon("year") if item.origin == YEAR_ORIGIN
+    )
+    data = BacktestData.of(ENTITIES, (), coverage)
+    return fold_data_for(experiment, data, rules, fold)
+
+
+def test_a_coverage_hole_after_the_cutoff_cannot_move_a_year_folds_features():
+    """`*_units` columns exist only at monthly granularity, so only a year fold shows this."""
+    hole = tuple(date(2025, 7, 2) + timedelta(days=offset) for offset in range(20))
+
+    plain = year_view(year_coverage())
+    holed = year_view(year_coverage(*hole))
+
+    assert min(hole) > YEAR_ORIGIN.date()
+    assert any(name.endswith("_units") for name in plain.feature_names)
+    assert holed.feature_digest == plain.feature_digest
+    assert holed.test_features == plain.test_features
+
+
+def test_a_coverage_hole_before_the_cutoff_does_move_a_year_folds_features():
+    hole = tuple(date(2024, 7, 2) + timedelta(days=offset) for offset in range(25))
+
+    plain = year_view(year_coverage())
+    holed = year_view(year_coverage(*hole))
+
+    assert holed.feature_digest != plain.feature_digest

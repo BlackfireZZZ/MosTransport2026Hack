@@ -41,10 +41,6 @@ class FoldMetrics:
         """Undefined when a slice carries no demand at all, as in ``evaluation.py``."""
         return None if self.actual_total == 0 else self.error_total / self.actual_total
 
-    @property
-    def has_demand(self) -> bool:
-        return self.actual_total > 0
-
     def to_dict(self) -> dict[str, object]:
         return {
             "scored": self.scored,

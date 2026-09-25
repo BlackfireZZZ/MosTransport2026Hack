@@ -1,5 +1,5 @@
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -177,3 +177,54 @@ def test_label_units_count_the_horizon_civil_dates():
     assert fold.label_total_units == 366
     assert fold.label_covered_units == 366
     assert fold.label_unit_ratio == 1.0
+
+
+def sparse_coverage():
+    """One ancient date, then a recent block: long on the calendar, short on data."""
+    recent = [date(2025, 4, 30) + timedelta(days=offset) for offset in range(246)]
+    return CoverageCalendar.from_dates([date(2023, 1, 1), *recent])
+
+
+def sparse_fold_set(policy, **rule_kwargs):
+    rules = FoldRules(policy=policy, **rule_kwargs)
+    config = BacktestConfig(rules=(rules,), target=TARGET, unit=UNIT)
+    return build_fold_set(config, sparse_coverage())
+
+
+def test_train_history_is_counted_in_covered_buckets_not_calendar_distance():
+    fold_set = sparse_fold_set(MONTH_DAY)
+
+    refusal = refusal_at(fold_set, "month", moscow(2025, 5, 1))
+
+    assert refusal.reason == "insufficient_train_history"
+    assert refusal.detail == "1 of 821 train buckets are covered, 364 required"
+
+
+def test_a_long_but_hollow_history_yields_no_month_fold_at_all():
+    fold_set = sparse_fold_set(MONTH_DAY)
+
+    assert fold_set.for_horizon("month") == ()
+    assert {item.reason for item in fold_set.refusals_for("month")} == {
+        "incomplete_labels",
+        "insufficient_train_history",
+    }
+
+
+def test_the_covered_count_is_recorded_on_every_fold():
+    _, _, fold_set = graded(MONTH_DAY, date(2023, 1, 1), date(2026, 1, 1))
+
+    assert fold_set.for_horizon("month")
+    for fold in fold_set.for_horizon("month"):
+        assert fold.train_covered_buckets == fold.train_buckets
+        assert fold.train_covered_buckets >= 364
+
+
+def test_holes_reduce_the_covered_count_without_shortening_the_window():
+    gaps = tuple(date(2024, 3, 1) + timedelta(days=offset) for offset in range(20))
+
+    _, _, fold_set = graded(MONTH_DAY, date(2023, 1, 1), date(2026, 1, 1), gaps=gaps)
+
+    fold = next(
+        item for item in fold_set.for_horizon("month") if item.origin == moscow(2025, 8, 1)
+    )
+    assert fold.train_covered_buckets == fold.train_buckets - 20

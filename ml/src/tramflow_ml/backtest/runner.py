@@ -11,18 +11,20 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC
+from types import MappingProxyType
+from typing import Protocol
 
 from tramflow_ml.backtest.config import BacktestConfig, FoldRules
 from tramflow_ml.backtest.data import BacktestData
 from tramflow_ml.backtest.folds import FoldSet, build_fold_set
 from tramflow_ml.backtest.manifest import ModelVersion, build_manifest
 from tramflow_ml.backtest.metrics import FoldMetrics, combine, fold_metrics
-from tramflow_ml.backtest.records import BacktestError, Fold
+from tramflow_ml.backtest.records import BacktestError, Fold, FoldView
 from tramflow_ml.backtest.results import BacktestOutcome, FoldResult, HorizonOutcome
 from tramflow_ml.features import (
-    CoverageView,
     EntityKey,
     FeatureRequest,
+    FeatureRow,
     FeatureTable,
     HorizonPolicy,
     Observation,
@@ -37,14 +39,21 @@ EMPTY_METRICS = FoldMetrics(0, 0.0, 0.0)
 class FoldData:
     """Everything a model may see for one fold, and nothing else.
 
-    ``test_features`` holds the model-visible part of the feature rows only; the labels
-    stay with the runner, so a model cannot read the value it is asked to predict.
+    ``test_features`` holds the model-visible part of the feature rows only -- the labels
+    stay with the runner, so a model cannot read the value it is asked to predict -- and
+    every row, including its nested ``features`` mapping, is read-only. The runner hands
+    the same instance to every model by design, so a mutable row would let the first
+    model rewrite the second model's input in silence.
+
+    There is deliberately no coverage calendar here. A ``CoverageView`` carries its whole
+    ``CoverageCalendar``, which answers about dates after the cutoff; what a forecaster
+    may know about coverage at the cutoff is already in the feature columns
+    (``*_coverage`` and ``*_units``), which the feature layer clips.
     """
 
-    fold: Fold
+    fold: FoldView
     policy: HorizonPolicy
     entities: tuple[EntityKey, ...]
-    coverage: CoverageView
     train_observations: tuple[Observation, ...]
     validation_observations: tuple[Observation, ...]
     test_features: tuple[Mapping[str, object], ...]
@@ -56,18 +65,17 @@ class FoldData:
         return len(self.test_features)
 
 
-class FoldModel:
+class FoldModel(Protocol):
     """The interface a candidate or a baseline implements.
 
-    Subclassing is not required; any object carrying ``name``, ``version`` and ``predict``
-    is accepted. The base exists so the contract has one place to be read.
+    A protocol rather than a base class: models are duck-typed, and this way a typed
+    caller is structurally checked instead of merely documented.
     """
 
     name: str
     version: str
 
-    def predict(self, fold: Fold, data: FoldData) -> Sequence[float]:
-        raise NotImplementedError
+    def predict(self, fold: FoldView, data: FoldData) -> Sequence[float]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,19 +153,21 @@ def _verdict(
     results: Mapping[str, tuple[FoldResult, ...]],
     totals: Mapping[str, FoldMetrics],
 ) -> HorizonOutcome:
-    enough_demand = with_demand >= rules.minimum_origins
+    required = rules.origins_with_demand_required
+    enough_demand = with_demand >= required
     reason = (
         ""
         if enough_demand
         else (
             f"{rules.horizon}: only {with_demand} of {len(fold_ids)} eligible origins carry "
-            f"any demand, {rules.minimum_origins} required; WAPE is undefined on the rest"
+            f"any demand, {required} required; WAPE is undefined on the rest"
         )
     )
     return HorizonOutcome(
         horizon=rules.horizon,
         status="evaluated" if enough_demand else "insufficient_signal",
         required_origins=rules.minimum_origins,
+        required_origins_with_demand=required,
         eligible_origins=len(fold_ids),
         origins_with_demand=with_demand,
         reason=reason,
@@ -188,6 +198,7 @@ def _refused(
         horizon=rules.horizon,
         status="insufficient_history",
         required_origins=rules.minimum_origins,
+        required_origins_with_demand=rules.origins_with_demand_required,
         eligible_origins=len(fold_ids),
         origins_with_demand=0,
         reason=reason,
@@ -213,17 +224,26 @@ def _prepare(config: BacktestConfig, data: BacktestData, rules: FoldRules, fold:
     _require_same_cutoff(fold, table)
     train, validation = _partition(config, data, fold)
     view = FoldData(
-        fold=fold,
+        fold=fold.view(),
         policy=rules.effective_policy,
         entities=data.entities,
-        coverage=data.coverage.as_of(fold.cutoff),
         train_observations=train,
         validation_observations=validation,
-        test_features=tuple(row.feature_dict() for row in table.rows),
+        test_features=tuple(_frozen_row(row) for row in table.rows),
         feature_names=table.feature_names,
         feature_digest=table.feature_digest,
     )
     return _Prepared(view, _labels(fold, table))
+
+
+def _frozen_row(row: FeatureRow) -> Mapping[str, object]:
+    """A read-only row, nested mapping included; models share one instance of it."""
+    payload = dict(row.feature_dict())
+    features = payload.pop("features")
+    if not isinstance(features, dict):
+        raise BacktestError("a feature row must carry a features mapping")
+    payload["features"] = MappingProxyType(features)
+    return MappingProxyType(payload)
 
 
 def _require_same_cutoff(fold: Fold, table: FeatureTable) -> None:
@@ -274,7 +294,8 @@ def _observation_order(observation: Observation) -> tuple[object, ...]:
 
 
 def _score(fold: Fold, model: FoldModel, prepared: _Prepared) -> FoldResult:
-    predictions = _validated(fold, model, prepared, model.predict(fold, prepared.data))
+    answers = model.predict(prepared.data.fold, prepared.data)
+    predictions = _validated(fold, model, prepared, answers)
     return FoldResult(
         fold_id=fold.fold_id,
         model=ModelVersion(model.name, model.version),

@@ -149,6 +149,7 @@ def test_a_passing_outcome_with_too_few_folds_cannot_be_constructed():
             horizon="year",
             status="evaluated",
             required_origins=3,
+            required_origins_with_demand=3,
             eligible_origins=0,
             origins_with_demand=0,
             reason="",
@@ -164,6 +165,7 @@ def test_a_passing_outcome_with_too_few_folds_carrying_demand_cannot_be_construc
             horizon="year",
             status="evaluated",
             required_origins=3,
+            required_origins_with_demand=3,
             eligible_origins=3,
             origins_with_demand=1,
             reason="",
@@ -179,6 +181,7 @@ def test_a_non_passing_outcome_must_state_a_reason():
             horizon="year",
             status="insufficient_history",
             required_origins=3,
+            required_origins_with_demand=3,
             eligible_origins=0,
             origins_with_demand=0,
             reason="",
@@ -194,6 +197,7 @@ def test_a_passing_outcome_carries_no_refusal_reason():
             horizon="year",
             status="evaluated",
             required_origins=1,
+            required_origins_with_demand=1,
             eligible_origins=1,
             origins_with_demand=1,
             reason="looked fine to me",
@@ -223,4 +227,68 @@ def test_metrics_report_an_undefined_ratio_rather_than_zero():
 
     assert empty.wape is None
     assert empty.mae == 0.0
-    assert empty.has_demand is False
+
+
+def test_the_demand_gate_is_configured_apart_from_the_origin_gate():
+    config = experiment(MONTH_DAY, minimum_origins_with_demand=99)
+
+    outcome = run_backtest(config, three_year_dataset(), [Zero()])
+
+    horizon = outcome.horizons["month"]
+    assert horizon.status == "insufficient_signal"
+    assert horizon.eligible_origins >= horizon.required_origins
+    assert "99 required" in horizon.reason
+
+
+def test_raising_the_origin_gate_alone_does_not_tighten_the_demand_gate():
+    config = experiment(MONTH_DAY, minimum_origins=11, minimum_origins_with_demand=1)
+
+    outcome = run_backtest(config, three_year_dataset(), [Zero()])
+
+    assert outcome.horizons["month"].status == "evaluated"
+
+
+def test_an_explicit_demand_requirement_reaches_the_configuration_hash():
+    plain = experiment(MONTH_DAY)
+    loosened = experiment(MONTH_DAY, minimum_origins_with_demand=1)
+
+    assert plain.config_hash != loosened.config_hash
+
+
+def test_an_integer_and_a_float_ratio_are_one_configuration():
+    assert (
+        experiment(MONTH_DAY, minimum_label_unit_ratio=1).config_hash
+        == experiment(MONTH_DAY, minimum_label_unit_ratio=1.0).config_hash
+    )
+
+
+def test_a_passing_outcome_with_empty_results_cannot_be_constructed():
+    with pytest.raises(BacktestError, match="must carry model results"):
+        HorizonOutcome(
+            horizon="year",
+            status="evaluated",
+            required_origins=1,
+            required_origins_with_demand=1,
+            eligible_origins=1,
+            origins_with_demand=1,
+            reason="",
+            fold_ids=("a",),
+            results={},
+            totals={},
+        )
+
+
+def test_a_passing_outcome_that_scored_fewer_folds_than_it_had_cannot_be_constructed():
+    with pytest.raises(BacktestError, match="scored 0 folds"):
+        HorizonOutcome(
+            horizon="year",
+            status="evaluated",
+            required_origins=1,
+            required_origins_with_demand=1,
+            eligible_origins=1,
+            origins_with_demand=1,
+            reason="",
+            fold_ids=("a",),
+            results={"zero": ()},
+            totals={"zero": FoldMetrics(0, 0.0, 0.0)},
+        )

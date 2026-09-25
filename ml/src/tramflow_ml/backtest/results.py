@@ -59,6 +59,7 @@ class HorizonOutcome:
     horizon: Horizon
     status: BacktestStatus
     required_origins: int
+    required_origins_with_demand: int
     eligible_origins: int
     origins_with_demand: int
     reason: str
@@ -69,7 +70,7 @@ class HorizonOutcome:
     def __post_init__(self) -> None:
         object.__setattr__(self, "results", MappingProxyType(dict(self.results)))
         object.__setattr__(self, "totals", MappingProxyType(dict(self.totals)))
-        if self.required_origins < 1:
+        if self.required_origins < 1 or self.required_origins_with_demand < 1:
             raise BacktestError("a horizon must require at least one origin")
         if len(self.fold_ids) != self.eligible_origins:
             raise BacktestError(f"{self.horizon}: fold ids must match the eligible origin count")
@@ -87,11 +88,28 @@ class HorizonOutcome:
                 f"{self.horizon}: {self.eligible_origins} eligible origins cannot pass a "
                 f"requirement of {self.required_origins}"
             )
-        if self.origins_with_demand < self.required_origins:
+        if self.origins_with_demand < self.required_origins_with_demand:
             raise BacktestError(
                 f"{self.horizon}: only {self.origins_with_demand} folds carry demand, "
-                f"{self.required_origins} required"
+                f"{self.required_origins_with_demand} required"
             )
+        self._validate_scored()
+
+    def _validate_scored(self) -> None:
+        """A passing horizon scored every eligible fold, for every model it compared.
+
+        Without this the class would still permit the failure it exists to prevent, just
+        through a hand-built outcome rather than through the runner: results present but
+        empty, and ``passed`` True over nothing.
+        """
+        if not self.results:
+            raise BacktestError(f"{self.horizon}: a passing outcome must carry model results")
+        for name, scored in self.results.items():
+            if len(scored) != self.eligible_origins:
+                raise BacktestError(
+                    f"{self.horizon}: {name} scored {len(scored)} folds, "
+                    f"{self.eligible_origins} eligible"
+                )
 
     @property
     def passed(self) -> bool:
@@ -103,6 +121,7 @@ class HorizonOutcome:
             "status": self.status,
             "passed": self.passed,
             "required_origins": self.required_origins,
+            "required_origins_with_demand": self.required_origins_with_demand,
             "eligible_origins": self.eligible_origins,
             "origins_with_demand": self.origins_with_demand,
             "reason": self.reason,

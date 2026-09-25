@@ -70,6 +70,7 @@ class Fold:
     validation: Window
     test: Window
     train_buckets: int
+    train_covered_buckets: int
     test_buckets: int
     label_covered_units: int
     label_total_units: int
@@ -99,6 +100,8 @@ class Fold:
             raise BacktestError("fold index must not be negative")
         if self.train_buckets < 0 or self.test_buckets < 1:
             raise BacktestError(f"{self.fold_id}: implausible bucket counts")
+        if not 0 <= self.train_covered_buckets <= self.train_buckets:
+            raise BacktestError(f"{self.fold_id}: covered train buckets must lie within [0, n]")
         if self.label_total_units < 1:
             raise BacktestError(f"{self.fold_id}: a horizon spans at least one civil date")
         if not 0 <= self.label_covered_units <= self.label_total_units:
@@ -108,6 +111,30 @@ class Fold:
     def label_unit_ratio(self) -> float:
         """Fraction of the horizon's civil dates the source covers; 1/29 is not 29/29."""
         return self.label_covered_units / self.label_total_units
+
+    def view(self) -> "FoldView":
+        """The part of this fold a model may see.
+
+        The label-unit counts are left behind. They describe how much of the *horizon*
+        the source covers, which is a statement about the period being predicted; with
+        ``minimum_label_unit_ratio`` below 1.0 it is a statement a forecaster standing at
+        the cutoff could not make. Everything else here is either past or is the question
+        being asked.
+        """
+        return FoldView(
+            fold_id=self.fold_id,
+            index=self.index,
+            horizon=self.horizon,
+            policy_name=self.policy_name,
+            origin=self.origin,
+            cutoff=self.cutoff,
+            train=self.train,
+            validation=self.validation,
+            test=self.test,
+            train_buckets=self.train_buckets,
+            train_covered_buckets=self.train_covered_buckets,
+            test_buckets=self.test_buckets,
+        )
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -121,6 +148,7 @@ class Fold:
             "validation": self.validation.to_dict(),
             "test": self.test.to_dict(),
             "train_buckets": self.train_buckets,
+            "train_covered_buckets": self.train_covered_buckets,
             "test_buckets": self.test_buckets,
             "label_covered_units": self.label_covered_units,
             "label_total_units": self.label_total_units,
@@ -152,3 +180,25 @@ class Ineligible:
             "reason": self.reason,
             "detail": self.detail,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class FoldView:
+    """A fold as a model sees it: the windows, the cutoff, and the history behind it.
+
+    Built by ``Fold.view()`` and never constructed directly by the runner, so a field
+    added to ``Fold`` does not reach a model until someone adds it here on purpose.
+    """
+
+    fold_id: str
+    index: int
+    horizon: Horizon
+    policy_name: str
+    origin: datetime
+    cutoff: datetime
+    train: Window
+    validation: Window
+    test: Window
+    train_buckets: int
+    train_covered_buckets: int
+    test_buckets: int

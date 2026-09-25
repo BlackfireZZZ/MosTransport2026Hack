@@ -6,6 +6,7 @@ makes "the candidate and the baseline were scored on the same folds" a property 
 construction rather than a promise.
 """
 
+from bisect import bisect_left
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -24,6 +25,7 @@ from tramflow_ml.features import (
     CoverageCalendar,
     CoverageView,
     Horizon,
+    bucket_from_start,
     horizon_buckets,
     step,
 )
@@ -51,6 +53,26 @@ def data_span(coverage: CoverageCalendar) -> DataSpan:
 
 
 @dataclass(frozen=True, slots=True)
+class _CoveredBuckets:
+    """Prefix counts of covered buckets over one horizon's grid, built once per horizon.
+
+    Train history has to be counted in buckets that carry data, not in calendar
+    distance: a window spanning three years of which the source covers one day is not
+    three years of history. Counting per fold would rewalk the same grid for every
+    origin, so the grid is walked once and every window is answered by two bisections.
+    """
+
+    starts: tuple[datetime, ...]
+    covered_before: tuple[int, ...]
+
+    def count(self, start: datetime, end: datetime) -> int:
+        """Covered buckets whose start lies in the half-open window."""
+        first = bisect_left(self.starts, start)
+        last = bisect_left(self.starts, end)
+        return self.covered_before[last] - self.covered_before[first]
+
+
+@dataclass(frozen=True, slots=True)
 class _Grading:
     """What every candidate origin of one horizon is judged against."""
 
@@ -58,6 +80,7 @@ class _Grading:
     span: DataSpan
     labels: CoverageView
     series_start: datetime
+    covered: _CoveredBuckets
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,16 +124,34 @@ def build_fold_set(config: BacktestConfig, coverage: CoverageCalendar) -> FoldSe
     folds: dict[Horizon, tuple[Fold, ...]] = {}
     refusals: dict[Horizon, tuple[Ineligible, ...]] = {}
     for rules in config.rules:
+        series_start = bucket_ceiling(span.start, rules.policy.granularity)
         grading = _Grading(
             rules=rules,
             span=span,
             labels=labels,
-            series_start=bucket_ceiling(span.start, rules.policy.granularity),
+            series_start=series_start,
+            covered=_covered_buckets(rules, span, labels, series_start),
         )
         eligible, refused = _grade(grading)
         folds[rules.horizon] = eligible
         refusals[rules.horizon] = refused
     return FoldSet(config, span, MappingProxyType(folds), MappingProxyType(refusals))
+
+
+def _covered_buckets(
+    rules: FoldRules, span: DataSpan, labels: CoverageView, series_start: datetime
+) -> _CoveredBuckets:
+    granularity = rules.policy.granularity
+    limit = span.end.astimezone(UTC)
+    starts: list[datetime] = []
+    prefix = [0]
+    start = series_start
+    while start.astimezone(UTC) < limit:
+        available, _ = labels.units(bucket_from_start(start, granularity))
+        starts.append(start)
+        prefix.append(prefix[-1] + (1 if available else 0))
+        start = step(start, granularity, 1)
+    return _CoveredBuckets(tuple(starts), tuple(prefix))
 
 
 def candidate_origins(rules: FoldRules, span: DataSpan) -> tuple[datetime, ...]:
@@ -151,7 +192,10 @@ def _judge(grading: _Grading, origin: datetime, index: int) -> Fold | Ineligible
     cutoff = rules.effective_policy.cutoff(origin)
     train, validation = _windows(grading, origin, cutoff)
     train_buckets = bucket_span(train.start, train.end, rules.policy.granularity)
-    history_refusal = _history_refusal(grading, origin, validation, train_buckets)
+    covered_buckets = grading.covered.count(train.start, train.end)
+    history_refusal = _history_refusal(
+        grading, origin, validation, train_buckets, covered_buckets
+    )
     if history_refusal is not None:
         return history_refusal
     return Fold(
@@ -165,6 +209,7 @@ def _judge(grading: _Grading, origin: datetime, index: int) -> Fold | Ineligible
         validation=validation,
         test=Window(origin, buckets[-1].end),
         train_buckets=train_buckets,
+        train_covered_buckets=covered_buckets,
         test_buckets=len(buckets),
         label_covered_units=sum(available for available, _ in units),
         label_total_units=sum(total for _, total in units),
@@ -210,8 +255,13 @@ def _label_refusal(
 
 
 def _history_refusal(
-    grading: _Grading, origin: datetime, validation: Window, train_buckets: int
+    grading: _Grading,
+    origin: datetime,
+    validation: Window,
+    train_buckets: int,
+    covered_buckets: int,
 ) -> Ineligible | None:
+    """Calendar distance is the cheap pre-filter; covered buckets are the real rule."""
     rules = grading.rules
     required = rules.train_buckets_required
     if validation.start.astimezone(UTC) < grading.series_start.astimezone(UTC):
@@ -227,6 +277,14 @@ def _history_refusal(
             origin,
             "insufficient_train_history",
             f"{train_buckets} train buckets available, {required} required",
+        )
+    if covered_buckets < required:
+        return Ineligible(
+            rules.horizon,
+            origin,
+            "insufficient_train_history",
+            f"{covered_buckets} of {train_buckets} train buckets are covered, "
+            f"{required} required",
         )
     return None
 
