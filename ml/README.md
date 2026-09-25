@@ -316,19 +316,31 @@ Classification decides what may be printed about a field:
 |---|---|---|
 | `identifier` | `event_id`, `route_id`, `direction_id`, `stop_id`, `vehicle_id`, `entity_version`, `source_version` | present/missing counts and rate, distinct-value count, min and max length, and a character-class signature (`digits`, `letters`, `alnum`, `alnum_punct`, `other`) |
 | `timestamp` | `event_at`, `available_at` | present/missing, count of values that would not parse, first and last instant in `Europe/Moscow` |
-| `measure` | `stop_sequence`, `latitude`, `longitude` | present/missing, non-numeric count, minimum, maximum, and the sum when every value is an integer |
+| `measure` | `stop_sequence`, `latitude`, `longitude` | present/missing, `unparsed` (not a number), `out_of_contract` (a number `ingest` will quarantine), minimum, maximum, and the sum for an integer-contract field with neither |
 | `enumerated` | `schema_version`, `target`, `unit`, `synthetic` | a count per allowlisted member, plus one `other` count |
 
 **Identifier suppression.** An identifier is summarised by shape and never by value:
 no sample row, no example of a bad row, no most-frequent value, no hash of a value.
 The accumulator itself keeps only 8-byte digests, so it holds nothing it could print.
-The invariant across the whole report is stronger than the identifier rule: **every
-string in the output is either a constant defined in our code, a column or file name
-read from the sample's schema, or a derived number or ISO-8601 instant.** An
-enumerated value outside its allowlist is counted as `other` and never quoted, and the
-unknown-schema failure names columns but quotes no cell. Column and file names are
-deliberately echoed — a failure that does not name what it found is not actionable —
-and they are schema, not passenger data.
+An enumerated value outside its allowlist is counted as `other` and never quoted.
+
+**No cell of the sample is ever quoted, including one that arrives labelled as a
+column name.** Intake cannot know that a CSV's first line is a header, and a JSON
+object can be keyed by anything, so a column name is quoted only when it is word-like
+(`str.isidentifier`, unicode included). Anything else is described by shape at its
+position — `<column 1: 16 digits>` — which still tells the operator which column needs
+mapping without printing the cell that was mistaken for a name. When no name in a CSV
+is word-like, the refusal says so and points at `has_header`. This is what stops a
+headerless extract from echoing row one's card numbers into the checklist.
+
+What the report *does* contain, beyond constants defined in our code and derived
+numbers and instants: word-like column names and file names read from the sample's
+schema; the names of every file in the sample directory when the streams cannot be
+located; the `entity_version` and validation text of the entity catalog; and the exact
+minimum and maximum of each measure field. Those minima and maxima are real values
+from single rows — for telemetry they are literal GPS coordinates. They are not
+passenger identifiers, but **TASK-049/TASK-050 must not map an organizer column
+carrying personal data onto a measure field**, because a measure's range prints.
 
 **Mapping is explicit or identical, never inferred.** A canonical field maps to a
 source column only when a profile says so, or when a column carries exactly the
@@ -354,7 +366,23 @@ refuses). A profile is `intake-profile.v1`:
 source omits when one value is right for every row; `timestamp_format` is a `strptime`
 pattern (`null` for ISO-8601) and `assume_timezone` names the zone naive timestamps
 are read in. It is the same vocabulary as `ingestion.ColumnAdapter`, so one mapping
-serves both tools.
+serves both tools. `has_header` (CSV, default `true`) declares whether the first line
+is a header: set it to `false` for a headerless extract, and every line is then data
+and the columns are addressed as `column_1`, `column_2` and so on. One `columns` map
+serves both streams, so a headerless CSV whose two streams have different column
+layouts cannot be described by one profile — give the two streams the same layout, or
+wait for per-stream columns.
+
+An explicit `columns` entry always takes effect. On CSV, a declared column absent from
+the header is refused by name, because the header is the schema and the column cannot
+be read. On JSON Lines there is no schema, so a declared key that no row carries is
+simply a field that is always missing, reported as `missing_rate: 1.0` and listed under
+`declared_columns_never_seen`. Canonical-name auto-mapping needs the column to be
+observed somewhere in the file — every key of every line is read, not a leading
+sample, so a field that first appears in row 251 is found — and a required field that
+appears nowhere and is not declared is refused with the checklist rather than reported
+as wholly missing, because reporting it would silently replace the checklist this tool
+exists to produce.
 
 When a required field cannot be mapped, intake refuses and prints, per stream: the
 file, every column it found, what it did map, what a profile supplied as a constant,
@@ -377,13 +405,25 @@ policy `P`, the deepest history reach is
 `max(max(P.lags), max(P.rolling_windows), P.season_step * P.season_periods)` buckets of
 `P`'s granularity, and one forecast period is 24 hourly, 31 daily or 12 monthly buckets
 more; `H` is supportable when the observed span yields that many complete buckets *and*
-at least half of the span's civil dates carry rows. Both thresholds appear next to the
+at least half of the span's civil dates carry rows. A bucket counts only when it lies
+wholly inside the observed span: a sample whose first row lands at 23:00 has not
+observed that day, and the bucket holding the last row is never complete either. Both thresholds appear next to the
 observed values, so every "no" carries the numbers that produced it — the tiny
 synthetic fixture reports `insufficient_history: policy 'year/month' reads 36 monthly
 buckets of history and forecasts 12 more, so it needs 48; the observed span of 731 days
 yields 24`. `evaluable_buckets_upper_bound` is the surplus: an upper bound on how many
 buckets could be evaluated, not a fold plan. A target is supportable when the sample
 declares it and carries only the one producible unit, `event_count`.
+
+Measures are read against the contract `ingestion.normalize` enforces — `stop_sequence`
+a non-negative integer, latitude within ±90, longitude within ±180 — and a value outside
+it is counted as `out_of_contract` rather than waved through, so the profile says in
+advance how many rows the pipeline is going to reject. Numbers are canonicalised before
+they are summarised or digested: an integer-contract field accepts `0.0` as `0`, which
+is how a CSV written from a float-typed column spells every integer. Without that, the
+same fact would read differently for having passed through pandas, and one `event_id`
+spelled `0` in one file and `0.0` in another would be reported as a conflicting
+duplicate it is not.
 
 Counting contract per stream: `rows == readable + unreadable` and
 `readable == unkeyed + distinct_keys + repeated + conflicting`, and when a catalog is

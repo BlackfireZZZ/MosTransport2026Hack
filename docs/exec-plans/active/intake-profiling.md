@@ -130,14 +130,20 @@ current output and exit codes; the intake package has no consumer in `backend/`.
    `alnum_punct`, `other`). Never a value, never a sample, never a most-frequent
    value, never a hash of a value.
 
-   The general invariant behind it: **every string in the report is either a
-   constant defined in our code, a column or file name read from the sample's
-   schema, or a derived number/ISO-8601 date.** Column and file names are echoed
-   deliberately — requirement 2 of this task is that the failure names the columns
-   it found — and they are schema, not passenger data. Values are never echoed,
-   including from enumerated fields: `target` and `unit` counts are reported only
-   for members of the code-defined allowlists (`TARGETS`, `UNIT`), and anything
-   outside them is counted as `other` without being quoted.
+   **Column names are untrusted too.** Intake cannot know that a CSV's first line is
+   a header, so a name is quoted only when it is word-like (`str.isidentifier`);
+   anything else is rendered as `<column N: LEN SIGNATURE>`. Real names are still used
+   for matching, so a profile that names a column works whether or not the name prints.
+   A CSV profile may declare `has_header: false`, which both stops row one being eaten
+   as a header and addresses the columns positionally as `column_1`, `column_2`, ….
+
+   The invariant, stated at the width it actually holds: **no cell of the sample is
+   ever quoted, including one that arrives labelled as a column name.** Beyond
+   code-defined constants and derived numbers and instants, the report does carry
+   word-like column names, file names in the sample directory, the catalog's
+   `entity_version`, and the exact minimum and maximum of each measure field. The last
+   of those are real single-row values — GPS coordinates for telemetry — so
+   TASK-049/TASK-050 must not map a column carrying personal data onto a measure field.
 
 3. **Classification decides what may be printed**, in four kinds:
    `identifier` (above), `timestamp` (min and max instant, parse-failure count),
@@ -150,9 +156,14 @@ current output and exit codes; the intake package has no consumer in `backend/`.
    Without this, a CSV — where every column exists on every row — could never
    reconcile against a JSONL fixture that omits keys.
 
-5. **CSV values are coerced** to int, float and bool exactly as
-   `ingestion.normalize` coerces them, so a measure's min/max reconcile across
-   encodings instead of comparing strings to numbers.
+5. **Values are canonicalised by field contract, not by observed Python type.**
+   CSV strings are coerced to int, float and bool, and an integer-contract field
+   accepts `0.0` as `0` so a CSV written from a float-typed column reconciles with
+   the same fact in JSON. Coercion is deliberately *more permissive* than
+   `ingestion.normalize`, which is why a second count exists: `out_of_contract`
+   reports values the pipeline will quarantine (`stop_sequence` negative or
+   non-integral, a coordinate out of range), so `unparsed: 0` is never a clean bill
+   on a column `ingest` will reject wholesale.
 
 6. **Duplicates are keyed on `event_id`** and split the way ingestion splits them:
    a repeated key with an identical canonical payload is a *repeat*, a repeated
@@ -173,20 +184,22 @@ current output and exit codes; the intake package has no consumer in `backend/`.
 8. **Horizon supportability has one stated rule.** For horizon `H` with policy `P`
    (`features.policy.POLICIES`), the deepest history reach is
    `max(max(P.lags), max(P.rolling_windows), P.season_step * P.season_periods)`
-   buckets of `P`'s granularity, and one further bucket is the forecast target.
-   and one forecast period is a further `TARGET_BUCKETS[H]` buckets (24 hourly,
-   31 daily, 12 monthly; the month uses the longest calendar month so the verdict
-   cannot flip on which month a sample ends in). `H` is supportable when (a) the
-   observed span yields `reach + TARGET_BUCKETS[H]` complete buckets and (b) the
-   observed civil dates cover at least `MIN_COVERAGE_RATIO` of the span. Both
-   thresholds are reported next to the observed values, so a "no" always carries
-   the two numbers that produced it. The surplus is reported as
+   buckets of `P`'s granularity, and one forecast period is a further
+   `TARGET_BUCKETS[H]` buckets (24 hourly, 31 daily, 12 monthly; the month uses the
+   longest calendar month so the verdict cannot flip on which month a sample ends
+   in). `H` is supportable when (a) the observed span yields
+   `reach + TARGET_BUCKETS[H]` complete buckets and (b) the observed civil dates
+   cover at least `MIN_COVERAGE_RATIO` of the span. A bucket is complete only when
+   it lies wholly inside `[first_instant, last_instant]`, at every granularity.
+   Both thresholds are reported next to the observed values, so a "no" always
+   carries the two numbers that produced it. The surplus is reported as
    `evaluable_buckets_upper_bound`: an upper bound on folds, not a fold plan.
 
 9. **A target is supportable** when the stream carries a `target` value from
-   `TARGETS` together with the single `UNIT` this layer can produce, and the
-   `target`/`unit` fields were mapped at all. An unmapped `target` column makes
-   every target undetermined rather than assumed.
+   `TARGETS` together with the single `UNIT` this layer can produce. `target` and
+   `unit` are required fields, so discovery refuses before supportability is reached
+   if they are unmapped; the verdict therefore always describes values that were
+   actually read, never an assumed default.
 
 10. **Determinism**: the report carries no wall clock, no absolute path (file
     basenames only), and every mapping is emitted with sorted keys. Floats appear
@@ -323,3 +336,39 @@ subcommand and the package and leaves `ingest`, `generate-synthetic` and
 - Join coverage under the identity crosswalk is only meaningful for a sample
   already keyed by catalog ids. On real data the figure will be near zero until
   TASK-050 supplies a crosswalk, which is the honest answer, not a defect.
+
+### Review record (2026-09-25)
+
+Independent review of `9fd34af`: **REJECT**, with one CRITICAL and one HIGH. The
+acceptance validation of the same commit passed all six criteria — it planted canary
+tokens in `event_id`, `vehicle_id` and unmapped columns, grepped stdout, stderr and the
+report file across the success path and six failure paths, found zero leaks, and
+reproduced the `43178877…c36596` digest from a fixture it generated itself. It passed
+because **every fixture it built had a CSV header.** The reviewer tried a headerless
+one. That is the gap: the validation explored the space the implementation had defined,
+and the defect lived in an assumption neither the code nor the tests had written down.
+
+| Severity | Finding | Fix |
+|---|---|---|
+| CRITICAL | C1 — `read_csv_header` takes the first physical line as the header unconditionally, so a headerless CSV's row-one cells become "column names" and are echoed verbatim; `4276380155129043` appeared four times in one refusal, and with a profile also in the report file. The identifier digest machinery was bypassed because the value arrived labelled as *schema*, the one category the invariant permitted printing. | Column names are now untrusted. `intake/columns.py` quotes a name only when it is word-like (`str.isidentifier`, unicode included) and otherwise renders `<column N: LEN SIGNATURE>`; real names are still used for matching, so profiles are unaffected. A CSV profile may declare `has_header: false`, which stops row one being consumed as a header and addresses columns as `column_1…`. When no name in a CSV is word-like the refusal says the file looks headerless and points at the flag. |
+| HIGH | H1 — `_json_keys` unioned keys over the first 200 lines, so a 400-row file whose `vehicle_id` starts at row 251 was **refused** for a field it carries; worse, writing exactly the profile the checklist asks for gave an identical refusal, because the mapping check also consulted the 200-line key set. The only escape was to fabricate a constant. | The key set is now the whole file, and an explicit `profile.columns` entry always takes effect regardless of what was observed. The sampling limit is gone rather than disclosed. On JSON Lines a declared key no row carries is reported as `missing_rate: 1.0` and listed under `declared_columns_never_seen`; on CSV, where the header is the schema, it is refused by name (M6). |
+| MEDIUM | M1 — `as_number` accepted `-1` and `2.5` for `stop_sequence` and `999.0` for `latitude` and reported `unparsed: 0`, a clean bill on rows `ingest` quarantines wholesale. Plan decision 5 claimed coercion matched `ingestion.normalize` "exactly"; it did not. | `MeasureContract` per field (non-negative integer; ±90; ±180) and a second count, `out_of_contract`, beside `unparsed`. The `sum` is withheld when either is non-zero. Decision 5 now states that coercion is deliberately more permissive and says why the second count exists. |
+| MEDIUM | M2 — a CSV spelling integers as `0.0`, which is what `pandas.to_csv` emits for a float-typed column, flipped the `integral` flag, nulled `sum`, and made `streams` unequal against the same facts in JSON. The same split fed the payload digest, so one `event_id` written `0` in one file and `0.0` in another counted as a *conflicting duplicate* that is not one. | Numbers are canonicalised by field contract before being summarised or digested; `integral` is keyed off the contract, not the observed type. `canonical_text` does the same for identifiers so `14` and `14.0` are one value. A `float_integers` variant of fixture B is now part of the reconciliation suite. |
+| MEDIUM | M3 — hourly and daily counted partial first and last civil dates as complete while monthly refused a part-month, so an 8-day span starting at 23:00 reported 192 complete hourly buckets. | One rule at every granularity: a bucket counts only when it lies wholly inside `[first_instant, last_instant]`. `ObservedSpan` carries the instants. The tiny fixture's counts move from 17544/731/24 to 17519/729/22. |
+| MEDIUM | M4 — the `--output` write sat outside the `try`, so an unwritable path raised a raw `PermissionError`/`IsADirectoryError` against a documented 2/1/0 register. | The write is wrapped; an `OSError` becomes `cannot write --output …` and exit 2. Two tests. |
+| MEDIUM | M5 — a duplicate CSV column gave `validations.csv: validations.csv: CSV header needs unique non-empty names` and never said which column repeated. | Intake reads the header itself and names the colliding positions and label: `the header repeats a column name at positions 1 and 3 (a)`. |
+| MEDIUM | M6 — a typo'd column in a profile was silently ignored. | On CSV the refusal now leads with `profile.columns names columns absent from <file>: [...]`. |
+| LOW | L1 zero-byte file diagnosed as an encoding problem. L2 the invariant sentence was wider than the truth. L3 `UnreadableReason` unreferenced with an unproducible member. L4 `UNPARSED_VALUE` unreferenced while the literal was hard-coded. L5 the `_TRUE_STRINGS` copy was undocumented. L6 decision 9 described unreachable behaviour. L7 decision 8 held two contradictory rules from an editing artifact. L8 `coerce` was a dead parameter on two of four `Accumulator` implementations. | L1 says "is empty". L2 the README and decision 2 now state the invariant at the width it holds and name what the report *does* carry — including that a measure's exact min/max are single-row values, with the warning TASK-049/TASK-050 inherits. L3/L4 dead names removed, the constant used. L5 documented as a deliberate copy rather than a private import. L6/L7 rewritten. L8 `coerce` moved to the two constructors that use it. |
+
+Accepted with reasoning rather than implemented: the reviewer suggested a JSON Lines
+file missing a required key everywhere could report `missing_rate: 1.0` instead of
+refusing. It does so once the key is declared in a profile, which is one line, but an
+*undeclared* absent field still refuses — reporting it would silently delete the
+checklist that is this task's central deliverable, since a wholly foreign JSONL is
+exactly the case where every canonical name is absent. Both behaviours are tested.
+
+One limitation the fix introduced and did not close: a headerless CSV is addressed
+positionally through a single `columns` map shared by both streams, so two streams with
+different column layouts cannot be described by one profile. The refusal is actionable
+(M6 names the absent columns) and the README states the boundary; per-stream columns
+would be the fix if real data needs it.
