@@ -150,16 +150,20 @@ def test_every_axis_the_fixture_can_support_is_produced(report) -> None:
     assert {key.axis for key in report.by_key} == {
         "overall",
         "horizon",
+        "fold",
         "route",
         "direction",
         "stop",
         "entity",
         "daypart",
         "route_daypart",
+        "entity_daypart",
     }
     assert report.by_key[SliceKey("direction", "route-A|dir-N")].samples == 4
     assert report.by_key[SliceKey("entity", "route-A|dir-N|stop-1")].samples == 4
     assert report.by_key[SliceKey("route_daypart", "route-A|evening_peak")].samples == 1
+    assert report.by_key[SliceKey("entity_daypart", "route-A|dir-N|stop-1|offpeak")].samples == 1
+    assert report.by_key[SliceKey("fold", "f1")].samples == 2
 
 
 def test_a_monthly_bucket_is_in_no_daypart_slice() -> None:

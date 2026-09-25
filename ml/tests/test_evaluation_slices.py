@@ -110,9 +110,10 @@ def test_the_golden_gate_passes_an_interval_the_slice_report_rejects() -> None:
 
 
 def test_zero_demand_is_where_the_two_reporters_deliberately_differ() -> None:
-    cases = giant_cases()
-    for case in cases:
-        case.actual = [0.0] * 8
+    cases = [
+        case.model_copy(update={"actual": [0.0] * 8, "lower_bound": [0.0] * 8})
+        for case in giant_cases()
+    ]
 
     with pytest.raises(ValueError, match="zero passenger demand; WAPE is undefined"):
         evaluate(cases)

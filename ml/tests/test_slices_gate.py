@@ -119,9 +119,9 @@ def test_a_required_slice_with_no_points_is_unproven_not_a_silent_pass() -> None
     (unproven,) = report.unproven
     assert unproven.key == missing
     assert unproven.samples == 0
+    assert unproven.status == "missing"
     assert unproven.message() == (
-        "route=route-B: required slice is insufficient_samples: "
-        "no scored point falls in this slice"
+        "route=route-B: required slice is missing: no scored point falls in this slice"
     )
 
 
@@ -216,6 +216,8 @@ def test_the_report_prints_the_thresholds_it_used_and_that_they_are_uncertified(
         "MAX_WAPE_RATIO_TO_BASELINE": 1.0,
         "MAX_COVERAGE_SHORTFALL": 0.10,
         "MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL": 2.0,
+        "MIN_INTERVAL_LEVEL": 0.8,
+        "MIN_INTERVAL_SCORE_ALLOWANCE": 8.0,
     }
 
 
