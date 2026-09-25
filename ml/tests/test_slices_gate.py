@@ -279,3 +279,10 @@ def test_every_slice_carries_its_unit_samples_and_folds() -> None:
         assert item["samples"] >= 1
         assert item["folds"] >= 1
         assert item["status"]
+
+
+def test_a_bucket_scored_twice_in_one_fold_is_refused() -> None:
+    twice = [point(day=0, hour=10), point(day=0, hour=10, predicted=50.0)]
+
+    with pytest.raises(SliceError, match="a bucket is scored once per fold"):
+        build_report(twice)

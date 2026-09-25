@@ -182,9 +182,22 @@ def build_report(
 
 
 def _canonical(points: Iterable[ScoredPoint]) -> tuple[ScoredPoint, ...]:
+    """Sort into a total order, so no sum depends on the order the caller supplied.
+
+    Two points tying on the sort key would keep their input order and could then sum
+    differently, so a repeated key is refused rather than ordered arbitrarily: one
+    entity's bucket is scored once in one fold, as ``forecast_v1`` also requires of a
+    published artifact.
+    """
     ordered = tuple(sorted(points, key=lambda point: point.sort_key))
     if not ordered:
         raise SliceError("a slice report needs at least one scored point")
+    keys = {point.sort_key for point in ordered}
+    if len(keys) != len(ordered):
+        raise SliceError(
+            f"{len(ordered) - len(keys)} scored point(s) repeat an entity, bucket and "
+            "fold already scored; a bucket is scored once per fold"
+        )
     return ordered
 
 

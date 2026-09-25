@@ -818,8 +818,11 @@ because a perfectly predicted slice has MAE 0, and an `evaluated` slice always h
 positive demand — zero demand is `insufficient_signal` before it reaches the gate.
 
 Determinism: points are sorted canonically before any float is summed, so the report is a
-function of the point set and not of the caller's ordering; the payload carries no wall
-clock and no absolute path, and `SliceReport.digest` is the SHA-256 of it.
+function of the point set and not of the caller's ordering. Two points tying on that
+order would still sum by input order, so a repeated `(entity, horizon, bucket, fold)` is
+refused — a bucket is scored once per fold, as `forecast_v1` also requires of a published
+artifact. The payload carries no wall clock and no absolute path, and
+`SliceReport.digest` is the SHA-256 of it.
 
 **What synthetic results do not establish.** Every demonstration above runs on arrays
 constructed by hand to exercise the mechanism. A passing report on synthetic points says

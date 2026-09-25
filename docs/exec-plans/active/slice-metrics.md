@@ -151,10 +151,12 @@ Decisions, each with the alternative that was rejected:
     open defect — `ForecastPointModel.capacity` defaulting to `180.0` against a
     response schema demanding `gt=0`, so an unknown capacity is served as a fabricated
     number — is not replicated: there is no default capacity anywhere in this module.
-12. **Points are canonically sorted before summation.** Float addition is not
-    associative, so a report that summed in caller order would be order-dependent.
-    Sorting by `(horizon, entity, bucket_start in UTC, fold_id)` makes the bytes a
-    function of the point set alone.
+12. **Points are canonically sorted before summation, and a repeated key is refused.**
+    Float addition is not associative, so a report that summed in caller order would be
+    order-dependent. Sorting by `(horizon, entity, bucket_start, fold_id)` fixes the
+    order; two points tying on that key would keep their input order and could still sum
+    differently, so a repeat is refused instead — one entity's bucket is scored once per
+    fold, which `forecast_v1` also requires of a published artifact.
 13. **One unit and one target per report.** A report pooling event counts with passenger
     loads has no unit, so mixing them is refused at the boundary.
 14. **Thresholds are a frozen dataclass whose defaults are the named constants, and the
@@ -232,12 +234,12 @@ IDENTICAL
 $ make ml-check          # exit 0
 ruff: All checks passed!
 mypy: Success: no issues found in 56 source files
-pytest: 529 passed in 33.46s     (479 before this branch; 50 new)
+pytest: 530 passed in 37.20s     (479 before this branch; 51 new)
 
 $ make check             # exit 0
 Architecture boundaries passed.
 backend:   292 passed, 10 skipped
-ml:        529 passed
+ml:        530 passed
 ml-eval:   "passed": true
 frontend:  8 test files, 47 passed; lint and build clean
 contracts: 119 passed
