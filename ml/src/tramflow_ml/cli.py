@@ -15,6 +15,15 @@ from tramflow_ml.ingestion import (
     ReconciliationError,
     ingest,
 )
+from tramflow_ml.intake import (
+    IntakeError,
+    IntakeRequest,
+    InvariantError,
+    SchemaError,
+    load_profile,
+    profile_sample,
+    render,
+)
 from tramflow_ml.synthetic import SyntheticConfig, generate_dataset
 
 
@@ -63,6 +72,55 @@ def _run_ingest(parser: argparse.ArgumentParser, args: argparse.Namespace) -> No
     )
 
 
+def _add_intake_parser(subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    intake_parser = subparsers.add_parser(
+        "intake", help="profile a data sample read-only; the sample is never modified"
+    )
+    intake_parser.add_argument("--input", type=Path, required=True)
+    intake_parser.add_argument("--profile", type=Path)
+    intake_parser.add_argument("--catalog", type=Path)
+    intake_parser.add_argument("--output", type=Path)
+
+
+def _run_intake(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Exit 2 for usage, input or schema problems, 1 for a failed invariant, 0 on success.
+
+    A schema diagnosis skips ``parser.error`` so the argparse usage block cannot bury
+    the checklist an operator has to act on; the exit code is the same 2.
+    """
+    try:
+        _refuse_nested_output(args)
+        profile = load_profile(args.profile) if args.profile else None
+        report = profile_sample(
+            IntakeRequest(source=args.input, profile=profile, catalog=args.catalog)
+        )
+    except InvariantError as error:
+        print(f"intake invariant failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from error
+    except SchemaError as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(2) from error
+    except (IntakeError, OSError) as error:
+        parser.error(str(error))
+    serialized = render(report)
+    if args.output:
+        try:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(serialized, encoding="utf-8")
+        except OSError as error:
+            parser.error(f"cannot write --output {args.output}: {error}")
+    print(serialized, end="")
+
+
+def _refuse_nested_output(args: argparse.Namespace) -> None:
+    """The sample directory stays byte-identical, so the report may not land inside it."""
+    if args.output and args.output.resolve().is_relative_to(args.input.resolve()):
+        raise IntakeError(
+            f"--output {args.output} is inside --input {args.input}; intake never writes "
+            "into the sample it profiles"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="tramflow-ml")
     subparsers = parser.add_subparsers(dest="command")
@@ -87,10 +145,15 @@ def main() -> None:
     synthetic_parser.add_argument("--telemetry-every", type=int, default=5)
     synthetic_parser.add_argument("--gap-every-days", type=int, default=13)
     _add_ingest_parser(subparsers)
+    _add_intake_parser(subparsers)
     args = parser.parse_args()
 
     if args.command == "ingest":
         _run_ingest(parser, args)
+        return
+
+    if args.command == "intake":
+        _run_intake(parser, args)
         return
 
     if args.command == "generate-synthetic":

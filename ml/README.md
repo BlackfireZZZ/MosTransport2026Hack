@@ -488,3 +488,193 @@ demand. `fold_metrics` and `evaluation.py` share no code: they are semantically 
 the ratio `Σ|error| / Σactual` — pinned by a case scored both ways — and deliberately
 diverge on zero demand, where the golden gate raises and a fold reports `None` so that one
 empty fold cannot kill a whole run. Both behaviours are tested.
+
+## Intake profiling
+
+`intake` reads a data sample and reports what is in it. It is the first thing to run
+on an organizer extract (TASK-039, RQ-01–03) and the input to the real column mapping
+(TASK-049/TASK-050).
+
+```bash
+uv run --package tramflow-ml tramflow-ml intake --input /tmp/synthetic-tiny
+uv run --package tramflow-ml tramflow-ml intake --input /tmp/sample --profile sample.json \
+  --catalog /tmp/sample/entities.json --output /tmp/intake-report.json
+```
+
+**Read-only.** Every file under `--input` is opened `"rb"` and nothing is written
+there: no normalization, no move, no temporary file, no marker. `--output` is refused
+when it resolves inside `--input`. The report goes to stdout, and to `--output` as
+well when one is given.
+
+Per stream (`validations`, `telemetry`) the report carries: physical `rows`, `readable`
+rows and `unreadable` rows by reason; per canonical field a summary whose shape follows
+that field's classification; `duplicates` keyed on `event_id`; the observed `date_span`;
+and `join_coverage`. `supportability` then states, from the measured span and coverage
+alone, which horizons and targets the sample could carry.
+
+Classification decides what may be printed about a field:
+
+| Classification | Fields | What is reported |
+|---|---|---|
+| `identifier` | `event_id`, `route_id`, `direction_id`, `stop_id`, `vehicle_id`, `entity_version`, `source_version` | present/missing counts and rate, distinct-value count, min and max length, and a character-class signature (`digits`, `letters`, `alnum`, `alnum_punct`, `other`) |
+| `timestamp` | `event_at`, `available_at` | present/missing, count of values that would not parse, first and last instant in `Europe/Moscow` |
+| `measure` | `stop_sequence`, `latitude`, `longitude` | present/missing, `unparsed` (not a number), `out_of_contract` (a number `ingest` will quarantine), minimum, maximum, and the sum for an integer-contract field with neither |
+| `enumerated` | `schema_version`, `target`, `unit`, `synthetic` | a count per allowlisted member, plus one `other` count |
+
+**Identifier suppression.** An identifier is summarised by shape and never by value:
+no sample row, no example of a bad row, no most-frequent value, no hash of a value.
+The accumulator itself keeps only 8-byte digests, so it holds nothing it could print.
+An enumerated value outside its allowlist is counted as `other` and never quoted.
+
+**No cell of the sample is ever quoted, including one that arrives labelled as a
+column name.** Intake cannot know that a CSV's first line is a header, and a JSON
+object can be keyed by anything.
+
+The unit of trust is the **line**, not the cell. A per-cell test can only ask "does
+this look like a name?", and a datum is perfectly capable of looking like one:
+`MSK4276380155129043`, `A4276380155129043` and `Ivanov` are all valid identifiers, so
+no predicate can separate them from real column names — the safe set and the word-like
+set overlap. What distinguishes a header is that *every* cell of it is word-like
+(`str.isidentifier`, unicode included, so `маршрут` passes and anything with a space, a
+separator or a leading digit does not). So if any cell of the line fails, the whole line
+is data and every cell is rendered by shape at its position — `<column 2: 28 alnum>` —
+including the cells that happen to look like names. Position is what keeps the checklist
+actionable: the operator still learns which column needs mapping. The same rule applies
+to a JSON Lines stream, where the unit is the key set rather than a header line.
+
+A real header, where every cell is word-like, reads exactly as it always did. The cost
+falls on a genuine header with a spaced or hyphenated name — `route_id,Stop Name` — which
+is shown entirely by shape; the operator can read their own file, and a profile naming
+the real column still works, because matching never goes through the label. Widening the
+per-cell test to admit those names would be worse: it would let a headerless line of
+uniformly name-shaped cells pass as a header.
+
+One case the rule does not close: a headerless file in which *every* cell is word-like
+(`Ivanov,Petrov,Sidorov`) still prints those cells. The line rule narrows that class
+sharply — one digit-leading, punctuated or spaced cell anywhere in the line condemns it
+— but does not eliminate it. Comparing row one's shapes against row two's was considered
+and rejected: a genuine header `stop_id` and its data `synthetic:stop:1` share the
+`alnum_punct` signature, so the comparison false-positives on real headers.
+
+What the report *does* contain, beyond constants defined in our code and derived
+numbers and instants: word-like column names and file names read from the sample's
+schema; the names of every file in the sample directory when the streams cannot be
+located; the `entity_version` and validation text of the entity catalog; and the exact
+minimum and maximum of each measure field. Those minima and maxima are real values
+from single rows — for telemetry they are literal GPS coordinates. They are not
+passenger identifiers, but **TASK-049/TASK-050 must not map an organizer column
+carrying personal data onto a measure field**, because a measure's range prints.
+
+**Mapping is explicit or identical, never inferred.** A canonical field maps to a
+source column only when a profile says so, or when a column carries exactly the
+canonical name. Nothing maps by name similarity, position or a synonym list. Without
+`--profile` intake uses the built-in `canonical` shape (`validations.jsonl` /
+`telemetry.jsonl`, or the `.csv` spelling; both present at once is an ambiguity it
+refuses). A profile is `intake-profile.v1`:
+
+```json
+{
+  "schema_version": "intake-profile.v1",
+  "name": "alternate-fixture",
+  "source_format": "csv",
+  "files": {"validations": "boardings.csv", "telemetry": "positions.csv"},
+  "columns": {"event_id": "row_key", "event_at": "happened", "stop_id": "platform_code"},
+  "constants": {},
+  "timestamp_format": "%d.%m.%Y %H:%M:%S",
+  "assume_timezone": "Europe/Moscow"
+}
+```
+
+`columns` maps canonical field → source column; `constants` supplies a field the
+source omits when one value is right for every row; `timestamp_format` is a `strptime`
+pattern (`null` for ISO-8601) and `assume_timezone` names the zone naive timestamps
+are read in. It is the same vocabulary as `ingestion.ColumnAdapter`, so one mapping
+serves both tools. `has_header` (CSV, default `true`) declares whether the first line
+is a header: set it to `false` for a headerless extract, and every line is then data
+and the columns are addressed as `column_1`, `column_2` and so on. One `columns` map
+serves both streams, so a headerless CSV whose two streams have different column
+layouts cannot be described by one profile — give the two streams the same layout, or
+wait for per-stream columns.
+
+An explicit `columns` entry always takes effect. On CSV, a declared column absent from
+the header is refused by name, because the header is the schema and the column cannot
+be read. On JSON Lines there is no schema, so a declared key that no row carries is
+simply a field that is always missing, reported as `missing_rate: 1.0` and listed under
+`declared_columns_never_seen`. Canonical-name auto-mapping needs the column to be
+observed somewhere in the file — every key of every line is read, not a leading
+sample, so a field that first appears in row 251 is found — and a required field that
+appears nowhere and is not declared is refused with the checklist rather than reported
+as wholly missing, because reporting it would silently replace the checklist this tool
+exists to produce.
+
+When a required field cannot be mapped, intake refuses and prints, per stream: the
+file, every column it found, what it did map, what a profile supplied as a constant,
+every unmapped canonical field with a one-line statement of what that field must
+carry, the columns it did not use, and a fill-in profile whose unmapped entries are
+`null`. That message is the adapter checklist; completing it and rerunning with
+`--profile` is the whole workflow.
+
+Join coverage speaks the `identity` vocabulary — `matched` by kind, `unmatched` by
+reason, `ambiguous`, `stale` — and is measured against `identity_crosswalk`, which
+maps every canonical id to itself. The report records `"crosswalk": "identity"` for
+that reason: on a sample not already keyed by catalog ids the figure is a statement
+about how far the ids are from ours, not a certified join rate. Rows that carry no
+`event_id`, or whose `event_at` will not parse, are counted under `unalignable`
+instead of being silently dropped. Without a catalog the section is
+`"measured": false` with the reason, never a zero.
+
+Supportability is one stated rule, not a judgement per sample. For horizon `H` with
+policy `P`, the deepest history reach is
+`max(max(P.lags), max(P.rolling_windows), P.season_step * P.season_periods)` buckets of
+`P`'s granularity, and one forecast period is 24 hourly, 31 daily or 12 monthly buckets
+more; `H` is supportable when the observed span yields that many complete buckets *and*
+at least half of the span's civil dates carry rows. A bucket counts only when it lies
+wholly inside the observed span: a sample whose first row lands at 23:00 has not
+observed that day, and the bucket holding the last row is never complete either. Both thresholds appear next to the
+observed values, so every "no" carries the numbers that produced it — the tiny
+synthetic fixture reports `insufficient_history: policy 'year/month' reads 36 monthly
+buckets of history and forecasts 12 more, so it needs 48; the observed span of 731 days
+yields 24`. `evaluable_buckets_upper_bound` is the surplus: an upper bound on how many
+buckets could be evaluated, not a fold plan. A target is supportable when the sample
+declares it and carries only the one producible unit, `event_count`.
+
+Measures are read against the contract `ingestion.normalize` enforces — `stop_sequence`
+a non-negative integer, latitude within ±90, longitude within ±180 — and a value outside
+it is counted as `out_of_contract` rather than waved through, so the profile says in
+advance how many rows the pipeline is going to reject. Numbers are canonicalised before
+they are summarised or digested: an integer-contract field accepts `0.0` as `0`, which
+is how a CSV written from a float-typed column spells every integer. Without that, the
+same fact would read differently for having passed through pandas, and one `event_id`
+spelled `0` in one file and `0.0` in another would be reported as a conflicting
+duplicate it is not.
+
+Counting contract per stream: `rows == readable + unreadable` and
+`readable == unkeyed + distinct_keys + repeated + conflicting`, and when a catalog is
+present `readable == join total + unalignable`. Exit codes match `ingest`: 0 on
+success, 1 when one of those identities fails, 2 for a usage, input or schema problem.
+A schema refusal prints the checklist without the argparse usage block so the
+checklist is not buried; the code is still 2.
+
+Determinism: the report carries no wall clock and no absolute path — file basenames
+only — and every mapping is emitted with sorted keys. The same sample profiled twice,
+and a byte-identical copy of it at a different absolute path, produce identical report
+bytes. The same events rendered in a second schema — CSV instead of JSON Lines,
+renamed columns, `%d.%m.%Y %H:%M:%S` instead of ISO-8601 — produce byte-identical
+`streams` and `supportability` sections; only `source`, which describes the encoding,
+differs. Missing has one definition across encodings for that reason: a key that is
+absent, a JSON `null`, or a blank string.
+
+Memory grows with the number of distinct `event_id` and distinct identifier values,
+not with the row count: intake keeps one dictionary entry per distinct key, holding two
+8-byte digests rather than the values. It is a sample profiler, not a pipeline —
+`ingest` uses SQLite for the same job at scale — so profile a slice of a very large
+extract rather than all of it.
+
+Not decided before organizer data: the column mapping itself, which is the point —
+intake builds the checklist and refuses to guess, and certifying the real mapping is
+TASK-049/TASK-050. Nor is it decided which horizon we will actually forecast: the
+policies intake measures against (lags, rolling windows, seasons) are the team proposal
+from `features/policy.py` and are configuration, so a supportability verdict moves when
+they do. `MIN_COVERAGE_RATIO` is a threshold, not a measurement. The join rate under
+the identity crosswalk is not a real join rate. And a target that is *supportable* is
+not thereby the target: which quantity the organizer actually measures is TASK-049.
