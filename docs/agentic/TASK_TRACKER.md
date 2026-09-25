@@ -99,7 +99,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | done | horizon-features lead | DATA-FEATURES | TASK-017, TASK-018 | D | L |
 | TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | done | rolling-backtest lead | ML-EVAL | TASK-004, TASK-019 | D | M |
 | TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | in_progress | baselines lead | ML-MODEL | TASK-020 | E | M |
-| TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | in_progress | slice-metrics lead | ML-EVAL | TASK-020 | E | M |
+| TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | done | slice-metrics lead | ML-EVAL | TASK-020 | E | M |
 | TASK-023 | [Add a reproducible lag/calendar boosting candidate](#task-023) | feature | ml | P2 | R2 | backlog | unassigned | ML-MODEL | TASK-021, TASK-022 | F | M |
 | TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
 | TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-015 | C | M |
@@ -470,7 +470,9 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-022
 
-- **Execution:** `agent/slice-metrics`, base `a87837c`, worktree `MosTransport2026Hack-worktrees/slice-metrics`; [plan](../exec-plans/active/slice-metrics.md).
+- **Execution:** `agent/slice-metrics`, base `a87837c`, merged into `main` as `9c549e8`; [slices, thresholds and review record](../exec-plans/completed/slice-metrics.md).
+- **Verification (2026-09-25):** independent acceptance validation ACCEPT — eleven adversarial constructions could not make a *required* bad slice pass, the Winkler score was recomputed by hand on both tails, `make ml-eval` byte-identity was confirmed against the validator's own base checkout, and every reported number reproduced. Independent review ACCEPT WITH FINDINGS, three of them ways a bad slice still passed: a producer-declared `level` of 0.02 let a point estimate clear both interval checks, a model 100% wrong on the latest origin was invisible because `fold` was not an axis, and a catastrophic stop at the evening peak diluted below the threshold on every axis because `entity × daypart` was not produced. All closed in `9a834c6`; the lead reproduced the level hole before and after (`passed=True, failures=0` → `passed=False`). Criterion 3 was only partially met — dimensionless ratios shared the target unit — closed in `0b0591c` with a per-metric `units` mapping. `make check`: exit 0 — backend 292 passed / 10 SQL skipped, ML 559 passed, frontend 47 passed, reference contracts 119 passed.
+- **Not wired (deliberate):** nothing in the repository's gates calls this package yet, so a catastrophic slice cannot fail `make check` through it; `make ml-eval` still runs the older golden gate. TASK-058 owns the wiring and declares TASK-022 as a dependency. Overload metrics are reported but not gated, because the feature layer can only produce `event_count`.
 
 **Report operational slices and interval quality without hiding failures** — RQ-02, RQ-05.
 
