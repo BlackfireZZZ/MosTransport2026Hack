@@ -137,6 +137,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-057 | [Explain model behavior and compare baseline errors](#task-057) | feature | ml,frontend | P2 | R2 | backlog | unassigned | ML-EVAL | TASK-023, TASK-022 | G | M |
 | TASK-058 | [Run an evaluation-gated offline forecasting pipeline](#task-058) | feature | ml,backend | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-019, TASK-020, TASK-021, TASK-022, TASK-024, TASK-029 | H | M |
 | TASK-059 | [Profile supplied organizer data and map the ML integration gap](../analysis/2026-09-25-organizer-data/README.md) | research | data,ml,docs | P1 | R1 | done | real-data-eda lead | DATA-REVIEW | none | DATA | S |
+| TASK-060 | [Train and compare real route-level forecast candidates](../exec-plans/completed/route-ml-experiments.md) | feature | ml,docs | P1 | R2 | done | route-ml-experiments lead | ML-EXPERIMENT | TASK-059 | DATA | M |
 
 ## TASK-001
 

@@ -225,3 +225,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local trained models and predictions; versioned reports live in docs.
+ml/artifacts/
