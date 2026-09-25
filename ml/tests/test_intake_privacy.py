@@ -187,3 +187,106 @@ def test_a_json_row_keyed_by_an_identifier_is_redacted_too(tmp_path):
 
     assert CARD not in str(raised.value)
     assert "digits" in str(raised.value) or "alnum_punct" in str(raised.value)
+
+
+LEAD_CARD = "ZZLEADCARDZZ4276380155129040"
+MIXED_CELLS = (
+    "2026-03-01T07:41:10+03:00",
+    LEAD_CARD,
+    "A-14",
+    "Chistye Prudy",
+    "T-2200",
+)
+
+
+@pytest.fixture
+def mixed_headerless_sample(tmp_path):
+    """A headerless row where one cell IS word-like and the other four are not.
+
+    ``ZZLEADCARDZZ4276380155129040`` is a valid Python identifier — letters then
+    digits, no separator — so a per-cell test prints it. Only judging the line can
+    redact it.
+    """
+    sample = tmp_path / "mixed"
+    sample.mkdir()
+    row = ",".join(MIXED_CELLS)
+    for name in ("validations", "telemetry"):
+        (sample / f"{name}.csv").write_text(f"{row}\n{row}\n", encoding="utf-8")
+    return sample
+
+
+def test_a_word_like_cell_beside_data_cells_is_redacted_with_the_line(
+    mixed_headerless_sample,
+):
+    from tramflow_ml.intake import SchemaError, printable
+
+    assert printable(LEAD_CARD), "the canary must pass the per-cell test to be a real probe"
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(IntakeRequest(source=mixed_headerless_sample))
+
+    message = str(raised.value)
+    for cell in MIXED_CELLS:
+        assert cell not in message
+    assert "4276380155129040" not in message
+    assert "<column 2: 28 alnum>" in message
+
+
+def test_the_headerless_diagnosis_fires_when_only_some_cells_fail(
+    mixed_headerless_sample,
+):
+    from tramflow_ml.intake import SchemaError
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(IntakeRequest(source=mixed_headerless_sample))
+
+    assert "Not every cell of the first line is word-like" in str(raised.value)
+
+
+def test_a_word_like_cell_never_reaches_the_report_either(mixed_headerless_sample, tmp_path):
+    from tramflow_ml.intake import load_profile
+
+    path = tmp_path / "mixed.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "intake-profile.v1",
+                "name": "mixed",
+                "source_format": "csv",
+                "has_header": True,
+                "files": {"validations": "validations.csv", "telemetry": "telemetry.csv"},
+                "columns": {"event_id": LEAD_CARD},
+                "constants": {},
+                "timestamp_format": None,
+                "assume_timezone": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    from tramflow_ml.intake import SchemaError
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(
+            IntakeRequest(source=mixed_headerless_sample, profile=load_profile(path))
+        )
+
+    assert LEAD_CARD not in str(raised.value)
+
+
+def test_a_genuine_header_is_untouched_by_the_line_rule(tmp_path):
+    """Every cell word-like, so the line is a header and reads exactly as before."""
+    sample = tmp_path / "real"
+    sample.mkdir()
+    for name in ("validations", "telemetry"):
+        (sample / f"{name}.csv").write_text("ticket_no,line,platform\na,b,c\n", encoding="utf-8")
+
+    from tramflow_ml.intake import SchemaError
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(IntakeRequest(source=sample))
+
+    message = str(raised.value)
+    assert "columns found (3): ticket_no, line, platform" in message
+    assert "<column" not in message
+    assert "Not every cell" not in message

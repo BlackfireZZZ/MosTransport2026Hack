@@ -14,7 +14,13 @@ from pathlib import Path
 
 from tramflow_ml.ingestion.normalize import STREAM_FIELDS
 from tramflow_ml.ingestion.records import SourceFormat, StreamName
-from tramflow_ml.intake.columns import ColumnRef, describe, labels, positional_names
+from tramflow_ml.intake.columns import (
+    ColumnRef,
+    build,
+    describe,
+    labels,
+    positional_names,
+)
 from tramflow_ml.intake.profile import (
     STREAMS,
     IntakeProfile,
@@ -44,8 +50,14 @@ class StreamSchema:
     def header(self) -> tuple[str, ...]:
         return tuple(column.name for column in self.columns)
 
+    @property
+    def trusted(self) -> bool:
+        """Whether the column line read as a header rather than as a first data row."""
+        return not any(column.redacted for column in self.columns)
+
     def label_for(self, name: str) -> str:
-        return next((c.label for c in self.columns if c.name == name), describe(name))
+        found = next((c.label for c in self.columns if c.name == name), None)
+        return found if found is not None else describe(name, self.trusted)
 
     def to_dict(self) -> dict[str, object]:
         section: dict[str, object] = {
@@ -90,6 +102,7 @@ def _stream_schema(source: Path, profile: IntakeProfile, stream: StreamName) -> 
         raise SchemaError(_absent_file_message(source, stream, name))
     columns, data_start = _columns(path, profile.source_format, profile.has_header)
     observed = {column.name for column in columns}
+    trusted_columns = not any(column.redacted for column in columns)
     adapter = profile.adapter
     fields = STREAM_FIELDS[stream]
     declared = {field: adapter.columns[field] for field in fields if field in adapter.columns}
@@ -111,7 +124,11 @@ def _stream_schema(source: Path, profile: IntakeProfile, stream: StreamName) -> 
         unmapped=tuple(field for field in unresolved if field not in constants),
         unused=tuple(sorted(c.label for c in columns if c.name not in set(mapping.values()))),
         never_seen=tuple(
-            sorted(describe(column) for column in declared.values() if column not in observed)
+            sorted(
+                describe(column, trusted_columns)
+                for column in declared.values()
+                if column not in observed
+            )
         ),
     )
 
@@ -130,7 +147,10 @@ def _reject_absent_declarations(
     if profile.source_format != "csv":
         return
     observed = {column.name for column in columns}
-    absent = sorted(describe(column) for column in declared.values() if column not in observed)
+    trusted = not any(column.redacted for column in columns)
+    absent = sorted(
+        describe(column, trusted) for column in declared.values() if column not in observed
+    )
     if absent:
         raise SchemaError(
             f"profile.columns names columns absent from {path.name}: {absent}\n\n"
@@ -159,27 +179,31 @@ def _csv_columns(path: Path, has_header: bool) -> tuple[tuple[ColumnRef, ...], i
     if not cells:
         raise SchemaError(f"{path.name}: the first line holds no columns.")
     if not has_header:
-        names = positional_names(len(cells))
-        return tuple(ColumnRef.of(index + 1, n) for index, n in enumerate(names)), 0
-    _reject_bad_header(path, cells)
-    return tuple(ColumnRef.of(index + 1, name) for index, name in enumerate(cells)), len(line)
+        return build(positional_names(len(cells))), 0
+    _reject_blank_names(path, cells)
+    columns = build(cells)
+    _reject_repeated_names(path, columns)
+    return columns, len(line)
 
 
-def _reject_bad_header(path: Path, cells: Sequence[str]) -> None:
+def _reject_blank_names(path: Path, cells: Sequence[str]) -> None:
     blank = [index + 1 for index, cell in enumerate(cells) if not cell.strip()]
     if blank:
         raise SchemaError(
             f"{path.name}: header columns at positions {blank} have empty names. "
             "Give every column a name, or set \"has_header\": false in a profile."
         )
-    seen: dict[str, int] = {}
-    for index, cell in enumerate(cells):
-        first = seen.setdefault(cell, index + 1)
-        if first != index + 1:
-            label = ColumnRef.of(first, cell).label
+
+
+def _reject_repeated_names(path: Path, columns: Sequence[ColumnRef]) -> None:
+    seen: dict[str, ColumnRef] = {}
+    for column in columns:
+        first = seen.setdefault(column.name, column)
+        if first is not column:
             raise SchemaError(
-                f"{path.name}: the header repeats a column name at positions {first} and "
-                f"{index + 1} ({label}). Column names must be unique."
+                f"{path.name}: the header repeats a column name at positions "
+                f"{first.position} and {column.position} ({first.label}). "
+                "Column names must be unique."
             )
 
 
@@ -202,7 +226,7 @@ def _json_columns(path: Path) -> tuple[ColumnRef, ...]:
             "see no columns at all. Check the encoding and whether the file really is "
             "JSON Lines, one object per line."
         )
-    return tuple(ColumnRef.of(index + 1, name) for index, name in enumerate(sorted(keys)))
+    return build(sorted(keys))
 
 
 def _missing_files_message(source: Path, candidates: Sequence[str]) -> str:
@@ -252,9 +276,11 @@ def _unmapped_message(profile: IntakeProfile, schemas: Sequence[StreamSchema]) -
             *[line for schema in blocked for line in _stream_block(schema)],
             *_headerless_hint(profile, blocked),
             "No column is mapped by name similarity, position or a synonym list: only an "
-            "exact canonical name maps on its own. A name that is not word-like is shown by "
-            "shape and position rather than quoted, because intake cannot tell a header from "
-            "a first data row. Supply the mapping yourself and rerun with --profile <file>:",
+            "exact canonical name maps on its own. Column names are judged a line at a "
+            "time: unless every cell of the line is word-like, the line is treated as data "
+            "and every cell is shown by shape and position rather than quoted, because "
+            "intake cannot tell a header from a first data row. Supply the mapping yourself "
+            "and rerun with --profile <file>:",
             "",
             _render(skeleton),
             "",
@@ -267,16 +293,15 @@ def _unmapped_message(profile: IntakeProfile, schemas: Sequence[StreamSchema]) -
 
 
 def _headerless_hint(profile: IntakeProfile, blocked: Sequence[StreamSchema]) -> list[str]:
-    redacted = all(
-        column.label != column.name for schema in blocked for column in schema.columns
-    )
-    if not redacted or profile.source_format != "csv" or not profile.has_header:
+    condemned = any(not schema.trusted for schema in blocked)
+    if not condemned or profile.source_format != "csv" or not profile.has_header:
         return []
     return [
-        "No column name in this file is word-like, which is what a file with no header "
-        "row looks like: row one's cells have been read as column names. Set "
-        "\"has_header\": false in a profile to treat every line as data and address "
-        "columns as column_1, column_2 and so on.",
+        "Not every cell of the first line is word-like, which is what a file with no "
+        "header row looks like: row one's cells have been read as column names. Every "
+        "cell of that line is therefore shown by shape, including any that happens to "
+        "look like a name. Set \"has_header\": false in a profile to treat every line "
+        "as data and address columns as column_1, column_2 and so on.",
         "",
     ]
 

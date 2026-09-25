@@ -130,12 +130,16 @@ current output and exit codes; the intake package has no consumer in `backend/`.
    `alnum_punct`, `other`). Never a value, never a sample, never a most-frequent
    value, never a hash of a value.
 
-   **Column names are untrusted too.** Intake cannot know that a CSV's first line is
-   a header, so a name is quoted only when it is word-like (`str.isidentifier`);
-   anything else is rendered as `<column N: LEN SIGNATURE>`. Real names are still used
-   for matching, so a profile that names a column works whether or not the name prints.
-   A CSV profile may declare `has_header: false`, which both stops row one being eaten
-   as a header and addresses the columns positionally as `column_1`, `column_2`, ….
+   **Column names are untrusted too, and are judged a line at a time.** A per-cell
+   test cannot work: a datum can look like a name (`MSK4276380155129043` is a valid
+   identifier), so the safe set and the word-like set overlap. What makes a header a
+   header is that *every* cell of it is word-like (`str.isidentifier`); one failure
+   condemns the line, and every cell is then rendered as `<column N: LEN SIGNATURE>`,
+   including cells that would have passed alone. The same holds for a JSON Lines key
+   set. Real names are still used for matching, so a profile that names a column works
+   whether or not the name prints. A CSV profile may declare `has_header: false`, which
+   both stops row one being eaten as a header and addresses the columns positionally as
+   `column_1`, `column_2`, ….
 
    The invariant, stated at the width it actually holds: **no cell of the sample is
    ever quoted, including one that arrives labelled as a column name.** Beyond
@@ -350,7 +354,8 @@ and the defect lived in an assumption neither the code nor the tests had written
 
 | Severity | Finding | Fix |
 |---|---|---|
-| CRITICAL | C1 — `read_csv_header` takes the first physical line as the header unconditionally, so a headerless CSV's row-one cells become "column names" and are echoed verbatim; `4276380155129043` appeared four times in one refusal, and with a profile also in the report file. The identifier digest machinery was bypassed because the value arrived labelled as *schema*, the one category the invariant permitted printing. | Column names are now untrusted. `intake/columns.py` quotes a name only when it is word-like (`str.isidentifier`, unicode included) and otherwise renders `<column N: LEN SIGNATURE>`; real names are still used for matching, so profiles are unaffected. A CSV profile may declare `has_header: false`, which stops row one being consumed as a header and addresses columns as `column_1…`. When no name in a CSV is word-like the refusal says the file looks headerless and points at the flag. |
+| CRITICAL | C1 — `read_csv_header` takes the first physical line as the header unconditionally, so a headerless CSV's row-one cells become "column names" and are echoed verbatim; `4276380155129043` appeared four times in one refusal, and with a profile also in the report file. The identifier digest machinery was bypassed because the value arrived labelled as *schema*, the one category the invariant permitted printing. | Column names are untrusted, and — after C1b below — are judged a line at a time. `intake/columns.py` renders a condemned line's cells as `<column N: LEN SIGNATURE>`; real names are still used for matching, so profiles are unaffected. A CSV profile may declare `has_header: false`, which stops row one being consumed as a header and addresses columns as `column_1…`. |
+| CRITICAL | C1b — the first fix judged names **one cell at a time**, so `ZZLEADCARDZZ4276380155129040` printed four times: `"…".isidentifier()` is `True` for letters followed by digits. The defect was the shape of the rule, not the strictness of the predicate — a transit card serial with a letter prefix, a ticket reference, a surname and a device tag are all valid identifiers. `isidentifier` happened to reject all five cells the first reviewer planted, which is why the fix looked complete: it was calibrated to those cells rather than to the class. Tightening further cannot work, because the safe set and the word-like set genuinely overlap. | The unit of trust is the **line**. A header is a line whose *every* cell is word-like; one failure condemns the line and every cell is shown by shape and position, including cells that would have passed alone. The same rule covers a JSON Lines key set. The "looks headerless" diagnosis now fires whenever any cell fails, which is the case worth catching — it did not fire on the mixed fixture before. A genuine header is untouched. Two alternatives were rejected: widening the per-cell test to admit `Stop Name` would let a headerless line of uniformly name-shaped cells pass as a header, and comparing row one's shapes against row two's false-positives on real headers, since `stop_id` and `synthetic:stop:1` share the `alnum_punct` signature. |
 | HIGH | H1 — `_json_keys` unioned keys over the first 200 lines, so a 400-row file whose `vehicle_id` starts at row 251 was **refused** for a field it carries; worse, writing exactly the profile the checklist asks for gave an identical refusal, because the mapping check also consulted the 200-line key set. The only escape was to fabricate a constant. | The key set is now the whole file, and an explicit `profile.columns` entry always takes effect regardless of what was observed. The sampling limit is gone rather than disclosed. On JSON Lines a declared key no row carries is reported as `missing_rate: 1.0` and listed under `declared_columns_never_seen`; on CSV, where the header is the schema, it is refused by name (M6). |
 | MEDIUM | M1 — `as_number` accepted `-1` and `2.5` for `stop_sequence` and `999.0` for `latitude` and reported `unparsed: 0`, a clean bill on rows `ingest` quarantines wholesale. Plan decision 5 claimed coercion matched `ingestion.normalize` "exactly"; it did not. | `MeasureContract` per field (non-negative integer; ±90; ±180) and a second count, `out_of_contract`, beside `unparsed`. The `sum` is withheld when either is non-zero. Decision 5 now states that coercion is deliberately more permissive and says why the second count exists. |
 | MEDIUM | M2 — a CSV spelling integers as `0.0`, which is what `pandas.to_csv` emits for a float-typed column, flipped the `integral` flag, nulled `sum`, and made `streams` unequal against the same facts in JSON. The same split fed the payload digest, so one `event_id` written `0` in one file and `0.0` in another counted as a *conflicting duplicate* that is not one. | Numbers are canonicalised by field contract before being summarised or digested; `integral` is keyed off the contract, not the observed type. `canonical_text` does the same for identifiers so `14` and `14.0` are one value. A `float_integers` variant of fixture B is now part of the reconciliation suite. |
@@ -366,6 +371,12 @@ refusing. It does so once the key is declared in a profile, which is one line, b
 *undeclared* absent field still refuses — reporting it would silently delete the
 checklist that is this task's central deliverable, since a wholly foreign JSONL is
 exactly the case where every canonical name is absent. Both behaviours are tested.
+
+Residual risk, disclosed rather than closed: a headerless file in which *every* cell is
+word-like (`Ivanov,Petrov,Sidorov`) still prints those cells. The line rule narrows the
+class sharply — one digit-leading, punctuated or spaced cell anywhere condemns the line —
+but cannot eliminate it without a structural signal, and the only cheap structural signal
+available false-positives on real headers.
 
 One limitation the fix introduced and did not close: a headerless CSV is addressed
 positionally through a single `columns` map shared by both streams, so two streams with

@@ -326,12 +326,33 @@ An enumerated value outside its allowlist is counted as `other` and never quoted
 
 **No cell of the sample is ever quoted, including one that arrives labelled as a
 column name.** Intake cannot know that a CSV's first line is a header, and a JSON
-object can be keyed by anything, so a column name is quoted only when it is word-like
-(`str.isidentifier`, unicode included). Anything else is described by shape at its
-position — `<column 1: 16 digits>` — which still tells the operator which column needs
-mapping without printing the cell that was mistaken for a name. When no name in a CSV
-is word-like, the refusal says so and points at `has_header`. This is what stops a
-headerless extract from echoing row one's card numbers into the checklist.
+object can be keyed by anything.
+
+The unit of trust is the **line**, not the cell. A per-cell test can only ask "does
+this look like a name?", and a datum is perfectly capable of looking like one:
+`MSK4276380155129043`, `A4276380155129043` and `Ivanov` are all valid identifiers, so
+no predicate can separate them from real column names — the safe set and the word-like
+set overlap. What distinguishes a header is that *every* cell of it is word-like
+(`str.isidentifier`, unicode included, so `маршрут` passes and anything with a space, a
+separator or a leading digit does not). So if any cell of the line fails, the whole line
+is data and every cell is rendered by shape at its position — `<column 2: 28 alnum>` —
+including the cells that happen to look like names. Position is what keeps the checklist
+actionable: the operator still learns which column needs mapping. The same rule applies
+to a JSON Lines stream, where the unit is the key set rather than a header line.
+
+A real header, where every cell is word-like, reads exactly as it always did. The cost
+falls on a genuine header with a spaced or hyphenated name — `route_id,Stop Name` — which
+is shown entirely by shape; the operator can read their own file, and a profile naming
+the real column still works, because matching never goes through the label. Widening the
+per-cell test to admit those names would be worse: it would let a headerless line of
+uniformly name-shaped cells pass as a header.
+
+One case the rule does not close: a headerless file in which *every* cell is word-like
+(`Ivanov,Petrov,Sidorov`) still prints those cells. The line rule narrows that class
+sharply — one digit-leading, punctuated or spaced cell anywhere in the line condemns it
+— but does not eliminate it. Comparing row one's shapes against row two's was considered
+and rejected: a genuine header `stop_id` and its data `synthetic:stop:1` share the
+`alnum_punct` signature, so the comparison false-positives on real headers.
 
 What the report *does* contain, beyond constants defined in our code and derived
 numbers and instants: word-like column names and file names read from the sample's
