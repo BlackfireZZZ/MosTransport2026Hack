@@ -136,6 +136,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-056 | [Export a self-describing dispatcher forecast report](#task-056) | feature | frontend | P2 | R1 | done | for-vova-huesos | UI-CHART | TASK-035, TASK-036 | I | S |
 | TASK-057 | [Explain model behavior and compare baseline errors](#task-057) | feature | ml,frontend | P2 | R2 | backlog | unassigned | ML-EVAL | TASK-023, TASK-022 | G | M |
 | TASK-058 | [Run an evaluation-gated offline forecasting pipeline](#task-058) | feature | ml,backend | P1 | R2 | backlog | unassigned | BATCH-PUBLISH | TASK-019, TASK-020, TASK-021, TASK-022, TASK-024, TASK-029 | H | M |
+| TASK-059 | [Profile supplied organizer data and map the ML integration gap](../analysis/2026-09-25-organizer-data/README.md) | research | data,ml,docs | P1 | R1 | done | real-data-eda lead | DATA-REVIEW | none | DATA | S |
 
 ## TASK-001
 
@@ -766,7 +767,13 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Evidence / scope:** [docs/product/TASK.md](../../docs/product/TASK.md). On authorized receipt, record checksums/schema/licence/coverage, actual validation semantics, incumbent availability, scoring and submission requirements.
 - **Acceptance:** Read-only report resolves or explicitly blocks targets/horizons; immutable source retained; minimum privacy/retention decisions recorded; no raw sensitive data committed.
 - **Focused verification:** Run intake profiler on permitted sample and reconcile supplied totals.
-- **Pre-data boundary / risk:** Blocked by organizer dataset/schema and evaluation instructions; human/data owner supplies access. Next action: run TASK-039 on first authorized sample.
+- **Updated 2026-09-25:** Authorized ZIP and detailed PDF have arrived. TASK-059
+  [evidence](../analysis/2026-09-25-organizer-data/README.md) resolves source target,
+  full raw/labels reconciliation and submission rules. The former data-arrival
+  blocker is removed; TASK-039 toolkit dependency and formal adapter/coverage
+  certification remain open. No licence/retention policy was supplied with the
+  archive. Next action: review this evidence with TASK-039, settle source coverage
+  and route-only contract policy, and record the remaining data-owner decisions.
 
 ## TASK-050
 
@@ -866,3 +873,31 @@ Sources reviewed on 2026-09-23:
   no automatic locking or schema enforcement: one index owner and diff review
   mitigate collisions and stale status. This is a process choice, not a measured
   improvement to forecast accuracy or runtime SLA.
+
+## TASK-059
+
+User-authorized first-data analysis on 2026-09-25, independent of the unfinished
+TASK-039 toolkit. Scope: read-only full raw/labels reconciliation, reference-table
+audit, exploratory seasonal backtests, application compatibility report. No
+production adapter/model/API changes and no takeover of TASK-020/039.
+
+Owner: real-data-eda lead. Base 0767619f487725e516ae3d00ef6ef138520160f1;
+branch agent/real-data-eda; worktree
+/Users/cute/MosTransport2026Hack-worktrees/real-data-eda.
+Owned files: docs/analysis/2026-09-25-organizer-data/* and this tracker entry.
+
+Hypothesis: successful source rows reproduce route/hour labels when event-time
+file tails are handled; production code remains unchanged. Acceptance: complete
+raw scan, exact reconciliation or quantified mismatch, safe evidence without card
+identifiers, frozen-origin baseline diagnostics, concrete contract/publication gaps.
+Verification: supplied-data assertions, baseline reproducibility and make check.
+See the [report](../analysis/2026-09-25-organizer-data/README.md) and its HANDOFF.md
+for observed evidence, known limitations and exact next action.
+
+2026-09-25 result: full scan 62,443,497 raw rows; exact match of all 57,551
+labels after union and pre-November cutoff. Ten frozen-origin seasonal experiments
+reproduced byte-for-byte. Parent make check passed: backend350 (48SQL skipped),
+ML265, frontend92, reference119; static/build/OpenAPI/Compose gates passed.
+Independent report review passed after clarifying the PDF performance attribution.
+Integration method: local fast-forward of reviewed research commit; no remote push.
+Worktree retained because branch is unpushed. Production implementation remains open.
