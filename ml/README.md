@@ -286,3 +286,172 @@ at a forecast origin and therefore cannot be features; no placeholder column exi
 them. There is no holiday calendar — `is_weekend` is the civil weekday and is not a
 holiday proxy. For real data the coverage calendar must come from the organizer's own
 coverage statement, not from our row counts.
+
+## Rolling-origin backtesting
+
+`tramflow_ml.backtest` turns the feature layer into a *fold index*: a chronological set
+of rolling forecast origins that a candidate and a baseline are scored on, plus an
+experiment manifest that identifies exactly what ran (TASK-020, RQ-02). It is a
+pure-Python API — there is no `tramflow-ml` subcommand for it, and CLI and pipeline
+wiring belong to TASK-058.
+
+```python
+from tramflow_ml.backtest import BacktestConfig, BacktestData, FoldRules, run_backtest
+from tramflow_ml.features import MONTH_DAY, YEAR_MONTH, CoverageCalendar, load_entity_keys, load_observations
+
+config = BacktestConfig(
+    rules=(FoldRules(policy=MONTH_DAY), FoldRules(policy=YEAR_MONTH)),
+    target="synthetic_boardings",
+    unit="event_count",
+)
+data = BacktestData.of(
+    load_entity_keys(fixture_dir / "entities.json"),
+    load_observations(ingest_dir / "validations.jsonl"),
+    CoverageCalendar.from_range(date(2024, 1, 1), date(2026, 1, 1), gaps=gap_dates),
+)
+outcome = run_backtest(config, data, [candidate, baseline])   # models, in the caller's order
+outcome.passed, outcome.reasons, outcome.manifest.manifest_hash
+```
+
+A model is anything carrying `name`, `version` and
+`predict(fold, data) -> Sequence[float]`. It is handed a `FoldData` that was already cut
+at the fold's cutoff: the cutoff-visible train and validation observations, the `as_of(C)`
+coverage view and the label-free feature rows (`FeatureRow.feature_dict()`). It never
+receives the observation set, the coverage calendar or the origin, so it cannot build a
+different fold, and it cannot read the label it is asked to predict. Predictions must be
+finite and non-negative, which is what `contracts/forecast_v1.ForecastPoint` accepts.
+
+Fold rules. One origin `O` yields three whole-period windows and one cutoff:
+
+| Window | Boundaries |
+|---|---|
+| `test` | `[O, horizon_end(O))` — the horizon buckets, the labels |
+| cutoff `C` | `O` moved back by the policy's `cutoff_lead_buckets` plus the embargo |
+| `validation` | the `validation_periods` whole periods ending at the latest period boundary `<= C` |
+| `train` | `[first whole bucket of the data, validation_start − embargo)` |
+
+`train.end <= validation.start < validation.end <= C <= O < test.end` is asserted on
+construction, so a fold whose windows overlap cannot exist. Origins are period-aligned
+and `origin_stride_periods` apart (default 1), so successive test windows are exactly
+contiguous and never overlap.
+
+Period arithmetic is the feature layer's calendar arithmetic. A period is 24 elapsed
+hours, one calendar month or twelve calendar months — `horizon_end` equals
+`horizon_buckets(...)[-1].end` and `contracts.calendar_v1.forecast_buckets(...)[-1][1]`
+for a leap February, a 31-day month, a 12-month year and a Moscow DST day, and a test
+pins all four. Nothing is approximated as 30 or 365 days. A `day` period is 24 *elapsed*
+hours because that is what `calendar.v1` says a day horizon is, so a day origin is any
+exact Moscow hour and, across a DST transition, successive day origins stop landing on
+midnight (2011-03-27 is followed by an origin at 01:00). Contiguity is preserved;
+civil-day alignment is not. Moscow has had no DST since 2014, so this affects historical
+spans only.
+
+The cutoff is never reimplemented here. The embargo is applied by deriving an effective
+policy — `replace(policy, cutoff_lead_buckets=lead + embargo)` — and handing *that* to
+`build_features`, so `event_at < C and available_at <= C` and "a history bucket only when
+`bucket_end <= C`" stay in exactly one place. A runtime check refuses a fold whose
+declared cutoff differs from the cutoff the feature layer applied.
+
+Eligibility. An origin becomes a fold only if every rule holds; the first failure, in
+this order, is the recorded reason:
+
+| Reason | Meaning |
+|---|---|
+| `horizon_beyond_data` | the horizon ends after the data does. Not a fold with missing labels — not a fold. Nothing is truncated |
+| `incomplete_labels` | some horizon bucket has no label at all |
+| `diluted_labels` | covered horizon dates over total horizon dates is below `minimum_label_unit_ratio` (default `1.0`) |
+| `insufficient_train_history` | fewer than `minimum_train_buckets` train buckets, or validation would start before the data |
+
+Every candidate origin is recorded either as a fold or as a refusal naming its horizon,
+its origin and the numbers behind the decision, and both reach the fold hash. A refusal
+that is not reported is indistinguishable from an origin nobody considered.
+
+Non-passing states. `run_backtest` *returns* a state; it does not raise and it never
+reports an empty pass.
+
+| Status | When | `passed` |
+|---|---|---|
+| `evaluated` | at least `minimum_origins` eligible folds, all scored, at least `minimum_origins` of them carrying demand | `True` |
+| `insufficient_history` | fewer eligible origins than required. The reason names the horizon, the required count, the eligible count and the refusal breakdown | `False` |
+| `insufficient_signal` | enough folds, but too few carry any demand, so WAPE is undefined on the rest | `False` |
+
+`HorizonOutcome.__post_init__` refuses to construct an `evaluated` outcome with too few
+folds or too few folds carrying demand, so "scored nothing, reported success" is
+unconstructible rather than merely untested. `minimum_origins` must be at least 1 for the
+same reason. `passed` is a statement about the *fold set*, not about model quality —
+whether a candidate beats its baseline is TASK-022's question.
+
+Defaults, all configuration and none of them certified. `minimum_origins` is 3: one fold
+cannot distinguish a candidate that is better from one that was lucky once, and two
+cannot say which way. `minimum_train_buckets` defaults to the policy's own look-back,
+`max(max(lags), max(rolling_windows), season_step × season_periods)` — 168 hourly, 364
+daily, 36 monthly — because that is exactly the history every declared column needs.
+`minimum_label_unit_ratio` is `1.0`: the test window is the ground truth, and a hole in it
+means the measured error is measured against truth that is not there.
+
+The embargo defaults to **0 buckets**, and the reasoning is worth reading before changing
+it. An embargo guards a channel the cutoff cannot see. There is no such channel here:
+labels are per-bucket counts with no smoothing or interpolation, a history bucket is used
+only once fully elapsed, and late publication is already modelled more precisely by
+`cutoff_lead_buckets` and by the coverage calendar's per-date publication instants. A
+nonzero default would throw away genuinely available information at every origin and make
+every model look worse than it is in production. Raise it as soon as a target is defined
+over a window rather than a bucket, or an organizer source is found to revise
+already-published dates.
+
+Determinism. Four SHA-256 hashes over canonical JSON: `config_hash` (the rules with every
+default resolved, plus each policy's full parameters), `data_hash` (the observations as
+sorted canonical lines, plus the coverage dates, publication instants and capacities),
+`fold_hash` (the ordered folds and every refusal) and `manifest_hash` over all three plus
+the versions and the results. Timestamps are normalised to UTC before hashing, so two
+spellings of one instant give one hash, and reversing the input event order changes
+nothing. The manifest carries no `generated_at`, no path and no wall clock at all — a
+manifest that changed every run would identify nothing. A test asserts the serialised
+manifest contains no clock word and no filesystem path.
+
+Leakage. The fold set is computed from the coverage calendar and the configuration alone
+and never reads an event, so it cannot move when the data does. On a fold at origin
+2025-06-01, appending 40 post-horizon events leaves the fold's `feature_digest`, every
+test feature row and both observation partitions byte-identical; appending 20 events
+*inside* the horizon leaves all of those identical while the labels legitimately rise. The
+negative control passes too: moving one event's `available_at` across the cutoff does
+change the feature digest and does drop that event from the validation partition, so the
+test cannot succeed by ignoring its input.
+
+Shared folds. `build_fold_set` is the only producer of a `FoldSet`; `run_backtest` builds
+it once, loops folds outside and models inside, and hands every model the same `Fold` and
+the same `FoldData` object. A test asserts two models record identical fold ids, identical
+test row keys, and identical `id()` for every fold and data object they were given.
+
+Observed on the real path (`synthetic` → `ingestion` → `features` → folds), 12 entities,
+default rules:
+
+| Fixture | Horizon | Eligible | Refused | Origins |
+|---|---|---|---|---|
+| default, 2024–2026, 64 events, gaps every 13 days | day | 667 | 56 `incomplete_labels`, 8 `insufficient_train_history` | 2024-01-09 … 2025-12-31 |
+| | month | 0 | 24 `incomplete_labels` | — |
+| | year | 0 | 2 `diluted_labels` (338/366 and 337/365 dates) | — |
+| gapless, 2024–2026, 2 000 events | day | 723 | 8 `insufficient_train_history` | 2024-01-09 … 2025-12-31 |
+| | month | 11 | 13 `insufficient_train_history` | 2025-02-01 … 2025-12-01 |
+| | year | 0 | 2 `insufficient_train_history` | — |
+| gapless, 2018–2026, 20 000 events | day | 2 914 | 8 | 2018-01-09 … 2025-12-31 |
+| | month | 83 | 13 | 2019-02-01 … 2025-12-01 |
+| | year | 4 | 4 | 2022-01-01 … 2025-01-01 |
+
+Two years of history therefore support **no year fold at all**: a year fold needs three
+years of monthly look-back, one year of validation and one complete future year, so five
+years of coverage is the floor. The gapped fixture supports no month fold either, because
+a gap day every 13 days puts a hole in every month. Both runs report
+`status="insufficient_history"` with the horizon, the requirement, the eligible count and
+the refusal breakdown, and `passed=False`. Two `run_backtest` calls, and runs built from
+two independent ingestions of the same fixture, produce identical `data_hash`, `fold_hash`
+and `manifest_hash` (gapless month horizon:
+`f3ff88096bcde293199fddee42974e372aff1ccf10f2d451ab4408edf6a13791`).
+
+Not certified before organizer data: every default above, the eligibility thresholds, and
+the number of viable real yearly folds — which the table shows is a property of how much
+coverage the organizer supplies, not of this code. `passed` does not mean a model is good.
+Per-fold MAE and WAPE are the minimum needed to compare two models on identical folds;
+the operational slices, the worst-slice report and interval quality are TASK-022, and no
+model lives here (TASK-021, TASK-023). WAPE is `None`, never `0.0`, for a fold with no
+demand, matching `evaluation.py`, and a test pins the two definitions together.
