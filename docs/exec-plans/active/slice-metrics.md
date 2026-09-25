@@ -234,12 +234,12 @@ IDENTICAL
 $ make ml-check          # exit 0
 ruff: All checks passed!
 mypy: Success: no issues found in 56 source files
-pytest: 536 passed in 35.35s     (479 before this branch; 57 new)
+pytest: 559 passed in 48.05s     (479 before this branch; 80 new)
 
 $ make check             # exit 0
 Architecture boundaries passed.
 backend:   292 passed, 10 skipped
-ml:        536 passed
+ml:        559 passed
 ml-eval:   "passed": true
 frontend:  8 test files, 47 passed; lint and build clean
 contracts: 119 passed
@@ -282,10 +282,15 @@ it names the slice:
 ```
 overall: wape=0.18 samples=60 folds=4 status=evaluated (MAX_WAPE=0.4)
 passed=False
-FAIL: 2 breached, 0 unproven
+FAIL: 3 breached, 0 unproven
 daypart=evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+entity_daypart=route-A|dir-N|stop-1|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
 route_daypart=route-A|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+every slice was judged
 ```
+
+The third line and the trailing ungated line are new since the acceptance review; the
+verdict for this construction was a failure before them too.
 
 `test_the_same_slice_fails_whether_or_not_anyone_declared_it_required` asserts the same
 failure set with and without the `required=` declaration, so the mechanism does not
@@ -326,12 +331,20 @@ reaches the denominator.
 ### Determinism
 
 ```
-bytes equal: True; length 5993; digest 38ae081d615bc7c8fcb58756b9b8d6a33852b927b075dba4005023f92cad3006
+bytes equal: True; length 14216; digest ce8d10a1dd7ed968d6af487aa35312c9aa6512e4f28b7a70fb3c43c3ca25d159
 ```
 
 Two reports over the same 60 points, the second from a `random.Random(11)`-shuffled list,
-encoded with `features.records.encode` (sorted keys, no NaN). The payload contains no
-`2026-` timestamp and no `/home` path.
+encoded with `features.records.encode` (sorted keys, no NaN), reproduced identically under
+`PYTHONHASHSEED` 0, 1 and 42. The payload contains no `2026-` timestamp and no `/home`
+path.
+
+**The digest moved**, from `38ae081d61…` at 5993 bytes to the value above, and the payload
+is legitimately larger. Measured on that same 60-point report: the two new axes take it
+from 10 slices to 16 (4 `fold`, 2 `entity_daypart`) and account for 5993 → 9404 bytes; the
+per-slice `units` mapping and `baseline_absent_reason` account for 9404 → 14060; the
+`ungated` block accounts for the remaining 156. No fix changed a number that was already
+being reported — every previously asserted metric value still holds.
 
 ### Known limits of this evidence
 
@@ -368,6 +381,53 @@ Its remaining LOW finding — that a tie on `sort_key` would leave summation ord
 caller-dependent — had already been closed by commit `6881342`, which refuses a repeated
 `(entity, horizon, bucket, fold)` outright; the reviewer read the state before it.
 
+### Acceptance review: three HIGH findings, all reproduced before fixing
+
+An acceptance review passed `ACCEPT WITH FINDINGS` on commit `fed31fe` and returned three
+constructions that made models pass which should not. Each was reproduced against the
+then-current code before anything was changed, and each is now pinned in
+`ml/tests/test_slices_review_probes.py`. Two of the three left no trace anywhere in the
+report, so they failed the weaker visibility property as well as the gate.
+
+| Severity | Finding, as reproduced | Fix |
+|---|---|---|
+| HIGH | A self-declared `level` made both interval checks vacuous. Twelve points, demand 100, predicted 70, "interval" `[70, 70]`: `level 0.02 → passed=True, failures=0`; `level 0.80 → passed=False, failures=12`. Identical predictions and identical zero width. `coverage_limit = level - shortfall` was negative at 0.02, and `2/α = 2.04` made every miss nearly free | `MIN_INTERVAL_LEVEL` (0.8) added to `GateThresholds`, printed like every other threshold; a judged slice declaring less fails on `interval_level`; the coverage check is skipped rather than computed against a negative requirement; `GateThresholds` refuses a `MAX_COVERAGE_SHORTFALL` not below `MIN_INTERVAL_LEVEL`. Probe now `passed=False` at 0.02, 0.5 and 0.79 |
+| HIGH | `fold` was not an axis, so a model 100% wrong on the most recent origin was invisible: 60 perfect points over five folds plus twelve on `f5` predicting 0 gave `overall wape=0.1667, failures=[], passed=True`, and no slice showed it | `fold` axis added. It is one origin by construction, so `MIN_FOLDS_FOR_GATE` cannot apply to it — `SINGLE_ORIGIN_AXES` waives it, because a floor justified by "one origin is not a generalisation" would make the axis unable to report the thing it was added for. `fold=f5` now reads 12 samples, WAPE 1.0, `evaluated`, and fails. `fold × horizon` deliberately not added: `backtest.folds.fold_id` is `f"{horizon}@{origin}"`, so the cross is 1:1 with `fold` |
+| HIGH | The cross that matters was not produced and could not be required. One route, six stops, four folds: `stop-1` catastrophic at the evening peak read 0.2 on `stop`, 0.167 on `daypart`, 0.2 on `entity`, 0.167 on `route_daypart`, 0.033 overall — diluted below `MAX_WAPE` everywhere. Declaring `SliceKey("entity_daypart", …)` named a key no axis emitted, giving a permanent `unproven` | `entity_daypart` emitted. The bad cell now reads 12 samples, 4 folds, WAPE 1.0 and fails, while every diluting axis still passes — so the cross is demonstrably what caught it |
+| MEDIUM | The fold floor was dodgeable by *placement*, not scarcity: 20 rows on one origin with WAPE 1.0 was `insufficient_history` and `passed: True` | The `fold` axis closes the crude form outright — a bad origin with nothing to dilute it is now judged and fails. For the residual case, where the bad origin also carries enough well-predicted rows, every report now ends with an `ungated` line counting each floor and naming the worst ungated WAPE, on a pass as well as a failure |
+| MEDIUM | The interval gate was scale-relative in the wrong direction. Low demand was punished for sanity: mean 2 with `[0, 7]` scored 7 against a limit of 4 and failed on eight axes at once | `MIN_INTERVAL_SCORE_ALLOWANCE` (8.0 target units) added as an absolute floor, because integer counts cannot be sharper than a few units and a gate that fires on correct behaviour is the one that gets switched off. The opposite error — mean 1000 with `[60, 1940]` scoring 1880 against a limit of 2000 and passing — is **not** fixed, and is now in the open risks with its numbers: tightening the ratio would re-break the low-demand case, and the real fix is a reference interval score, which needs TASK-021's baselines |
+| MEDIUM | A dropped baseline silently removed the baseline check. One missing baseline anywhere disabled `wape_vs_baseline` everywhere, and no reason was recorded | `baseline_absent_reason` added as the third sibling of `interval_absent_reason` and `overload_absent_reason`, with the same "only N of M points carry…" shape, so "no baselines this run" and "one row of five thousand" read differently |
+| LOW | `required` keys were not validated, so a key with an unknown axis became a permanent `unproven` blaming the data for a typo | Refused in `_demanded`, naming the valid axes |
+| LOW | `insufficient_samples` did double duty for "this slice does not exist" | Fourth status word `missing`, used only for a required key with no points. No `SliceMetrics` can carry it — a measured slice has at least one sample |
+| LOW | The Recovery section still mentioned an `evaluation.py` bridge that decision 15 explains was never written | Corrected |
+| nits | README illustrated with `[0, ∞)`, which `_finite` rejects; `_judge`'s `wape is None` guard would have skipped the interval checks; a test mutated a pydantic model in place, bypassing its validator | Illustration changed to `[0, 10000]`, which the tests actually use; interval checks moved before the guard; `model_copy(update=…)` |
+
+### Acceptance validation: criterion 3 closed, and one honesty item
+
+A separate validation returned `ACCEPT` for `fed31fe`, confirming byte-identity of
+`make ml-eval` against its own `git archive a87837c` checkout, the determinism digest under
+three `PYTHONHASHSEED` values, and all nine hand-fixture values. It could not break the
+required-slice mechanism in eleven constructions. Its verdict covers `fed31fe`; the axes
+added above were in flight at the time and are not covered by it.
+
+It found criterion 3 — "each metric includes unit/sample/fold count" — only partly met.
+Sample and fold counts were complete, but the slice payload carried one `unit`, the
+target's, while `wape`, `baseline_wape`, `relative_interval_width`, `coverage` and the two
+overload rates sat beside it unlabelled; a consumer applying the target unit to `wape` is
+simply wrong. `SliceFailure` already carried a genuine per-metric unit, so the fix was to
+give the slice dict the same thing: a `units` mapping naming each metric's own unit.
+The nested `interval` and `overload` dicts still carry `samples` and no `folds` — both are
+`null` unless every point qualifies, so their sample count always equals the slice's and
+the slice's fold count applies unchanged. That is documented rather than duplicated.
+
+It also observed that with `entity=None` the axis set collapses and a catastrophic
+subgroup reads as the overall dilution everywhere, and that a bad subgroup sharing every
+cut axis with good points reads identically on every slice. Neither is a defect in the
+judging logic — the first is caller-supplied metadata this layer must not infer
+(ADR-0006), the second is the intrinsic limit of any fixed-axis slicer — but the README
+promised more than that. It now states both plainly under "What the axes cannot see", and
+the verdict section says what a pass does and does not mean.
+
 ## Open risks
 
 - **Nothing calls this package.** `make ml-eval` runs `evaluation.py`, and the only
@@ -378,9 +438,24 @@ caller-dependent — had already been closed by commit `6881342`, which refuses 
   concrete: once a load target exists, the most operationally dangerous failure — never
   predicting an overload on a route that is always overloaded — will be visible in the
   report and will not fail the gate until somebody adds and agrees a threshold.
-- **`MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL = 2.0` is the weakest of the six constants.** A
-  genuinely noisy slice legitimately needs wide intervals, and this ratio does not know
-  the noise level. It will likely be the first threshold real data forces to move.
+- **`MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL = 2.0` is the weakest of the seven constants, and
+  it is weak in both directions.** A ratio to mean demand is a cap on the coefficient of
+  variation. The low-demand false positive is fixed by `MIN_INTERVAL_SCORE_ALLOWANCE`;
+  the high-demand false negative is not. At mean demand 1000 an interval of `[60, 1940]`
+  scores 1880 against a limit of 2000 and passes, with `relative_interval_width 1.88`
+  printed beside it. Tightening the ratio would re-break low demand, so the correct fix
+  is to score against a reference interval rather than against demand, which needs the
+  baselines TASK-021 owns.
+- **A subgroup sharing every cut axis with well-predicted points is invisible.** This is
+  intrinsic to a fixed-axis slicer, not a threshold problem: if the bad rows carry the
+  same route, direction, stop, daypart, horizon and fold as the good ones, every slice
+  holding them also holds the good ones. A pass is never proof that no such subgroup
+  exists.
+- **Without entity identification the report can cut only a handful of axes.** With
+  `entity=None`, six of the eleven axes vanish and a catastrophic route reads as the
+  overall dilution on everything that remains. This layer cannot synthesise entity
+  identity and must not infer direction (ADR-0006), so the quality of the cut is a
+  property of what the caller supplies.
 - **The peak windows are asserted, not measured.** 07-09 and 17-19 Europe/Moscow are our
   proposal. If the organizer's demand peaks elsewhere, `daypart` and `route_daypart` cut
   the wrong groups and the headline demonstration measures the wrong hours.
@@ -400,5 +475,5 @@ caller-dependent — had already been closed by commit `6881342`, which refuses 
 The `slices/` package has no consumer in the running system: the backend never imports
 `tramflow_ml`, and `cli.py` is untouched, so `make ml-eval` cannot change behaviour
 whether the commits stand or are reverted. Reverting the commits removes the package,
-its tests, the `evaluation.py` bridge function and the README section, and leaves every
-other area untouched.
+its tests and the README section, and leaves every other area untouched. There is no
+`evaluation.py` change to revert: decision 15 records why none was written.

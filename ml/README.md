@@ -700,17 +700,55 @@ never supplied, so a slice cannot be relabelled to escape a verdict.
 |---|---|---|
 | `overall` | `all` | always present, always required |
 | `horizon` | `day`/`month`/`year` | |
+| `fold` | `fold_id` | one origin, exempt from the fold floor — see below |
 | `route` | `route_id` | both operating sides pooled |
 | `direction` | `route_id\|direction_id` | a bare `direction_id` is meaningless across routes (ADR-0006) |
 | `stop` | `stop_id` | a physical place, so it spans both sides |
 | `entity` | `route_id\|direction_id\|stop_id` | the forecast key |
 | `daypart` | `morning_peak`/`evening_peak`/`offpeak` | hourly buckets only |
 | `route_daypart` | `route_id\|daypart` | "the evening peak on this route" is a cross, not an axis |
+| `entity_daypart` | `route_id\|direction_id\|stop_id\|daypart` | the forecast key crossed with the operating period |
 | `event` | the caller's tag | absent when the point carries none |
 
 `MORNING_PEAK_HOURS` is 07–09 and `EVENING_PEAK_HOURS` is 17–19 Europe/Moscow. Only the
 `day` horizon has hourly buckets, so `month` and `year` points are in **no** daypart
 slice rather than in a fabricated one: a monthly bucket has no evening peak.
+
+A `fold` slice is one origin by construction, so `MIN_FOLDS_FOR_GATE` cannot apply to it
+(`SINGLE_ORIGIN_AXES`). That floor exists because one origin is not a temporal
+generalisation; the `fold` axis exists precisely to expose a model that collapsed on one
+origin, so gating it on having two would make it unable to report the thing it is for.
+The sample floor still applies.
+
+`entity_daypart` is there because the diluting axes are not enough. On one route with six
+stops over four folds, where `stop-1` is 100% wrong at the evening peak and everything
+else is perfect, `overall` reads 0.033, `stop=stop-1` reads 0.2, `daypart=evening_peak`
+reads 0.167 and `entity=route-A|dir-N|stop-1` reads 0.2 — every one of them inside
+`MAX_WAPE`. Only the cross reads 1.0. ADR-0006 records that tram load is sharply
+asymmetric between directions, which is the same argument: the cut that exposes a
+failure is the forecast key crossed with the operating period, not either alone.
+
+`fold × horizon` is deliberately **not** produced: `backtest.folds.fold_id` is
+`f"{horizon}@{origin}"`, so on any fold set this repository generates that cross is one
+to one with `fold` and would only duplicate it.
+
+#### What the axes cannot see
+
+These are limits of a fixed-axis slicer, not of the judging logic, and no amount of
+threshold work removes them:
+
+- **A subgroup that shares every cut axis with well-predicted points is invisible by
+  construction.** If the bad rows have the same route, direction, stop, daypart, horizon
+  and fold as the good ones, every slice containing them also contains the good ones and
+  every slice reads the same diluted number. A pass is therefore never proof that no such
+  subgroup exists.
+- **A report built without entity identification can cut far fewer axes.** With
+  `entity=None` the `route`, `direction`, `stop`, `entity`, `route_daypart` and
+  `entity_daypart` axes are all absent, leaving `overall`, `horizon`, `fold`, `daypart`
+  for hourly buckets, and `event` where the caller tagged one. A catastrophic route then
+  reads as the overall dilution on every axis that remains. Entity identification is
+  caller-supplied metadata; this layer cannot synthesise it, and per ADR-0006 must not
+  infer direction.
 
 ### The metrics and their units
 
@@ -721,16 +759,32 @@ by averaging averages.
 | Metric | Unit |
 |---|---|
 | `actual_total`, `error_total`, `mae`, `mean_actual`, `mean_width`, `mean_interval_score` | the target's unit |
-| `wape`, `baseline_wape`, `coverage`, `relative_interval_width` | ratio |
-| `samples`, `folds`, `covered` | counts |
+| `wape`, `baseline_wape`, `coverage`, `level`, `relative_interval_width`, `actual_overload_rate`, `predicted_overload_rate` | `ratio` |
+| `samples`, `folds`, `covered`, `actual_overloaded`, `predicted_overloaded` | `count` |
 
-Every slice carries `unit`, `samples` and `folds`. A number without its support is not
-reportable, so they travel together through `to_dict()` and through every failure line.
+Every slice carries `samples`, `folds`, and a `units` mapping naming the unit of each
+metric individually, beside the `unit` field that gives the target's own unit. The two are
+not the same thing and must not be confused: applying the target unit to `wape` is simply
+wrong, so the report says which metrics it applies to. Failure records carry the same
+per-metric unit. A number without its support is not reportable, so support travels with
+every number through `to_dict()` and through every failure line.
+
+The nested `interval` and `overload` dictionaries carry `samples` but no `folds`. Both are
+`null` unless *every* point of the slice qualifies, so their sample count always equals
+the slice's and the slice's fold count applies to them unchanged; a second copy would be a
+field that can only ever agree.
+
+A baseline comparison needs a baseline on every point, so one missing baseline disables
+`wape_vs_baseline` for every slice that point belongs to — `overall` included. The reason
+is recorded in `baseline_absent_reason` with the count, so "no baselines this run" and
+"one row of five thousand" read differently. `interval_absent_reason` and
+`overload_absent_reason` are its two siblings.
 
 ### Why coverage alone is never reported
 
-An interval of `[0, ∞)` has perfect coverage and zero information. Coverage is therefore
-reported only together with mean width and the mean **interval (Winkler) score**
+An interval of `[0, 10000]` on demand of 100 has perfect coverage and no information.
+Coverage is therefore reported only together with mean width and the mean
+**interval (Winkler) score**
 
 ```
 IS = (upper - lower) + (2/α)·(lower - y)·1{y < lower} + (2/α)·(y - upper)·1{y > upper}
@@ -746,6 +800,17 @@ are 20 and 10000.
 Interval quality is suppressed, with the reason on the record, when only some points in
 a slice carry bounds, or when the points declare different levels or different methods —
 a coverage figure pooled across two nominal levels describes neither.
+
+**The nominal level is itself gated.** Both interval checks are stated relative to the
+level the producer declares, so a low enough declaration makes both vacuous: at level
+0.02 the coverage requirement would be negative and `2/α` is 2.04, which makes every miss
+nearly free. Twelve points with demand 100, predicted 70, and an "interval" of
+`[70, 70]` — a point estimate wearing an interval's clothes — passed at level 0.02 and
+failed at level 0.80, on identical predictions. `MIN_INTERVAL_LEVEL` now fails any judged
+slice whose declared level is below it, the coverage check is skipped rather than computed
+against a negative requirement, and `GateThresholds` refuses a `MAX_COVERAGE_SHORTFALL`
+that is not below `MIN_INTERVAL_LEVEL`, since such a pair could only produce a
+requirement that judges nothing.
 
 ### Zero demand and small samples
 
@@ -764,6 +829,16 @@ a coverage figure pooled across two nominal levels describes neither.
   keeps every metric and its support, is listed in full, and is excluded from the gate. A
   three-sample WAPE is noise; hiding it defeats the point of the report, and failing on
   it makes the gate unbelievable.
+- **An ungated slice is counted and the worst of it is named.** The floors are about
+  scarcity, but they can also be dodged by *placement*: eighteen rows is well over the
+  sample floor, and putting them all on one origin once made them `insufficient_history`
+  and invisible. The `fold` axis closes the crude form of that — a bad origin with nothing
+  to dilute it is now a judged `fold` slice that fails — but a bad origin carrying enough
+  well-predicted rows still passes on every axis. Every report therefore ends with a line
+  like `18 slices ungated: 6 below the sample floor, 12 below the fold floor, 0 without
+  demand; worst ungated WAPE 1 on direction=route-B|dir-N`, on a pass as well as a
+  failure. Ties on the worst WAPE go to the larger slice, then to key order, because the
+  same rows appear under several axis names.
 
 ### Overload metrics and absent capacity
 
@@ -791,18 +866,29 @@ passed = no failure and no unproven slice
 - Every slice whose status is `evaluated` is judged. A bad slice cannot escape by nobody
   having listed it.
 - A **required** slice must additionally exist and be judgeable. A required slice with no
-  points, or one that is too small, too short or zero-demand, becomes `unproven`.
-  Absence never buys a pass.
+  points is `missing`; one too small, too short or without demand keeps its own status.
+  Either way it is `unproven`, and absence never buys a pass. A required key naming an
+  axis no point can emit is refused when the report is built, rather than becoming a
+  permanent `unproven` that blames the data for a typo.
 - `overall` is always required, so a report too small to judge does not pass either.
+
+The gate is not unconditional, and three things bound it. It judges only slices with
+status `evaluated`, so the floors decide what it looks at — the ungated line above exists
+because of that. It judges only the axes listed earlier, so a subgroup sharing every axis
+with well-predicted points is invisible to it. And overload is measured but not gated.
+Read a pass as "nothing the configured axes and thresholds can see is wrong", never as
+"nothing is wrong".
 
 An excellent overall number removes nothing from either list. On 48 perfect off-peak
 points and 12 catastrophic evening-peak ones across four folds, overall WAPE is 0.18 —
 inside `MAX_WAPE` — and the verdict is:
 
 ```
-FAIL: 2 breached, 0 unproven
+FAIL: 3 breached, 0 unproven
 daypart=evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+entity_daypart=route-A|dir-N|stop-1|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
 route_daypart=route-A|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+every slice was judged
 ```
 
 ### Thresholds, all provisional
@@ -815,6 +901,8 @@ route_daypart=route-A|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on
 | `MAX_WAPE_RATIO_TO_BASELINE` | 1.0 | slice WAPE against its own baseline's |
 | `MAX_COVERAGE_SHORTFALL` | 0.10 | how far empirical coverage may fall below the nominal level |
 | `MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL` | 2.0 | mean interval score against the slice's mean demand |
+| `MIN_INTERVAL_LEVEL` | 0.8 | the nominal level a judged interval must declare |
+| `MIN_INTERVAL_SCORE_ALLOWANCE` | 8.0 (target units) | absolute interval score never called too wide |
 
 **Not one of these is certified.** They were chosen so the mechanism could be
 demonstrated on synthetic points. The report prints `"certified": false` beside them and
@@ -823,6 +911,20 @@ breach can be told apart from a badly chosen constant. Agreeing them against org
 data is TASK-051. The interval score is compared with mean demand rather than with MAE
 because a perfectly predicted slice has MAE 0, and an `evaluated` slice always has
 positive demand — zero demand is `insufficient_signal` before it reaches the gate.
+
+`MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL` is the weakest of the seven, and it is weak in both
+directions because a ratio to mean demand is a cap on the coefficient of variation.
+Integer counts cannot be sharper than a few units, so a two-passenger bucket with a
+`[0, 7]` interval is behaving correctly and the ratio alone failed it on every axis at
+once; `MIN_INTERVAL_SCORE_ALLOWANCE` is the absolute floor that stops the gate firing on
+correct behaviour, because a gate that does that is the one that gets switched off. The
+opposite error is still open and is **not** fixed here: at mean demand 1000 an interval of
+`[60, 1940]` scores 1880 against a limit of 2000 and passes, with
+`relative_interval_width 1.88` printed beside it. Tightening the ratio to catch that would
+re-break the low-demand case, so the real fix is to score against a reference interval
+rather than against demand — which needs the baselines TASK-021 owns. Until then, read
+`relative_interval_width` yourself; the gate will not catch a wide interval on a busy
+slice.
 
 Determinism: points are sorted canonically before any float is summed, so the report is a
 function of the point set and not of the caller's ordering. Two points tying on that
