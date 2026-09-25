@@ -234,12 +234,12 @@ IDENTICAL
 $ make ml-check          # exit 0
 ruff: All checks passed!
 mypy: Success: no issues found in 56 source files
-pytest: 530 passed in 37.20s     (479 before this branch; 51 new)
+pytest: 536 passed in 35.35s     (479 before this branch; 57 new)
 
 $ make check             # exit 0
 Architecture boundaries passed.
 backend:   292 passed, 10 skipped
-ml:        530 passed
+ml:        536 passed
 ml-eval:   "passed": true
 frontend:  8 test files, 47 passed; lint and build clean
 contracts: 119 passed
@@ -346,6 +346,54 @@ encoded with `features.records.encode` (sorted keys, no NaN). The payload contai
   legitimately needs wide intervals.
 - The peak-hour windows 07-09 and 17-19 are asserted, not measured. Moscow tram peaks
   have not been checked against any data here.
+
+### Independent review
+
+A Python reviewer read the package and tests against the task's own criteria and found
+no CRITICAL issue and no error in the metric arithmetic. It confirmed by its own runs:
+WAPE pooled by summed totals rather than averaged ratios; zero demand `None` in three
+independent places; a required slice that is absent or not `evaluated` failing the gate;
+every sufficiently large slice judged whether or not it was declared required; overload
+refused on any unknown capacity; no wall clock, RNG or unordered-dict dependence. Four
+findings were acted on:
+
+| Severity | Finding | Response |
+|---|---|---|
+| MEDIUM | `overload` is measured but never gated, so a model that never predicts an overload on an always-overloaded route reports the gap and still passes | Not gated, deliberately, and now said so in the module docstring and the README. The feature layer can only produce `event_count`, so no slice this repository can build carries an overload figure at all; a threshold over a quantity nothing yet produces is a number invented to look rigorous. Gating belongs with the task that first produces a load target |
+| MEDIUM | Nothing in CI calls `build_report`; `make ml-eval` still runs the old golden gate, so a bad slice cannot fail `make check` through this package | True and now stated plainly in the README. Wiring belongs to TASK-058, which owns the evaluation-gated pipeline |
+| MEDIUM | `SliceMetrics` and `OverloadQuality` had no `__post_init__`, unlike every sibling dataclass; both are public exports, and `SliceMetrics(samples=0)` would raise `ZeroDivisionError` from `mean_actual` rather than a `SliceError` | Both validated: samples and folds at least one, folds no more than samples, samples equal to `totals.scored`, and overload counts within their points. Six tests construct each refusal |
+| LOW | The mismatched-`method` branch of `interval_quality` had no test, unlike the mismatched-`level` branch beside it | `test_mixed_methods_suppress_the_interval_with_a_reason` added, pinning the exact reason string |
+
+Its remaining LOW finding — that a tie on `sort_key` would leave summation order
+caller-dependent — had already been closed by commit `6881342`, which refuses a repeated
+`(entity, horizon, bucket, fold)` outright; the reviewer read the state before it.
+
+## Open risks
+
+- **Nothing calls this package.** `make ml-eval` runs `evaluation.py`, and the only
+  importers of `tramflow_ml.slices` are its own tests. The module proves its mechanism on
+  hand-built arrays and gates nothing in CI. TASK-058 owns the wiring, and until it lands
+  a catastrophic slice cannot fail `make check` through this code.
+- **Overload is descriptive, not gated.** See the review table above. The consequence is
+  concrete: once a load target exists, the most operationally dangerous failure — never
+  predicting an overload on a route that is always overloaded — will be visible in the
+  report and will not fail the gate until somebody adds and agrees a threshold.
+- **`MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL = 2.0` is the weakest of the six constants.** A
+  genuinely noisy slice legitimately needs wide intervals, and this ratio does not know
+  the noise level. It will likely be the first threshold real data forces to move.
+- **The peak windows are asserted, not measured.** 07-09 and 17-19 Europe/Moscow are our
+  proposal. If the organizer's demand peaks elsewhere, `daypart` and `route_daypart` cut
+  the wrong groups and the headline demonstration measures the wrong hours.
+- **A failure repeats once per axis.** One bad group of points produces up to eight
+  failure lines saying the same thing from different views. Honest but verbose; a real
+  report over many entities will not collapse this way, but a small one reads noisily.
+- **`stop` pools both operating sides.** ADR-0006 records that tram load is sharply
+  asymmetric between directions, so a `stop` slice can look acceptable while one side of
+  it is bad. The `direction` and `entity` axes exist for that reason and are the ones to
+  declare required; the `stop` axis is a convenience and should not be the only one relied on.
+- **The report is built in memory.** Every point is held, sorted, and grouped into up to
+  nine axes, so peak memory is roughly nine references per point plus the points. Fine for
+  an offline fold set; a million-point report would want streaming aggregation.
 
 ### Recovery
 

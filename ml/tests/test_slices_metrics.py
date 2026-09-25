@@ -33,8 +33,11 @@ from tramflow_ml.features import MOSCOW, EntityKey
 from tramflow_ml.slices import (
     GateThresholds,
     IntervalBounds,
+    OverloadQuality,
     ScoredPoint,
+    SliceError,
     SliceKey,
+    SliceMetrics,
     build_report,
     interval_score,
 )
@@ -181,3 +184,25 @@ def test_a_monthly_bucket_is_in_no_daypart_slice() -> None:
     report = build_report(points, thresholds=UNGATED)
 
     assert not [key for key in report.by_key if key.axis in {"daypart", "route_daypart"}]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"samples": 0}, "at least one sample"),
+        ({"folds": 0}, "at least one sample"),
+        ({"folds": 9}, "more folds than it has samples"),
+        ({"samples": 3}, "every sample of a slice is scored"),
+    ],
+)
+def test_slice_metrics_refuse_a_support_they_cannot_carry(report, overrides, message) -> None:
+    built = report.by_key[SliceKey("overall", "all")]
+    fields = {name: getattr(built, name) for name in built.__slots__}
+
+    with pytest.raises(SliceError, match=message):
+        SliceMetrics(**{**fields, **overrides})
+
+
+def test_overload_quality_refuses_a_count_outside_its_points() -> None:
+    with pytest.raises(SliceError, match="must lie within the points it counts"):
+        OverloadQuality(samples=2, actual_overloaded=3, predicted_overloaded=0)

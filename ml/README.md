@@ -775,6 +775,13 @@ serving path currently has the opposite defect — `ForecastPointModel.capacity`
 to `180.0` against a response schema demanding `gt=0`, so an unknown capacity is served
 as a fabricated number — and this package does not replicate it.
 
+Overload is **reported and not gated**. The feature layer can only produce
+`event_count`, so no slice this repository can build today carries an overload figure at
+all, and a threshold over a quantity nothing yet produces would be a number invented to
+look rigorous. A model that never predicts an overload on a route that is always
+overloaded is therefore visible in the report and does not fail the gate. Gating it
+belongs with the task that first produces a load target.
+
 ### The verdict
 
 ```
@@ -823,6 +830,12 @@ order would still sum by input order, so a repeated `(entity, horizon, bucket, f
 refused — a bucket is scored once per fold, as `forecast_v1` also requires of a published
 artifact. The payload carries no wall clock and no absolute path, and
 `SliceReport.digest` is the SHA-256 of it.
+
+**Nothing calls this in anger yet.** `make ml-eval` still runs the old golden gate, and
+`grep -rl tramflow_ml.slices` finds only the tests. A model that fails catastrophically
+on one slice cannot fail `make check` through this package today; it can only fail these
+unit tests on hand-built arrays. Wiring `build_report` into the publication pipeline is
+TASK-058.
 
 **What synthetic results do not establish.** Every demonstration above runs on arrays
 constructed by hand to exercise the mechanism. A passing report on synthetic points says

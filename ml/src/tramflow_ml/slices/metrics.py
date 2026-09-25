@@ -5,7 +5,11 @@ this repository's offline path and zero demand yields ``None`` here for the same
 it does there. Interval quality is the interval (Winkler) score reported beside coverage
 and width: coverage alone rewards ``[0, inf)``, which is perfectly covered and says
 nothing. Overload is a fraction of capacity, so it is absent -- with the reason -- unless
-the target is an occupancy and the capacity is actually known.
+the target is an occupancy and the capacity is actually known. It is reported and
+**not gated**: the feature layer can only produce event counts today, so no slice this
+repository can build carries an overload figure at all, and a threshold over a quantity
+nothing yet produces would be a number invented to look rigorous. Gating it belongs with
+the task that first produces a load target.
 """
 
 from collections.abc import Sequence
@@ -90,6 +94,14 @@ class OverloadQuality:
     actual_overloaded: int
     predicted_overloaded: int
 
+    def __post_init__(self) -> None:
+        if self.samples < 1:
+            raise SliceError("overload quality needs at least one point")
+        for name in ("actual_overloaded", "predicted_overloaded"):
+            count: int = getattr(self, name)
+            if not 0 <= count <= self.samples:
+                raise SliceError(f"{name} must lie within the points it counts")
+
     @property
     def actual_rate(self) -> float:
         return self.actual_overloaded / self.samples
@@ -109,7 +121,9 @@ class OverloadQuality:
 
 
 def interval_quality(points: Sequence[ScoredPoint]) -> tuple[IntervalQuality | None, str]:
-    bounded = [point for point in points if point.interval is not None]
+    bounded = [
+        (point.interval, point.actual) for point in points if point.interval is not None
+    ]
     if not bounded:
         return None, "no point in this slice carries an interval"
     if len(bounded) != len(points):
@@ -117,22 +131,15 @@ def interval_quality(points: Sequence[ScoredPoint]) -> tuple[IntervalQuality | N
             f"only {len(bounded)} of {len(points)} points carry an interval; "
             "a partial coverage figure would describe a different slice"
         )
-    levels = sorted({point.interval.level for point in bounded if point.interval})
+    levels = sorted({bounds.level for bounds, _ in bounded})
     if len(levels) > 1:
         return None, f"points declare different interval levels: {levels}"
-    methods = sorted({point.interval.method for point in bounded if point.interval})
+    methods = sorted({bounds.method for bounds, _ in bounded})
     if len(methods) > 1:
         return None, f"points declare different interval methods: {methods}"
-    covered = 0
-    width_total = 0.0
-    score_total = 0.0
-    for point in bounded:
-        bounds = point.interval
-        if bounds is None:
-            raise SliceError("unreachable: bounded points carry an interval")
-        covered += bounds.covers(point.actual)
-        width_total += bounds.width
-        score_total += interval_score(bounds, point.actual)
+    covered = sum(bounds.covers(actual) for bounds, actual in bounded)
+    width_total = sum(bounds.width for bounds, _ in bounded)
+    score_total = sum(interval_score(bounds, actual) for bounds, actual in bounded)
     return (
         IntervalQuality(levels[0], methods[0], len(bounded), covered, width_total, score_total),
         "",
@@ -155,15 +162,14 @@ def overload_quality(points: Sequence[ScoredPoint]) -> tuple[OverloadQuality | N
             f"capacity is unknown for {unknown} of {len(points)} points; overload is not "
             "computed against a guessed capacity"
         )
-    actual = 0
-    predicted = 0
-    for point in points:
-        capacity = point.capacity
-        if capacity is None:
-            raise SliceError("unreachable: every point was checked for a capacity")
-        actual += point.actual > capacity
-        predicted += point.predicted > capacity
-    return OverloadQuality(len(points), actual, predicted), ""
+    loads = [
+        (point.actual, point.predicted, point.capacity)
+        for point in points
+        if point.capacity is not None
+    ]
+    actual = sum(observed > capacity for observed, _, capacity in loads)
+    predicted = sum(forecast > capacity for _, forecast, capacity in loads)
+    return OverloadQuality(len(loads), actual, predicted), ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +188,14 @@ class SliceMetrics:
     overload_absent_reason: str
     status: SliceStatus
     status_reason: str
+
+    def __post_init__(self) -> None:
+        if self.samples < 1 or self.folds < 1:
+            raise SliceError("a slice carries at least one sample in at least one fold")
+        if self.folds > self.samples:
+            raise SliceError("a slice cannot span more folds than it has samples")
+        if self.samples != self.totals.scored:
+            raise SliceError("every sample of a slice is scored")
 
     @property
     def mae(self) -> float | None:

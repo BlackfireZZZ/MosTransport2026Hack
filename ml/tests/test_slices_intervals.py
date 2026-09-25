@@ -141,3 +141,20 @@ def test_a_zero_width_interval_is_scored_by_its_misses() -> None:
     assert metrics.interval.mean_width == 0.0
     assert metrics.interval.coverage == 0.0
     assert metrics.interval.mean_score == pytest.approx(100.0)
+
+
+def test_mixed_methods_suppress_the_interval_with_a_reason() -> None:
+    mixed = points(ACTUAL, tight)
+    mixed[0] = ScoredPoint(
+        **{
+            **{name: getattr(mixed[0], name) for name in mixed[0].__slots__},
+            "interval": IntervalBounds(90.0, 110.0, 0.8, "conformal"),
+        }
+    )
+
+    metrics = build_report(mixed).by_key[OVERALL]
+
+    assert metrics.interval is None
+    assert metrics.interval_absent_reason == (
+        "points declare different interval methods: ['conformal', 'hand']"
+    )
