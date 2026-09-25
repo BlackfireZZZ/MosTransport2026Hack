@@ -15,6 +15,8 @@ it("uses one timestamp for visible values and serving-ID map/table callbacks", a
   const onSelect = vi.fn()
   const client = new QueryClient()
   const view = render(<QueryClientProvider client={client}><NetworkMap snapshot={data} timestamp={data.points[0].timestamp} selectedStopId={null} onStopSelect={onSelect} /></QueryClientProvider>)
+  expect(screen.getByRole("columnheader", { name: "Направление" })).toBeInTheDocument()
+  expect(screen.getAllByRole("cell", { name: "out" })).toHaveLength(2)
   const value = data.stop_points![0].predicted_passengers
   fireEvent.click(await screen.findByRole("button", { name: `Точка 11: ${value}` }))
   expect(onSelect).toHaveBeenLastCalledWith(11)

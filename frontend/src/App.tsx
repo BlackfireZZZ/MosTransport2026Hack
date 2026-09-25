@@ -187,6 +187,7 @@ function App() {
 
           <ForecastExport snapshot={data} updatedAt={forecast.dataUpdatedAt} failed={forecast.isRefetchError} pollInterval={pollInterval} selectedTimestamp={timestamp} requestedFilters={filters} />
           <div className="window-help" id="window-help">
+            <p>Направления: все доступные. Объединяются только совместимые счётчики; загрузка салона не суммируется. Направления остановок показаны отдельно в таблице карты.</p>
             <p>{window.error ?? "Время Europe/Moscow. Пустые даты — опубликованный интервал целиком; конец не включается."}</p>
             {window.error && <span role="alert">Запрос не выполнен: исправьте интервал.</span>}
             {data?.selection && <p>Показано: {toMoscowInput(data.selection.start).replace("T", " ")} — {toMoscowInput(data.selection.end).replace("T", " ")} МСК (конец не включён).</p>}

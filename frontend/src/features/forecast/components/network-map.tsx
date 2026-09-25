@@ -68,11 +68,12 @@ export function NetworkMap({ snapshot, timestamp, selectedStopId, onStopSelect }
         {rows.length === 0 && <p role="status">Нет прогноза по остановкам для выбранного интервала. Значения других интервалов не подставляются.</p>}
         <div className="forecast-stop-table" tabIndex={0} role="region" aria-label="Прокручиваемая таблица остановок">
           <table aria-label="Прогноз остановок выбранного интервала">
-            <thead><tr><th scope="col">Остановка</th><th scope="col">Прогноз</th><th scope="col">Интервал</th><th scope="col">Карта</th></tr></thead>
+            <thead><tr><th scope="col">Остановка</th><th scope="col">Направление</th><th scope="col">Прогноз</th><th scope="col">Интервал</th><th scope="col">Карта</th></tr></thead>
             <tbody>{rows.map((row) => {
               const position = positions.find((item) => item.stop_id === row.stop_id && item.direction_id === row.direction_id)
               return <tr key={`${row.stop_id}-${row.direction_id ?? "all"}`}>
                 <th scope="row"><Button variant="ghost" onClick={() => onStopSelect(row.stop_id)} aria-pressed={row.stop_id === selectedStopId}>{stopNames.get(row.stop_id) ?? `Остановка ${row.stop_id}`}</Button></th>
+                <td>{row.direction_id === "legacy-unspecified" ? "Не указано источником" : row.direction_id ?? "Все доступные (сумма)"}</td>
                 <td>{formatForecastValue(row.predicted_passengers)} {snapshot.run?.unit ?? ""}</td>
                 <td>{!intervalBounds(row) ? "недоступен" : `${formatForecastValue(row.lower_bound)}–${formatForecastValue(row.upper_bound)}`}</td>
                 <td>{position?.position_kind === "synthetic_demo" ? "демо, без привязки OSM" : position?.status === "matched" ? `OSM ${position.osm_stop_id}` : position?.status === "ambiguous" ? "неоднозначно" : "нет соответствия"}</td>

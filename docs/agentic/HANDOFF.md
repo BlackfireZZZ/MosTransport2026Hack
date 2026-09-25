@@ -137,3 +137,22 @@ only generated OpenAPI reflects backward-compatible serving additions. No depend
 or lock changes. No push/PR/publication. Dedicated previews stopped and owned test
 Compose resources removed. All10 worktrees retained because branches are unpushed.
 See completed/vova-block-final.md for the consolidated result and residual limits.
+
+## 2026-09-25 — synchronize origin/main50630fb with local dispatcher block34a9617
+
+Worktree /Users/cute/MosTransport2026Hack-worktrees/vova-sync-origin, branch
+agent/vova-sync-origin. Preserved both histories with a merge and local fast-forward;
+no reset/rebase/push. Remote ML files match origin exactly. Tracker preserves all
+remote assignments (including019done,020/039in_progress) and ten local completed rows.
+Renumbered local edge-geometry ADR0007 because upstream owns0006. Updated architecture
+key to implemented run/route/stop/direction/time. UI explicitly displays all available
+directions with count-only aggregation and per-direction stop table labels.
+
+Follow-up clarification for lead: ADR0006's (stop,direction) is route-contextual;
+EntityCatalog scopes direction by route, and crosswalk correctly keeps route in
+its full key. No cross-route meaning of identical direction strings is assumed.
+
+Parent make check passed350backend/265ML/92frontend/119reference. Full Chrome E2E48
+passed after isolated rerun of a timed-out nativezoom case; no checks weakened.
+See completed/vova-sync-origin.md. Own preview stopped; clean worktree retained
+unpushed. Historical task worktrees remain evidence snapshots, not active replicas.

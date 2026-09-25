@@ -35,8 +35,9 @@ Owned by this block — the lead does not edit these while the block is open:
 
 - `backend/**` (including `backend/alembic/versions/**`, new revisions only)
 - `frontend/**`
-- `docs/decisions/**` for ADRs this block writes (TASK-031 writes
-  `0006-edge-geometry-quality.md`; take the next free number if 0006 is taken)
+- `docs/decisions/**` for ADRs this block writes. 0006 is now taken by
+  [ADR-0006 stop identity and direction](../decisions/0006-stop-identity-and-direction.md),
+  so TASK-031 writes `0007-edge-geometry-quality.md`.
 - `docs/exec-plans/active/<task-slug>.md` for each task that needs an ExecPlan
 
 Owned by the lead — read freely, do not modify:
@@ -66,6 +67,61 @@ editing the lead's rows.
   invariants only, and leave the active-run switch to TASK-029.
 - TASK-041 (million-row and bounded query/UI budgets) measures both lanes and
   stays unassigned until TASK-028 and TASK-034 are merged.
+
+## Settled before you start: stop identity and direction
+
+[ADR-0006](../decisions/0006-stop-identity-and-direction.md) answers a question two
+of your tasks would otherwise each answer differently. Read it before touching
+TASK-027 or TASK-032; the short version and the two consequences that bind you:
+
+The repository holds **three stop namespaces**. The OSM graph's nodes are
+`stop_position` points on the track and are **direction-specific** — measured on the
+committed extract: 856 nodes, 919 edges, **0 edges with a reverse twin**, and 382
+names carried by more than one node. The contract (`contracts/data_v1.py`) and the
+`stops` table are **physical places** with direction as a separate axis; the
+synthetic catalog deliberately reuses one stop id in both directions and gives two
+different stops the same name. The canonical namespace stays physical.
+
+**TASK-027 — `forecast_points` needs a direction column.** Its `stop_id` points at
+the physical namespace, so `(route_id, stop_id, horizon, bucket_start)` does *not*
+determine a direction: a route passes a physical stop both ways. Tram loading is
+strongly asymmetric between directions, so collapsing them destroys the signal the
+forecast exists for. Add direction and include it in the uniqueness. You are writing
+a new migration anyway; doing it now costs a column, doing it later costs a data
+migration. This supersedes the key written in `docs/architecture/README.md`
+(`(route_id, stop_id, horizon, bucket_start)`) — update that line with your migration.
+
+**TASK-032 — the crosswalk key is the pair, not the stop.**
+`(canonical stop, direction) → OSM node` is **1:1**, precisely because the OSM nodes
+are direction-specific. Keying on the stop alone is 1-to-many and ambiguous. Do not
+merge OSM nodes by name to recover a physical stop unless you also keep the
+direction: 382 names are shared, and 19 names sit on four nodes, 11 on three, one on
+ten. `tramflow_ml.identity` already returns `Ambiguous` rather than guessing when a
+name is shared on a pattern — match that behaviour, and report unmatched and
+ambiguous counts rather than silently dropping.
+
+Two consequences the lead found in the serving code while settling this, both
+yours:
+
+- **Direction has to reach the API, not just the table.** `ForecastResponse` in
+  `backend/app/schemas/forecast.py` is per-route with a flat `points` and `stops`
+  list and carries no direction anywhere; `frontend/src/features/forecast/` has no
+  notion of it either. So TASK-027's column is an API shape change that continues
+  into TASK-028 and the UI tasks: run `make contract-generate`, commit the
+  regenerated `schema.generated.ts`, and decide explicitly whether a dispatcher
+  picks a direction or sees both — do not quietly sum them.
+- **Unknown capacity cannot currently be expressed, and is silently invented.**
+  `ForecastPointModel.capacity` defaults to `180.0`
+  (`backend/app/infrastructure/db/models.py`), and `ForecastPointResponse.capacity`
+  is `Field(gt=0)`, so a stop with no known capacity is served a fabricated 180
+  rather than an absence. TASK-027's own acceptance requires zero or unknown
+  capacity to be handled explicitly before division — that means the default and
+  the `gt=0` bound both have to go, and the response needs a way to say "unknown".
+
+Related and already recorded: `docs/exec-plans/tech-debt.md` TD-002 —
+`stops.name` is declared globally unique, which real stop names do not honour. It
+does not block you today (the graph is a file repository, ADR-0003, and never enters
+`stops`), but it is yours the moment TASK-032 seeds real stop rows.
 
 ## Working rules
 

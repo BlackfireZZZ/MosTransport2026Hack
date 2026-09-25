@@ -23,14 +23,14 @@ accessible text. Complete geometry and disconnected paths preserve behavior.
 
 ## Progress and decisions
 
-ADR-0006 recorded before implementation. Existing regression tests are the
+ADR-0007 recorded before implementation. Existing regression tests are the
 contract; extend them before accepting the result. Toolchain bootstrapped using
 locked dependencies. New dependencies: none.
 
 ## Research evidence
 
 This is an additive provenance field plus existing UI status behavior; no new
-complex technology or pattern is introduced. See ADR-0006 alternatives.
+complex technology or pattern is introduced. See ADR-0007 alternatives.
 
 ## Validation and recovery
 

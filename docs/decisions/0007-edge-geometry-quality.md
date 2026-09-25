@@ -1,4 +1,4 @@
-# ADR-0006: explicit geometry quality
+# ADR-0007: explicit geometry quality
 
 Accepted 2026-09-25, TASK-031.
 

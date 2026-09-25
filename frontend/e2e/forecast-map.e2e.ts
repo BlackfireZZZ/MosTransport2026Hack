@@ -26,6 +26,7 @@ async function setup(page: Page, horizon: ForecastHorizon, change?: (data: Forec
 for (const horizon of ["day", "month", "year"] as const) {
   test(`${horizon}: timestamp updates map values and current KPI, keyboard stop selection stays coherent`, async ({ page }) => {
     await setup(page, horizon)
+    await expect(page.getByText(/Направления: все доступные/)).toBeVisible()
     const data = mappedForecastResponse(1, horizon)
     const selector = page.getByRole("combobox", { name: "Интервал на графике и карте · МСК" })
     await expect(selector).toHaveValue(data.points[0].timestamp)
