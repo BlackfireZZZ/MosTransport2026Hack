@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from tramflow_ml.features import (
+    DAY_HOUR,
     MONTH_DAY,
     MOSCOW,
     YEAR_MONTH,
@@ -190,3 +191,48 @@ def test_production_code_never_imports_the_contracts_package():
     ]
 
     assert offenders == []
+
+
+# The documented determinism evidence is only evidence while something checks it.
+# These are the values recorded in ml/README.md and the completed execution plan, so a
+# change that moves one is a decision to take deliberately, not a document to refresh
+# afterwards. The year/month value moved once already, when the *_units columns were
+# clipped at the cutoff, and nothing failed.
+PINNED = {
+    "day/hour": (
+        DAY_HOUR,
+        "2025-06-10T00:00",
+        288,
+        25,
+        "7e412bb01ce0072aa68d77bfde177581c185abdeaed8e95dbaf926b82735b999",
+        "2f7067776b125aad6bc8451b350e3957a362f8f9808e74ff39f8fd7dd046ef30",
+    ),
+    "month/day": (
+        MONTH_DAY,
+        "2025-06-01T00:00",
+        360,
+        25,
+        "b3ad914c0ca53de67cb57fe785c296d042d5cd614de43566f636807489cb4170",
+        "0e84576dcd94e5fe6ee005a1b9270a4ec3b713f03d00750e3c201437ecf8f03a",
+    ),
+    "year/month": (
+        YEAR_MONTH,
+        "2025-01-01T00:00",
+        144,
+        29,
+        "58e57f490b3315b195dc3b480bc5b14dea44c390f796256b1388b9680db30156",
+        "fb7bf53b3bdd509eef2f795dc64c498a1e09d1829ce21e4b0d20cef3b858ccce",
+    ),
+}
+
+
+@pytest.mark.parametrize("policy_name", sorted(PINNED))
+def test_the_published_digest_still_describes_the_committed_fixture(fixture_run, policy_name):
+    source, output, _ = fixture_run
+    policy, origin, rows, columns, digest, feature_digest = PINNED[policy_name]
+
+    table = build_from(source, output, policy, origin)
+
+    assert (len(table.rows), len(table.feature_names)) == (rows, columns)
+    assert table.digest == digest
+    assert table.feature_digest == feature_digest

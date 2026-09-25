@@ -275,12 +275,11 @@ event order changes nothing. On the tiny synthetic fixture (64 unique validation
 entities), the hourly aggregate reproduces all 64 `cell_totals` entries of
 `generation.json` cell for cell, and repeated builds — including from a second
 independent ingestion run of the same fixture — give identical digests
-(`7e412bb0…` for `day/hour`, `b3ad914c…` for `month/day`, `408d4580…` for `year/month`).
-The `year/month` value moved to `58e57f49…` when the `*_units` columns were clipped at the
-cutoff during the TASK-020 review; the two others are unchanged. It is left as recorded
-here for the lead to reconcile against TASK-019 rather than silently rewritten.
-That fixture spans 2024–2026, where Moscow is a fixed +03:00, so it does not exercise
-the DST-sensitive part of bucketing; that rests on the hand-written calendar tests.
+(`7e412bb0…` for `day/hour`, `b3ad914c…` for `month/day`, `58e57f49…` for `year/month`).
+All three are pinned by `test_the_published_digest_still_describes_the_committed_fixture`,
+so a change that moves one fails the suite instead of leaving this paragraph stale. The
+`year/month` value superseded `408d4580…` when the `*_units` columns were clipped at the
+cutoff; see the correction in the completed execution plan.
 
 Not certified before organizer data: the bucket policy, the lag sets, the rolling
 windows, the seasons and the cutoff leads are the team proposal and are configuration.

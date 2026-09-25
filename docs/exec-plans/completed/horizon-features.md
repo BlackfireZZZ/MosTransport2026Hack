@@ -297,11 +297,11 @@ Observed results:
   |---|---|---|---|
   | `day/hour` | 288 × 25 | `7e412bb01ce0072aa68d77bfde177581c185abdeaed8e95dbaf926b82735b999` | unchanged |
   | `month/day` | 360 × 25 | `b3ad914c0ca53de67cb57fe785c296d042d5cd614de43566f636807489cb4170` | unchanged |
-  | `year/month` | 144 × 29 | `408d45807ce37fe661b2edb3e888e5afae19cc015cb093c6f485a7f687ab8445` | finding B only |
+  | `year/month` | 144 × 29 | `58e57f490b3315b195dc3b480bc5b14dea44c390f796256b1388b9680db30156` | finding B, then the TASK-020 review |
 
   `year/month` superseded `1bf64c53cbbbf66d4c1541644b29b92f9ec8e7c1b379250deabd8a90d5314ef5`
   (22 columns) when the `*_units` columns were added; its `feature_digest` is now
-  `3e8a211cb1e17e802424d1b17900d85ebefe2ed042f370437c82c93e2c6b208e`, superseding
+  `fb7bf53b3bdd509eef2f795dc64c498a1e09d1829ce21e4b0d20cef3b858ccce`, superseding
   `afc4d7af8e395eb43bc973a0d7977349a2a834cb6f503b46fff1891573e7a243`. The `day/hour` and
   `month/day` digests and their `feature_digest` values (`2f7067776b125aad…`,
   `0e84576dcd94e5fe…`) are byte-identical to the pre-review run, which is the evidence
@@ -338,6 +338,21 @@ on `day/hour` and seven on `month/day`, which is the same dead-weight the batch'
 February at 1/29, May 2024 at 16/31), and both are fixed. If the uniform schema is wanted
 anyway for the downstream model code, it is a one-line change in
 `history.carries_unit_ratio`.
+
+
+### Correction (2026-09-25, from the TASK-020 review)
+
+The `*_units` columns this plan added for finding B were not clipped at the cutoff:
+`unit_counts` lacked the `ends_by(cutoff)` gate that `available_value` applies, so a
+coverage hole lying entirely **after** the cutoff moved the model-visible digest through
+`lag_1m_units` while `lag_1m` itself was correctly `None`. The leakage test here could not
+catch it because it perturbs events, and this is a perturbation of the coverage calendar.
+Found by the independent review of TASK-020 and fixed there in `6f28a04`, with a
+coverage-perturbation case added to `test_features_leakage.py`. Only `year/month` could
+move, since `carries_unit_ratio` is monthly-only, and it did — the digests above are the
+corrected ones. `day/hour` and `month/day` are unchanged, and `make ml-eval` is
+byte-identical. All three are now pinned by
+`test_the_published_digest_still_describes_the_committed_fixture`, closing TD-001.
 
 ## Open risks
 
