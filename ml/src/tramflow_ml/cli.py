@@ -104,8 +104,11 @@ def _run_intake(parser: argparse.ArgumentParser, args: argparse.Namespace) -> No
         parser.error(str(error))
     serialized = render(report)
     if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(serialized, encoding="utf-8")
+        try:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(serialized, encoding="utf-8")
+        except OSError as error:
+            parser.error(f"cannot write --output {args.output}: {error}")
     print(serialized, end="")
 
 

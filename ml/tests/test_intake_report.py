@@ -49,7 +49,9 @@ def test_date_span_reports_observed_dates_and_the_gap_between_them(report):
     assert report["streams"]["validations"]["date_span"] == {
         "coverage_ratio": round(64 / 731, 6),
         "first_date": "2024-01-01",
+        "first_instant": "2024-01-01T18:57:00+03:00",
         "last_date": "2025-12-31",
+        "last_instant": "2025-12-31T18:00:00+03:00",
         "observed_dates": 64,
         "span_days": 731,
         "unobserved_dates_in_span": 667,
@@ -69,6 +71,7 @@ def test_fields_are_summarised_by_their_classification(report):
         "minimum": 0,
         "missing": 0,
         "missing_rate": 0.0,
+        "out_of_contract": 0,
         "present": 67,
         "sum": 99,
         "unparsed": 0,
@@ -107,9 +110,37 @@ def test_year_horizon_is_refused_with_the_two_numbers_that_refused_it(report):
     year = report["supportability"]["horizons"]["year"]
 
     assert year["supportable"] is False
-    assert (year["observed_complete_buckets"], year["required_complete_buckets"]) == (24, 48)
+    assert (year["observed_complete_buckets"], year["required_complete_buckets"]) == (22, 48)
     assert year["blockers"][0].startswith("insufficient_history: policy 'year/month' reads 36")
-    assert "yields 24" in year["blockers"][0]
+    assert "yields 22" in year["blockers"][0]
+
+
+def test_only_whole_buckets_count_so_a_partial_first_day_is_not_a_day(report):
+    """The fixture starts at 18:57 and ends at 18:00, so neither end date is complete."""
+    horizons = report["supportability"]["horizons"]
+
+    assert horizons["month"]["observed_complete_buckets"] == 729
+    assert horizons["day"]["observed_complete_buckets"] == 17519
+    assert horizons["year"]["observed_complete_buckets"] == 22
+
+
+def test_a_measure_outside_its_contract_is_counted_not_waved_through(fixture_dir, tmp_path):
+    rows = [
+        json.loads(line)
+        for line in (fixture_dir / "validations.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    rows[0]["stop_sequence"] = -1
+    rows[1]["stop_sequence"] = 2.5
+    (fixture_dir / "validations.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8"
+    )
+
+    summary = profile_sample(IntakeRequest(source=fixture_dir))["streams"]["validations"]["fields"]
+
+    assert summary["stop_sequence"]["unparsed"] == 0
+    assert summary["stop_sequence"]["out_of_contract"] == 2
+    assert summary["stop_sequence"]["sum"] is None
+    assert summary["stop_sequence"]["minimum"] == -1
 
 
 def test_every_horizon_reports_its_policy_and_thresholds(report):

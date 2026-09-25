@@ -5,18 +5,22 @@ deepest reach its policy declares plus one forecast period of complete buckets, 
 enough of the span's civil dates to have been observed at all. Every verdict is
 reported next to the two numbers that produced it.
 
+A bucket counts only when it lies wholly inside the observed span. A sample whose
+first row lands at 23:00 has not observed that day, and counting it whole would turn
+eight days of rows into a supported daily horizon.
+
 This derives eligibility from the data, not from a fold plan: the surplus is an upper
 bound on evaluable buckets, and scheduling folds belongs to the backtest layer.
 """
 
-from calendar import monthrange
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 
 from tramflow_ml.features.policy import POLICIES, HorizonPolicy
 from tramflow_ml.features.records import Granularity
 from tramflow_ml.ingestion.normalize import TARGETS, UNIT
+from tramflow_ml.ingestion.records import MOSCOW
 from tramflow_ml.intake.records import (
     MIN_COVERAGE_RATIO,
     OTHER_VALUE,
@@ -24,16 +28,19 @@ from tramflow_ml.intake.records import (
     rate,
 )
 
-HOURS_PER_DAY = 24
+SECONDS_PER_HOUR = 3600
+MONTHS_PER_YEAR = 12
 
 
 @dataclass(frozen=True, slots=True)
 class ObservedSpan:
-    """First and last civil date carrying a row, and how many dates in between do."""
+    """The civil dates a stream touches, and the instants that bound them."""
 
     first: date | None
     last: date | None
     observed_dates: int
+    first_instant: datetime | None = None
+    last_instant: datetime | None = None
 
     @property
     def span_days(self) -> int:
@@ -49,7 +56,9 @@ class ObservedSpan:
         return {
             "coverage_ratio": self.coverage_ratio,
             "first_date": self.first.isoformat() if self.first else None,
+            "first_instant": self.first_instant.isoformat() if self.first_instant else None,
             "last_date": self.last.isoformat() if self.last else None,
+            "last_instant": self.last_instant.isoformat() if self.last_instant else None,
             "observed_dates": self.observed_dates,
             "span_days": self.span_days,
             "unobserved_dates_in_span": self.span_days - self.observed_dates,
@@ -84,13 +93,15 @@ def reach_buckets(policy: HorizonPolicy) -> int:
 
 
 def complete_buckets(granularity: Granularity, span: ObservedSpan) -> int:
-    if span.first is None or span.last is None:
+    """Buckets lying wholly inside ``[first_instant, last_instant]``."""
+    first, last = span.first_instant, span.last_instant
+    if first is None or last is None:
         return 0
     if granularity == "hourly":
-        return span.span_days * HOURS_PER_DAY
+        return _whole_hours(first, last)
     if granularity == "daily":
-        return span.span_days
-    return _whole_months(span.first, span.last)
+        return _whole_days(first, last)
+    return _whole_months(first, last)
 
 
 def _sorted_policies() -> list[HorizonPolicy]:
@@ -144,18 +155,37 @@ def _target_verdict(
     return {"blockers": blockers, "rows": rows, "supportable": not blockers}
 
 
-def _whole_months(first: date, last: date) -> int:
-    """Calendar months fully inside the span; a part-month at either end does not count."""
-    start = first if first.day == 1 else _next_month(first)
-    end = last if last.day == monthrange(last.year, last.month)[1] else _previous_month_end(last)
-    if end < start:
-        return 0
-    return (end.year * 12 + end.month) - (start.year * 12 + start.month) + 1
+def _whole_hours(first: datetime, last: datetime) -> int:
+    start = first.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    if start < first.astimezone(UTC):
+        start += timedelta(hours=1)
+    end = last.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    return max(int((end - start).total_seconds() // SECONDS_PER_HOUR), 0)
 
 
-def _next_month(day: date) -> date:
-    return date(day.year + day.month // 12, day.month % 12 + 1, 1)
+def _whole_days(first: datetime, last: datetime) -> int:
+    """The date holding the last event is never complete: its remaining hours are unseen."""
+    start_local, end_local = first.astimezone(MOSCOW), last.astimezone(MOSCOW)
+    start = start_local.date() if _is_midnight(start_local) else start_local.date() + timedelta(1)
+    end = end_local.date() - timedelta(days=1)
+    return (end - start).days + 1 if end >= start else 0
 
 
-def _previous_month_end(day: date) -> date:
-    return date.fromordinal(day.replace(day=1).toordinal() - 1)
+def _whole_months(first: datetime, last: datetime) -> int:
+    """Likewise the month holding the last event; only earlier months are wholly seen."""
+    start_local, end_local = first.astimezone(MOSCOW), last.astimezone(MOSCOW)
+    start = _month_index(start_local) + (0 if _is_month_start(start_local) else 1)
+    end = _month_index(end_local) - 1
+    return max(end - start + 1, 0)
+
+
+def _is_midnight(moment: datetime) -> bool:
+    return moment.timetz().replace(tzinfo=None) == time()
+
+
+def _is_month_start(moment: datetime) -> bool:
+    return moment.day == 1 and _is_midnight(moment)
+
+
+def _month_index(moment: datetime) -> int:
+    return moment.year * MONTHS_PER_YEAR + moment.month - 1

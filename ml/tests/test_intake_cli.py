@@ -168,3 +168,35 @@ def test_ingest_still_behaves_as_before(fixture_dir, tmp_path):
 
     assert run.returncode == 0, run.stderr
     assert json.loads(run.stdout)["streams"]["validations"]["input_rows"] == 67
+
+
+def test_an_unwritable_output_is_a_usage_error_not_a_traceback(fixture_dir, tmp_path):
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+
+    run = subprocess.run(
+        intake_command(fixture_dir, "--output", str(blocked)),
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+
+    assert run.returncode == 2
+    assert "cannot write --output" in run.stderr
+    assert "Traceback" not in run.stderr
+
+
+def test_an_output_under_a_file_is_a_usage_error_not_a_traceback(fixture_dir, tmp_path):
+    wall = tmp_path / "wall"
+    wall.write_text("not a directory\n", encoding="utf-8")
+
+    run = subprocess.run(
+        intake_command(fixture_dir, "--output", str(wall / "report.json")),
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+
+    assert run.returncode == 2
+    assert "cannot write --output" in run.stderr
+    assert "Traceback" not in run.stderr

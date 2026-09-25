@@ -21,7 +21,7 @@ from tramflow_ml.identity import (
     identity_crosswalk,
 )
 from tramflow_ml.ingestion.normalize import STREAM_FIELDS
-from tramflow_ml.ingestion.readers import iter_chunks, open_decoder
+from tramflow_ml.ingestion.readers import CsvLineDecoder, JsonLineDecoder, iter_chunks
 from tramflow_ml.ingestion.records import (
     DEFAULT_CHUNK_SIZE,
     ENTITIES_NAME,
@@ -34,17 +34,19 @@ from tramflow_ml.intake.fields import (
     Accumulator,
     TimestampProfile,
     as_flag,
-    as_number,
+    canonical_text,
     digest,
     is_missing,
     lookup,
     make_accumulator,
+    measure,
     parse_instant,
 )
 from tramflow_ml.intake.join import JoinCoverage, JoinInput
 from tramflow_ml.intake.profile import IntakeProfile
 from tramflow_ml.intake.records import (
     IDENTITY_CROSSWALK,
+    MEASURE_CONTRACTS,
     REPORT_SCHEMA,
     IntakeError,
     IntakeReport,
@@ -127,7 +129,7 @@ class _StreamProfiler:
         for name, accumulator in self.accumulators.items():
             raw = lookup(self.adapter, name, row)
             if not is_missing(raw):
-                accumulator.observe(raw, self.coerce)
+                accumulator.observe(raw)
         values = self._canonical(row)
         self._count_duplicate(values)
         if self.context.catalog is not None and self.context.crosswalk is not None:
@@ -143,7 +145,11 @@ class _StreamProfiler:
         assert isinstance(stamps, TimestampProfile)
         dates = sorted(stamps.dates)
         return ObservedSpan(
-            dates[0] if dates else None, dates[-1] if dates else None, len(dates)
+            first=dates[0] if dates else None,
+            last=dates[-1] if dates else None,
+            observed_dates=len(dates),
+            first_instant=stamps.first,
+            last_instant=stamps.last,
         )
 
     def section(self) -> StreamSection:
@@ -193,10 +199,10 @@ class _StreamProfiler:
             instant = parse_instant(raw, stamps.pattern, stamps.zone)
             return instant.isoformat() if instant else None
         if kind == "measure":
-            return as_number(raw, self.coerce)
+            return measure(raw, self.coerce, MEASURE_CONTRACTS[name]).value
         if name == BOOLEAN_FIELD:
             return as_flag(raw, self.coerce)
-        return raw if isinstance(raw, str) else str(raw)
+        return canonical_text(raw)
 
     def _count_duplicate(self, values: Mapping[str, object | None]) -> None:
         event_id = values.get("event_id")
@@ -272,13 +278,18 @@ def _profile_stream(
         coerce=profile.source_format == "csv",
         context=context,
         accumulators={
-            name: make_accumulator(name, adapter, zone) for name in STREAM_FIELDS[schema.stream]
+            name: make_accumulator(name, adapter, zone, profile.source_format == "csv")
+            for name in STREAM_FIELDS[schema.stream]
         },
         join=JoinCoverage(source_id=schema.stream),
     )
     path = source / schema.file
-    decoder, start = open_decoder(path, profile.source_format)
-    for chunk in iter_chunks(path, start, 0, DEFAULT_CHUNK_SIZE):
+    decoder = (
+        CsvLineDecoder(schema.header)
+        if profile.source_format == "csv"
+        else JsonLineDecoder()
+    )
+    for chunk in iter_chunks(path, schema.data_start, 0, DEFAULT_CHUNK_SIZE):
         for raw in chunk.rows:
             profiler.rows += 1
             decoded = decoder.decode(raw.raw)
