@@ -98,8 +98,8 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | done | identity-alignment lead | DATA-MAPPING | TASK-015, TASK-016 | C | M |
 | TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | done | horizon-features lead | DATA-FEATURES | TASK-017, TASK-018 | D | L |
 | TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | done | rolling-backtest lead | ML-EVAL | TASK-004, TASK-019 | D | M |
-| TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | backlog | unassigned | ML-MODEL | TASK-020 | E | M |
-| TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-020 | E | M |
+| TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | in_progress | baselines lead | ML-MODEL | TASK-020 | E | M |
+| TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | in_progress | slice-metrics lead | ML-EVAL | TASK-020 | E | M |
 | TASK-023 | [Add a reproducible lag/calendar boosting candidate](#task-023) | feature | ml | P2 | R2 | backlog | unassigned | ML-MODEL | TASK-021, TASK-022 | F | M |
 | TASK-024 | [Produce calibrated-interval scaffolding with past-only calibration](#task-024) | feature | ml | P1 | R2 | backlog | unassigned | ML-UNCERTAINTY | TASK-021, TASK-022 | F | M |
 | TASK-025 | [Freeze the versioned offline forecast publication contract](#task-025) | feature | backend,ml | P1 | R2 | done | complete-data-contracts lead | CONTRACT | TASK-015 | C | M |
@@ -459,6 +459,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-021
 
+- **Execution:** `agent/baselines`, base `a87837c`, worktree `MosTransport2026Hack-worktrees/baselines`; [plan](../exec-plans/active/baselines.md).
+
 **Implement executable seasonal and simple-regression baselines** — RQ-02.
 
 - **Evidence / scope:** [ml/evals/golden_cases.json](../../ml/evals/golden_cases.json). Generate seasonal-naive, historical-profile and simple regularized-regression forecasts with installed tooling for each horizon; define adapter boundary for an organizer incumbent.
@@ -467,6 +469,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Current hand-authored baseline arrays are not an executable model or the organizer incumbent; real incumbent comparison is deferred.
 
 ## TASK-022
+
+- **Execution:** `agent/slice-metrics`, base `a87837c`, worktree `MosTransport2026Hack-worktrees/slice-metrics`; [plan](../exec-plans/active/slice-metrics.md).
 
 **Report operational slices and interval quality without hiding failures** — RQ-02, RQ-05.
 
