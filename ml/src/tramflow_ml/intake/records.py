@@ -6,9 +6,11 @@ one the pipeline actually enforces.
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 from tramflow_ml.ingestion.normalize import (
+    COORDINATE_LIMITS,
     IDENTIFIER_FIELDS,
     SCHEMA_VERSION,
     TARGETS,
@@ -22,12 +24,11 @@ IDENTITY_CROSSWALK = "identity"
 
 MIN_COVERAGE_RATIO = 0.5
 RATE_DECIMALS = 6
-JSON_COLUMN_SAMPLE_ROWS = 200
 DIGEST_BYTES = 8
+MAX_COLUMN_NAME_LENGTH = 64
 
 Classification = Literal["identifier", "timestamp", "measure", "enumerated"]
 FormatSignature = Literal["digits", "letters", "alnum", "alnum_punct", "other"]
-UnreadableReason = Literal["decode_error", "not_an_object"]
 
 ENUMERATED_FIELDS: Mapping[str, frozenset[str]] = {
     "schema_version": frozenset({SCHEMA_VERSION}),
@@ -36,11 +37,47 @@ ENUMERATED_FIELDS: Mapping[str, frozenset[str]] = {
     "synthetic": frozenset({"false", "true"}),
 }
 OTHER_VALUE = "other"
-UNPARSED_VALUE = "unparsed"
+UNPARSED_KEY = "unparsed"
+OUT_OF_CONTRACT_KEY = "out_of_contract"
 
 TARGET_BUCKETS: Mapping[str, int] = {"day": 24, "month": 31, "year": 12}
 """Buckets one forecast period occupies. ``month`` uses the longest calendar month so
 the verdict cannot flip on which month a sample happens to end in."""
+
+
+@dataclass(frozen=True, slots=True)
+class MeasureContract:
+    """What ``ingestion.normalize`` will accept for a measure field.
+
+    Intake reports a value outside these bounds instead of quarantining it, so the
+    profile says in advance how many rows the pipeline is going to reject.
+    """
+
+    integral: bool
+    minimum: float | None = None
+    maximum: float | None = None
+
+    def holds(self, value: float | int) -> bool:
+        if self.integral and not isinstance(value, int):
+            return False
+        if self.minimum is not None and value < self.minimum:
+            return False
+        return self.maximum is None or value <= self.maximum
+
+
+MEASURE_CONTRACTS: Mapping[str, MeasureContract] = {
+    "stop_sequence": MeasureContract(integral=True, minimum=0),
+    "latitude": MeasureContract(
+        integral=False,
+        minimum=-COORDINATE_LIMITS["latitude"],
+        maximum=COORDINATE_LIMITS["latitude"],
+    ),
+    "longitude": MeasureContract(
+        integral=False,
+        minimum=-COORDINATE_LIMITS["longitude"],
+        maximum=COORDINATE_LIMITS["longitude"],
+    ),
+}
 
 FIELD_CONTRACTS: Mapping[str, str] = {
     "schema_version": f"contract version of the row; must be {SCHEMA_VERSION}",

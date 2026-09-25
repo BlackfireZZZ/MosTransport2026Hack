@@ -2,28 +2,26 @@
 
 Only an exact canonical name auto-maps, which is identity rather than inference. Every
 other correspondence has to be written into a profile, and the refusal below is what
-tells the operator exactly which ones are still missing.
+tells the operator exactly which ones are still missing. Names discovered in the file
+are printed through ``columns.ColumnRef``, never raw.
 """
 
+import csv
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from tramflow_ml.ingestion.normalize import STREAM_FIELDS
-from tramflow_ml.ingestion.readers import read_csv_header
-from tramflow_ml.ingestion.records import IngestionError, SourceFormat, StreamName
+from tramflow_ml.ingestion.records import SourceFormat, StreamName
+from tramflow_ml.intake.columns import ColumnRef, describe, labels, positional_names
 from tramflow_ml.intake.profile import (
     STREAMS,
     IntakeProfile,
     builtin_profile,
     profile_skeleton,
 )
-from tramflow_ml.intake.records import (
-    FIELD_CONTRACTS,
-    JSON_COLUMN_SAMPLE_ROWS,
-    SchemaError,
-)
+from tramflow_ml.intake.records import FIELD_CONTRACTS, SchemaError
 
 _NOTHING = "-"
 
@@ -34,19 +32,34 @@ class StreamSchema:
 
     stream: StreamName
     file: str
-    columns: tuple[str, ...]
+    columns: tuple[ColumnRef, ...]
+    data_start: int
     mapping: Mapping[str, str]
     constants: tuple[str, ...]
     unmapped: tuple[str, ...]
     unused: tuple[str, ...]
+    never_seen: tuple[str, ...]
+
+    @property
+    def header(self) -> tuple[str, ...]:
+        return tuple(column.name for column in self.columns)
+
+    def label_for(self, name: str) -> str:
+        return next((c.label for c in self.columns if c.name == name), describe(name))
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "columns": dict(sorted(self.mapping.items())),
+        section: dict[str, object] = {
+            "columns": {
+                field: self.label_for(column)
+                for field, column in sorted(self.mapping.items())
+            },
             "constants": list(self.constants),
             "file": self.file,
             "unused_columns": list(self.unused),
         }
+        if self.never_seen:
+            section["declared_columns_never_seen"] = list(self.never_seen)
+        return section
 
 
 def resolve_profile(source: Path, profile: IntakeProfile | None) -> IntakeProfile:
@@ -75,46 +88,108 @@ def _stream_schema(source: Path, profile: IntakeProfile, stream: StreamName) -> 
     path = source / name
     if not path.is_file():
         raise SchemaError(_absent_file_message(source, stream, name))
-    columns = _columns(path, profile.source_format)
+    columns, data_start = _columns(path, profile.source_format, profile.has_header)
+    observed = {column.name for column in columns}
     adapter = profile.adapter
+    fields = STREAM_FIELDS[stream]
+    declared = {field: adapter.columns[field] for field in fields if field in adapter.columns}
+    _reject_absent_declarations(path, profile, declared, columns)
     mapping = {
-        field: adapter.source_column(field)
-        for field in STREAM_FIELDS[stream]
-        if adapter.source_column(field) in columns
+        field: declared.get(field, adapter.source_column(field))
+        for field in fields
+        if field in declared or adapter.source_column(field) in observed
     }
-    unmapped_fields = tuple(field for field in STREAM_FIELDS[stream] if field not in mapping)
-    constants = tuple(field for field in unmapped_fields if field in adapter.constants)
-    unmapped = tuple(field for field in unmapped_fields if field not in constants)
+    unresolved = tuple(field for field in fields if field not in mapping)
+    constants = tuple(field for field in unresolved if field in adapter.constants)
     return StreamSchema(
         stream=stream,
         file=name,
         columns=columns,
+        data_start=data_start,
         mapping=mapping,
         constants=constants,
-        unmapped=unmapped,
-        unused=tuple(sorted(set(columns) - set(mapping.values()))),
+        unmapped=tuple(field for field in unresolved if field not in constants),
+        unused=tuple(sorted(c.label for c in columns if c.name not in set(mapping.values()))),
+        never_seen=tuple(
+            sorted(describe(column) for column in declared.values() if column not in observed)
+        ),
     )
 
 
-def _columns(path: Path, source_format: SourceFormat) -> tuple[str, ...]:
+def _reject_absent_declarations(
+    path: Path,
+    profile: IntakeProfile,
+    declared: Mapping[str, str],
+    columns: tuple[ColumnRef, ...],
+) -> None:
+    """A CSV header is the schema, so a declared column missing from it can never be read.
+
+    A JSON Lines file has no schema, so a declared key no row carries is simply a field
+    that is always missing, and the report says so rather than refusing.
+    """
+    if profile.source_format != "csv":
+        return
+    observed = {column.name for column in columns}
+    absent = sorted(describe(column) for column in declared.values() if column not in observed)
+    if absent:
+        raise SchemaError(
+            f"profile.columns names columns absent from {path.name}: {absent}\n\n"
+            f"  columns found ({len(columns)}): {', '.join(labels(columns)) or _NOTHING}\n\n"
+            "Correct the spelling, or set \"has_header\": false when the file has no header row."
+        )
+
+
+def _columns(
+    path: Path, source_format: SourceFormat, has_header: bool
+) -> tuple[tuple[ColumnRef, ...], int]:
     if source_format == "csv":
-        try:
-            header, _ = read_csv_header(path)
-        except IngestionError as error:
-            raise SchemaError(f"{path.name}: {error}") from error
-        return tuple(sorted(header))
-    return tuple(sorted(_json_keys(path)))
+        return _csv_columns(path, has_header)
+    return _json_columns(path), 0
 
 
-def _json_keys(path: Path) -> set[str]:
-    """Union of the keys of the first readable rows; a later row may add a field."""
+def _csv_columns(path: Path, has_header: bool) -> tuple[tuple[ColumnRef, ...], int]:
+    with path.open("rb") as stream:
+        line = stream.readline()
+    if not line:
+        raise SchemaError(f"{path.name} is empty: it holds no lines at all.")
+    try:
+        cells = next(csv.reader([line.decode("utf-8-sig").rstrip("\r\n")]), [])
+    except (UnicodeDecodeError, csv.Error) as error:
+        raise SchemaError(f"{path.name}: the first line is not readable CSV ({error})") from error
+    if not cells:
+        raise SchemaError(f"{path.name}: the first line holds no columns.")
+    if not has_header:
+        names = positional_names(len(cells))
+        return tuple(ColumnRef.of(index + 1, n) for index, n in enumerate(names)), 0
+    _reject_bad_header(path, cells)
+    return tuple(ColumnRef.of(index + 1, name) for index, name in enumerate(cells)), len(line)
+
+
+def _reject_bad_header(path: Path, cells: Sequence[str]) -> None:
+    blank = [index + 1 for index, cell in enumerate(cells) if not cell.strip()]
+    if blank:
+        raise SchemaError(
+            f"{path.name}: header columns at positions {blank} have empty names. "
+            "Give every column a name, or set \"has_header\": false in a profile."
+        )
+    seen: dict[str, int] = {}
+    for index, cell in enumerate(cells):
+        first = seen.setdefault(cell, index + 1)
+        if first != index + 1:
+            label = ColumnRef.of(first, cell).label
+            raise SchemaError(
+                f"{path.name}: the header repeats a column name at positions {first} and "
+                f"{index + 1} ({label}). Column names must be unique."
+            )
+
+
+def _json_columns(path: Path) -> tuple[ColumnRef, ...]:
+    """Every key in the whole file. A field that first appears late is still a field."""
+    if path.stat().st_size == 0:
+        raise SchemaError(f"{path.name} is empty: it holds no rows at all.")
     keys: set[str] = set()
-    seen = 0
     with path.open("rb") as stream:
         for line in stream:
-            if seen >= JSON_COLUMN_SAMPLE_ROWS:
-                break
-            seen += 1
             try:
                 row = json.loads(line)
             except ValueError:
@@ -123,11 +198,11 @@ def _json_keys(path: Path) -> set[str]:
                 keys.update(str(key) for key in row)
     if not keys:
         raise SchemaError(
-            f"{path.name}: the first {JSON_COLUMN_SAMPLE_ROWS} lines hold no readable "
-            "JSON object, so intake can see no columns at all. Check the encoding and "
-            "whether the file really is JSON Lines (one object per line)."
+            f"{path.name}: no line in the file is a readable JSON object, so intake can "
+            "see no columns at all. Check the encoding and whether the file really is "
+            "JSON Lines, one object per line."
         )
-    return keys
+    return tuple(ColumnRef.of(index + 1, name) for index, name in enumerate(sorted(keys)))
 
 
 def _missing_files_message(source: Path, candidates: Sequence[str]) -> str:
@@ -164,35 +239,56 @@ def _unmapped_message(profile: IntakeProfile, schemas: Sequence[StreamSchema]) -
     blocked = [schema for schema in schemas if schema.unmapped]
     files: dict[str, str] = {schema.stream: schema.file for schema in schemas}
     mapped = {
-        field: column for schema in schemas for field, column in sorted(schema.mapping.items())
+        field: schema.label_for(column)
+        for schema in schemas
+        for field, column in sorted(schema.mapping.items())
     }
-    skeleton = profile_skeleton(profile.source_format, files, mapped)
+    skeleton = profile_skeleton(profile.source_format, files, mapped, profile.has_header)
     return "\n".join(
         [
             f"intake cannot read this sample with the {profile.name!r} mapping: "
             f"{len(blocked)} of {len(schemas)} streams have unmapped required fields.",
             "",
             *[line for schema in blocked for line in _stream_block(schema)],
+            *_headerless_hint(profile, blocked),
             "No column is mapped by name similarity, position or a synonym list: only an "
-            "exact canonical name maps on its own. Supply the rest yourself and rerun with "
-            "--profile <file>:",
+            "exact canonical name maps on its own. A name that is not word-like is shown by "
+            "shape and position rather than quoted, because intake cannot tell a header from "
+            "a first data row. Supply the mapping yourself and rerun with --profile <file>:",
             "",
             _render(skeleton),
             "",
             "Replace every null with the source column that carries that field, or move the "
-            'field into "constants" when the source omits it and one value is right for every '
-            "row. Certifying the organizer's real mapping is TASK-049/TASK-050, not this "
-            "tool's job.",
+            "field into \"constants\" when the source omits it and one value is right for "
+            "every row. Certifying the organizer's real mapping is TASK-049/TASK-050, not "
+            "this tool's job.",
         ]
     )
 
 
+def _headerless_hint(profile: IntakeProfile, blocked: Sequence[StreamSchema]) -> list[str]:
+    redacted = all(
+        column.label != column.name for schema in blocked for column in schema.columns
+    )
+    if not redacted or profile.source_format != "csv" or not profile.has_header:
+        return []
+    return [
+        "No column name in this file is word-like, which is what a file with no header "
+        "row looks like: row one's cells have been read as column names. Set "
+        "\"has_header\": false in a profile to treat every line as data and address "
+        "columns as column_1, column_2 and so on.",
+        "",
+    ]
+
+
 def _stream_block(schema: StreamSchema) -> list[str]:
     width = max(len(field) for field in schema.unmapped)
-    mapped = ", ".join(f"{field} <- {column}" for field, column in sorted(schema.mapping.items()))
+    mapped = ", ".join(
+        f"{field} <- {schema.label_for(column)}" for field, column in sorted(schema.mapping.items())
+    )
     return [
         f"stream {schema.stream!r} (file {schema.file})",
-        f"  columns found ({len(schema.columns)}): {', '.join(schema.columns) or _NOTHING}",
+        f"  columns found ({len(schema.columns)}): {', '.join(labels(schema.columns)) or _NOTHING}",
         f"  mapped ({len(schema.mapping)}): {mapped or _NOTHING}",
         f"  supplied as constants ({len(schema.constants)}): "
         f"{', '.join(schema.constants) or _NOTHING}",

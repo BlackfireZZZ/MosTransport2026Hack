@@ -29,12 +29,18 @@ CANONICAL_FIELDS: frozenset[str] = frozenset(
 
 @dataclass(frozen=True)
 class IntakeProfile:
-    """Which file holds each stream, how it is encoded, and how its columns map."""
+    """Which file holds each stream, how it is encoded, and how its columns map.
+
+    ``has_header`` is a CSV declaration intake cannot make for itself: without it the
+    first line is assumed to be a header, and for a headerless extract that both
+    loses row one and mistakes its cells for column names.
+    """
 
     name: str
     source_format: SourceFormat
     files: Mapping[StreamName, str]
     adapter: ColumnAdapter
+    has_header: bool = True
 
     def file_for(self, stream: StreamName) -> str:
         return self.files[stream]
@@ -67,6 +73,7 @@ def load_profile(path: Path) -> IntakeProfile:
         name=name,
         source_format=_format(path.name, payload.get("source_format")),
         files=_files(path.name, payload.get("files")),
+        has_header=_flag(path.name, payload, "has_header"),
         adapter=ColumnAdapter(
             name=name,
             columns=_columns(path.name, payload.get("columns")),
@@ -78,10 +85,17 @@ def load_profile(path: Path) -> IntakeProfile:
 
 
 def profile_skeleton(
-    source_format: SourceFormat, files: Mapping[str, str], mapped: Mapping[str, str]
+    source_format: SourceFormat,
+    files: Mapping[str, str],
+    mapped: Mapping[str, str],
+    has_header: bool = True,
 ) -> dict[str, object]:
-    """A fill-in profile: every canonical field intake could not map is ``null``."""
-    return {
+    """A fill-in profile: every canonical field intake could not map is ``null``.
+
+    Mapped entries carry the printable label, not necessarily the raw column name; an
+    operator editing their own profile already has the name they wrote.
+    """
+    skeleton: dict[str, object] = {
         "schema_version": PROFILE_SCHEMA,
         "name": "REPLACE-WITH-A-NAME-FOR-THIS-SOURCE",
         "source_format": source_format,
@@ -91,12 +105,22 @@ def profile_skeleton(
         "timestamp_format": None,
         "assume_timezone": None,
     }
+    if source_format == "csv":
+        skeleton["has_header"] = has_header
+    return skeleton
 
 
 def _text(name: str, payload: Mapping[str, object], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value:
         raise IntakeError(f"{name}: profile.{key} must be a non-empty string")
+    return value
+
+
+def _flag(name: str, payload: Mapping[str, object], key: str) -> bool:
+    value = payload.get(key, True)
+    if type(value) is not bool:
+        raise IntakeError(f"{name}: profile.{key} must be true or false")
     return value
 
 

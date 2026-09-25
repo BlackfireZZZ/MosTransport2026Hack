@@ -57,7 +57,7 @@ def failure(foreign_sample):
 def test_failure_names_every_column_it_found(failure):
     for column in FOREIGN_COLUMNS:
         assert column in failure
-    assert "columns found (5): line, platform, ticket_no, tram, ts" in failure
+    assert "columns found (5): ticket_no, line, platform, ts, tram" in failure
 
 
 def test_failure_names_every_canonical_field_it_needs_and_what_each_must_carry(failure):
@@ -70,7 +70,7 @@ def test_failure_names_every_canonical_field_it_needs_and_what_each_must_carry(f
 def test_failure_says_nothing_was_mapped_and_nothing_was_used(failure):
     assert "mapped (0): -" in failure
     assert "supplied as constants (0): -" in failure
-    assert "columns not used (5): line, platform, ticket_no, tram, ts" in failure
+    assert "columns not used (5): line, platform, ticket_no, tram, ts" in failure  # sorted
 
 
 def test_failure_states_that_no_column_is_guessed_and_defers_the_real_mapping(failure):

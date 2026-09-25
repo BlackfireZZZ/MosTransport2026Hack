@@ -108,3 +108,82 @@ def test_a_value_outside_the_allowlist_is_counted_but_never_quoted(carded_sample
 
     assert report["streams"]["validations"]["fields"]["unit"]["values"]["other"] == 1
     assert "passengers-per-card-4276" not in render(report)
+
+
+HEADERLESS_CELLS = ("4276380155129043", "A-14", "Chistye Prudy", "T-2201")
+HEADERLESS_ROW = ",".join((*HEADERLESS_CELLS, "2026-03-01T07:41:10+03:00"))
+
+
+@pytest.fixture
+def headerless_sample(tmp_path):
+    """A CSV whose first line is data, which intake cannot know before reading it."""
+    sample = tmp_path / "headerless"
+    sample.mkdir()
+    for name in ("validations", "telemetry"):
+        (sample / f"{name}.csv").write_text(
+            f"{HEADERLESS_ROW}\n{HEADERLESS_ROW}\n", encoding="utf-8"
+        )
+    return sample
+
+
+def test_a_headerless_csv_never_quotes_row_one_as_a_column_name(headerless_sample):
+    from tramflow_ml.intake import SchemaError
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(IntakeRequest(source=headerless_sample))
+
+    message = str(raised.value)
+    for cell in (*HEADERLESS_CELLS, "2026-03-01T07:41:10+03:00"):
+        assert cell not in message
+    assert "<column 1: 16 digits>" in message
+    assert "may have no header row" in message or "no header row looks like" in message
+
+
+def test_a_headerless_csv_leaks_nothing_into_the_report_either(headerless_sample, tmp_path):
+    """With a profile that maps the positions, the run succeeds and still quotes no cell."""
+    profile_path = tmp_path / "headerless.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "intake-profile.v1",
+                "name": "headerless",
+                "source_format": "csv",
+                "has_header": False,
+                "files": {"validations": "validations.csv", "telemetry": "telemetry.csv"},
+                "columns": {"event_id": "column_1", "route_id": "column_2"},
+                "constants": {},
+                "timestamp_format": None,
+                "assume_timezone": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    from tramflow_ml.intake import SchemaError, load_profile
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(
+            IntakeRequest(source=headerless_sample, profile=load_profile(profile_path))
+        )
+
+    message = str(raised.value)
+    for cell in HEADERLESS_CELLS:
+        assert cell not in message
+    assert "column_1" in message and "column_2" in message
+
+
+def test_a_json_row_keyed_by_an_identifier_is_redacted_too(tmp_path):
+    sample = tmp_path / "keyed"
+    sample.mkdir()
+    for name in ("validations", "telemetry"):
+        (sample / f"{name}.jsonl").write_text(
+            json.dumps({CARD: 1, "4276-3801-5512-9044": 2}) + "\n", encoding="utf-8"
+        )
+
+    from tramflow_ml.intake import SchemaError
+
+    with pytest.raises(SchemaError) as raised:
+        profile_sample(IntakeRequest(source=sample))
+
+    assert CARD not in str(raised.value)
+    assert "digits" in str(raised.value) or "alnum_punct" in str(raised.value)

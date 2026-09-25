@@ -1,5 +1,6 @@
 """Read-only profiling of a first data sample: describe it, never change it."""
 
+from tramflow_ml.intake.columns import ColumnRef, printable
 from tramflow_ml.intake.discover import StreamSchema, discover, resolve_profile
 from tramflow_ml.intake.profile import (
     CANONICAL_FIELDS,
@@ -24,6 +25,7 @@ from tramflow_ml.intake.supportability import ObservedSpan, horizon_support, tar
 
 __all__ = [
     "CANONICAL_FIELDS",
+    "ColumnRef",
     "FIELD_CONTRACTS",
     "MIN_COVERAGE_RATIO",
     "PROFILE_SCHEMA",
@@ -38,6 +40,7 @@ __all__ = [
     "StreamSchema",
     "builtin_profile",
     "classify",
+    "printable",
     "discover",
     "horizon_support",
     "load_profile",
