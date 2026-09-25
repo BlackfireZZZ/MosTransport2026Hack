@@ -205,3 +205,76 @@ def test_the_header_records_the_cutoff_that_was_applied(coverage):
     assert built.header["cutoff"] == "2025-06-01T00:00:00+03:00"
     assert built.header["forecast_origin"] == "2025-06-01T00:00:00+03:00"
     assert all(row.cutoff == moscow("2025-06-01T00:00") for row in built.rows)
+
+
+def coverage_with_gap(*gaps):
+    return CoverageCalendar.from_range(date(2024, 1, 1), date(2026, 1, 1), gaps=gaps)
+
+
+def gap_dates(start, days):
+    return tuple(start + timedelta(days=offset) for offset in range(days))
+
+
+@pytest.mark.parametrize(
+    "hole",
+    [
+        gap_dates(date(2025, 7, 2), 20),
+        gap_dates(date(2025, 11, 3), 25),
+        gap_dates(date(2025, 12, 5), 20),
+    ],
+)
+def test_a_coverage_hole_after_the_cutoff_cannot_move_a_feature(hole):
+    """The leakage guarantee is about the coverage statement too, not only the events.
+
+    A gap lying entirely inside the forecast horizon is a fact about the future. The
+    ``*_units`` ratios ask the coverage calendar how much of a bucket exists, so without
+    a cutoff gate they answer about buckets the forecaster has not reached yet.
+    """
+    baseline = build(YEAR_MONTH, "2025-01-01T00:00", PAST_EVENTS, coverage_with_gap())
+
+    holed = build(YEAR_MONTH, "2025-01-01T00:00", PAST_EVENTS, coverage_with_gap(*hole))
+
+    assert min(hole) > date(2025, 1, 1)
+    assert holed.feature_digest == baseline.feature_digest
+    assert [row.feature_dict() for row in holed.rows] == [
+        row.feature_dict() for row in baseline.rows
+    ]
+
+
+def test_a_coverage_hole_before_the_cutoff_does_move_the_features():
+    baseline = build(YEAR_MONTH, "2025-01-01T00:00", PAST_EVENTS, coverage_with_gap())
+
+    holed = build(
+        YEAR_MONTH,
+        "2025-01-01T00:00",
+        PAST_EVENTS,
+        coverage_with_gap(*gap_dates(date(2024, 7, 3), 25)),
+    )
+
+    assert holed.feature_digest != baseline.feature_digest
+
+
+def test_a_post_cutoff_coverage_hole_still_moves_the_labels():
+    hole = gap_dates(date(2025, 7, 2), 20)
+    baseline = build(YEAR_MONTH, "2025-01-01T00:00", PAST_EVENTS, coverage_with_gap())
+
+    holed = build(YEAR_MONTH, "2025-01-01T00:00", PAST_EVENTS, coverage_with_gap(*hole))
+
+    assert holed.digest != baseline.digest
+    moved = [
+        row.bucket.start.date()
+        for holed_row, row in zip(holed.rows, baseline.rows, strict=True)
+        if holed_row.target_covered_units != row.target_covered_units
+    ]
+    assert date(2025, 7, 1) in moved
+
+
+@pytest.mark.parametrize("policy_origin", POLICY_ORIGINS)
+def test_no_units_column_reports_a_bucket_that_has_not_finished(policy_origin):
+    policy, origin = policy_origin
+    built = build(policy, origin, PAST_EVENTS, coverage_with_gap())
+
+    for row in built.rows:
+        for name, value in row.features.items():
+            if name.endswith("_units") and name.startswith("lag_"):
+                assert value is None or 0.0 <= value <= 1.0
