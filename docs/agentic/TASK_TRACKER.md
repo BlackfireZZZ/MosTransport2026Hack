@@ -97,7 +97,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-017 | [Implement bounded historical ingestion with restart and quarantine](#task-017) | feature | data,ml | P1 | R2 | done | historical-ingestion lead | DATA | TASK-016 | C | L |
 | TASK-018 | [Align validations and telemetry with explicit identity rules](#task-018) | feature | data,ml | P1 | R2 | done | identity-alignment lead | DATA-MAPPING | TASK-015, TASK-016 | C | M |
 | TASK-019 | [Build leakage-safe aggregates and horizon-specific features](#task-019) | feature | data,ml | P1 | R2 | done | horizon-features lead | DATA-FEATURES | TASK-017, TASK-018 | D | L |
-| TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-004, TASK-019 | D | M |
+| TASK-020 | [Implement history-aware rolling-origin backtesting](#task-020) | feature | ml | P1 | R2 | in_progress | rolling-backtest lead | ML-EVAL | TASK-004, TASK-019 | D | M |
 | TASK-021 | [Implement executable seasonal and simple-regression baselines](#task-021) | feature | ml | P1 | R2 | backlog | unassigned | ML-MODEL | TASK-020 | E | M |
 | TASK-022 | [Report operational slices and interval quality without hiding failures](#task-022) | feature | ml | P1 | R2 | backlog | unassigned | ML-EVAL | TASK-020 | E | M |
 | TASK-023 | [Add a reproducible lag/calendar boosting candidate](#task-023) | feature | ml | P2 | R2 | backlog | unassigned | ML-MODEL | TASK-021, TASK-022 | F | M |
@@ -116,7 +116,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-036 | [Make forecast uncertainty and units inspectable without hover](#task-036) | feature | frontend | P1 | R1 | backlog | for-vova-huesos | UI-CHART | TASK-015, TASK-024, TASK-033, TASK-035 | H | M |
 | TASK-037 | [Cover network navigation and outages in browser tests](#task-037) | maintenance | frontend | P1 | R1 | done | integration lead | QA-UI | TASK-008, TASK-009, TASK-010 | C | M |
 | TASK-038 | [Verify dispatcher accessibility and responsive operation](#task-038) | maintenance | frontend | P1 | R1 | backlog | for-vova-huesos | QA-UI | TASK-033, TASK-034, TASK-035, TASK-036, TASK-037 | I | M |
-| TASK-039 | [Build a first-data profiling and adaptation toolkit](#task-039) | feature | data,ml | P1 | R2 | backlog | unassigned | DATA | TASK-017, TASK-018, TASK-019 | E | M |
+| TASK-039 | [Build a first-data profiling and adaptation toolkit](#task-039) | feature | data,ml | P1 | R2 | in_progress | intake-profiling lead | DATA | TASK-017, TASK-018, TASK-019 | E | M |
 | TASK-040 | [Observe batch quality, publication and forecast freshness](#task-040) | feature | backend,ml | P2 | R2 | backlog | unassigned | OBSERVABILITY | TASK-029, TASK-035, TASK-013 | I | M |
 | TASK-041 | [Measure million-row ingestion and bounded query/UI budgets](#task-041) | research | data,backend,frontend | P1 | R1 | backlog | unassigned | PERFORMANCE | TASK-017, TASK-028, TASK-034, TASK-026 | H | M |
 | TASK-042 | [Verify offline synthetic data-to-map integration](#task-042) | maintenance | backend,frontend,ml,infra | P1 | R2 | backlog | unassigned | INTEGRATION | TASK-058, TASK-034, TASK-035, TASK-036, TASK-037 | I | L |
@@ -446,6 +446,8 @@ to install dependencies. Do not silently weaken existing contracts.
 
 ## TASK-020
 
+- **Execution:** `agent/rolling-backtest`, base `c34e7d9`, worktree `MosTransport2026Hack-worktrees/rolling-backtest`; [plan](../exec-plans/active/rolling-backtest.md).
+
 **Implement history-aware rolling-origin backtesting** — RQ-02.
 
 - **Evidence / scope:** [ml/src/tramflow_ml/evaluation.py](../../ml/src/tramflow_ml/evaluation.py). Add chronological train/validation/test folds, full-horizon labels, configurable gaps and experiment manifests; candidate and baseline share identical folds.
@@ -654,6 +656,8 @@ to install dependencies. Do not silently weaken existing contracts.
 - **Pre-data boundary / risk:** Synthetic/committed inputs suffice; real-data quality is not claimed.
 
 ## TASK-039
+
+- **Execution:** `agent/intake-profiling`, base `c34e7d9`, worktree `MosTransport2026Hack-worktrees/intake-profiling`; [plan](../exec-plans/active/intake-profiling.md).
 
 **Build a first-data profiling and adaptation toolkit** — RQ-01–03.
 
