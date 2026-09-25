@@ -77,9 +77,22 @@ def available_value(
     return None if cell.value is None else float(cell.value)
 
 
-def unit_counts(index: AggregateIndex, start: datetime) -> tuple[int, int]:
-    """Available and total civil dates of one bucket, independent of the counted value."""
-    return index.coverage.units(bucket_from_start(start, index.granularity))
+def unit_counts(
+    index: AggregateIndex, start: datetime, cutoff: datetime
+) -> tuple[int, int]:
+    """Available and total civil dates of one bucket, clipped at the cutoff.
+
+    The availability question is asked under the same rule ``available_value`` applies:
+    a bucket still running at, or starting after, the cutoff has no available dates yet,
+    whatever the coverage calendar says about those dates in the end. Without that, a
+    coverage statement reaching past the cutoff would answer truthfully about the future
+    and the ratio would carry it into the feature vector -- a leak through the
+    ``*_units`` columns even while the value beside them is correctly missing. The total
+    is a pure calendar fact -- how many civil dates the bucket spans -- and leaks nothing.
+    """
+    bucket = bucket_from_start(start, index.granularity)
+    available, total = index.coverage.units(bucket)
+    return (available, total) if bucket.ends_by(cutoff) else (0, total)
 
 
 def anchor_start(policy: HorizonPolicy, cutoff: datetime) -> datetime:
@@ -101,7 +114,7 @@ def lag_features(
         name = lag_name(policy, steps)
         features[name] = available_value(index, entity, start, cutoff)
         if carries_unit_ratio(policy):
-            features[f"{name}_{UNITS}"] = _ratio(*unit_counts(index, start))
+            features[f"{name}_{UNITS}"] = _ratio(*unit_counts(index, start, cutoff))
     return features
 
 
@@ -158,7 +171,7 @@ def _window_features(
     values = [available_value(index, entity, start, cutoff) for start in window.starts]
     features = _statistics(window.prefix, values, window.size, window.statistics)
     if carries_unit_ratio(policy):
-        counts = [unit_counts(index, start) for start in window.starts]
+        counts = [unit_counts(index, start, cutoff) for start in window.starts]
         features[f"{window.prefix}_{UNITS}"] = _ratio(
             sum(available for available, _ in counts), sum(total for _, total in counts)
         )
