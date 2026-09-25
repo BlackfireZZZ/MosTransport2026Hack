@@ -1,0 +1,479 @@
+# ExecPlan: operational slice and interval reporting (TASK-022)
+
+- Branch: `agent/slice-metrics`, base `a87837c`.
+- Worktree: `/home/chessnok/hacks/MosTransport2026Hack-worktrees/slice-metrics`.
+- Integration owner: the TASK-022 agent; the lead owns `docs/agentic/TASK_TRACKER.md`.
+- Parallel writer: TASK-021 owns `ml/src/tramflow_ml/baselines/`. This plan does not
+  read, write, or depend on that package.
+
+## 1. Purpose / observable result
+
+A model that is excellent on average and catastrophic on one operational slice must
+fail the quality gate, and the verdict must name the slice. Today nothing in the
+repository can say that: `make ml-eval` slices only by horizon, and
+`BacktestOutcome.passed` is a statement about the fold set, not about quality
+(`docs/exec-plans/completed/rolling-backtest.md`, Open risks, last-but-two bullet:
+"`passed` is about folds, not quality … TASK-022 owns the quality verdict").
+
+Observable after this change:
+
+- `build_report(points, required=..., thresholds=...)` returns a `SliceReport` whose
+  `failures` name every slice that breached a threshold, with the observed value, the
+  threshold constant's name and its value, the sample count and the fold count.
+- A report whose overall WAPE passes and whose `route_daypart` slice
+  `route-A|evening_peak` does not has `passed is False` and a failure line naming that
+  slice. Overall performance cannot remove that entry.
+- Interval quality is reported as coverage **and** mean width **and** mean interval
+  (Winkler) score. A `[0, 10000]` interval scores far worse than a tight one even
+  though its coverage is 1.0.
+- Every metric carries `unit`, `samples`, `folds`.
+- `overload` is `null` with a stated reason whenever the target is not a load or the
+  capacity is not known for every point of the slice.
+- Two runs over the same points, in any input order, produce byte-identical JSON.
+
+## 2. Context
+
+Existing, read before writing:
+
+- `ml/src/tramflow_ml/evaluation.py` — the golden gate behind `make ml-eval`.
+  `evaluate()` slices by horizon only, raises on zero demand, and reports interval
+  coverage with no width. Its output must stay byte-identical: `ml/evals/golden_cases.json`
+  belongs to TASK-021's evidence scope and `ml/src/tramflow_ml/cli.py` is not ours.
+- `ml/src/tramflow_ml/backtest/metrics.py` — `FoldMetrics(scored, actual_total,
+  error_total)` with `mae` and `wape` properties, `wape` `None` when `actual_total == 0`.
+  `fold_metrics()` sums in a fixed order; `combine()` pools folds by their sums so an
+  average of averages cannot hide a slice.
+- `ml/src/tramflow_ml/backtest/results.py` — `BacktestStatus = Literal["evaluated",
+  "insufficient_history", "insufficient_signal"]`. This is the vocabulary a slice
+  verdict must match rather than compete with.
+- `ml/src/tramflow_ml/features/records.py` — `EntityKey(route_id, direction_id,
+  stop_id)`, `Horizon`, `GRANULARITY_FOR_HORIZON`, `MOSCOW`, `COUNT_UNIT`,
+  `require_aware`.
+- `docs/decisions/0006-stop-identity-and-direction.md` — a stop is a physical place and
+  direction is a separate mandatory axis, never inferred. A route passes a physical stop
+  in both directions and tram load is sharply asymmetric between them, so a slice on
+  `stop_id` alone is not a slice on an operating side.
+- `contracts/forecast_v1.py` — `lower_bound`/`upper_bound` on the point,
+  `interval_level`/`interval_method` on the artifact, both-or-neither at each level.
+  The contract promises ordering and finiteness; it promises nothing about calibration.
+  `AggregationUnit` is `event_count | passengers | vehicles`; `onboard_load` is the only
+  target that is an occupancy. Production code must never import `contracts`, so these
+  two strings are mirrored as named constants with the mirror stated in the docstring.
+
+Terms used below: a **slice** is a group of scored points sharing one `(axis, value)`.
+A **required slice** is one the caller declares must exist and must be judgeable.
+**Support** is the pair (samples, folds) behind a number.
+
+## 3. Scope / non-goals
+
+In scope: `ml/src/tramflow_ml/slices/` (new), tests under `ml/tests/test_slices_*.py`
+and `ml/tests/test_evaluation_slices.py`, and one `## Slice and interval reporting`
+section appended to `ml/README.md`.
+
+Non-goals: changing `evaluation.py`, `cli.py`, `ml/evals/golden_cases.json`,
+`contracts/**`, `backend/**`, `frontend/**`, or any other `tramflow_ml` subpackage;
+producing predictions of any kind; calibrating intervals (TASK-024); certifying any
+threshold (needs organizer data, TASK-051).
+
+## 4. Acceptance
+
+1. `make ml-eval` output is byte-identical to its output at base `a87837c`.
+2. `make ml-check` and `make check` pass.
+3. A hand-computed fixture (computed on paper, recorded in section 7) matches the
+   code's output for MAE, WAPE, coverage, mean width and mean interval score.
+4. A report whose overall WAPE passes and whose evening-peak route slice does not has
+   `passed is False`, and `failures` names `route_daypart=route-A|evening_peak`.
+5. A required slice with no points is `unproven`, not a silent pass.
+6. `mean_interval_score` for `[0, 10000]` is larger than for a tight interval whose
+   coverage is the same.
+7. A zero-demand slice reports `wape: null`, status `insufficient_signal`, and never a
+   `0.0` that lowers a pooled ratio.
+8. A slice below `MIN_SAMPLES_FOR_GATE` is reported in full, marked, and not gated.
+9. `overload` is absent with a reason for `unit="event_count"`, and present only for
+   `target="onboard_load"`, `unit="passengers"`, capacity known for every point.
+10. Two runs over the same points in different input orders produce identical bytes.
+
+## 5. Progress / decisions
+
+Decisions, each with the alternative that was rejected:
+
+1. **Reuse `backtest.metrics.fold_metrics`/`combine` rather than re-derive WAPE.**
+   `rolling-backtest.md` records that refactoring `evaluation.py` to share the summation
+   was considered and rejected because it backs `make ml-eval` and its zero-demand
+   divergence is intentional. That argument does not apply in this direction: the new
+   module is free to adopt the backtest definition wholesale, so there are two
+   definitions in the repository, not three, and the zero-demand behaviour is the
+   backtest's by construction rather than by a parallel edit. `evaluation.py`'s raising
+   behaviour is untouched, so `test_backtest_shared.py`'s pin is unaffected.
+2. **Zero demand follows the backtest, not `evaluation.py`.** `wape` is `None` and the
+   slice status is `insufficient_signal`. `evaluation.py` raises instead; that is a
+   deliberate difference for a curated five-case golden file where a zero-demand horizon
+   is an authoring mistake. A real slice with no demand is data, not a mistake.
+3. **Small samples are marked, never suppressed and never silently averaged.** A slice
+   with fewer than `MIN_SAMPLES_FOR_GATE = 12` scored points, or fewer than
+   `MIN_FOLDS_FOR_GATE = 2` distinct folds, keeps every metric and its support, gets
+   status `insufficient_samples` or `insufficient_history`, and is excluded from the
+   gate. Rejected: suppression (hides the slice, which is the failure mode this task
+   exists to prevent) and gating them anyway (a three-sample WAPE is noise, and a gate
+   that fails on noise stops being believed). `insufficient_history` is reused from the
+   backtest with its meaning intact — too few independent origins. `insufficient_samples`
+   is the one new word, for a genuinely different axis: enough origins, too few rows.
+4. **Every `evaluated` slice gates; `required` adds existence and judgeability.**
+   Rejected: gating only declared required slices, which makes the gate exactly as good
+   as somebody's memory. Because small and zero-demand slices are already de-gated by
+   decision 3, gating everything does not make the gate fire on noise.
+5. **A required slice that is absent or not judgeable is `unproven`, and `unproven`
+   blocks the pass.** `passed = not failures and not unproven`. Absence must not buy a
+   pass.
+6. **Interval quality is the interval (Winkler) score, reported beside coverage and
+   width, never coverage alone.** `IS = (u - l) + (2/alpha)(l - y)1{y<l} + (2/alpha)(y - u)1{y>u}`
+   with `alpha = 1 - level`; lower is better, unit is the target unit. Rejected:
+   coverage plus a width cap, which is two thresholds that trade against each other with
+   no stated exchange rate. The score is the standard proper rule for a central interval
+   (Gneiting & Raftery 2007, §6.2; Winkler 1972).
+7. **The interval score is gated against the slice's mean actual demand, not its MAE.**
+   A perfectly predicted slice has `mae == 0`, which makes any score ratio infinite; an
+   `evaluated` slice always has `actual_total > 0`, because `actual_total == 0` is
+   `insufficient_signal`, so mean actual is always a usable denominator.
+8. **The headline slice is a cross, not a single axis.** "Catastrophic at the evening
+   peak on one busy route" is route x daypart. A `route_daypart` axis is therefore
+   produced alongside the single axes.
+9. **Daypart exists only where the bucket is hourly.** `GRANULARITY_FOR_HORIZON` makes
+   the `day` horizon hourly and the others daily/monthly. Evening-peak error cannot be
+   measured from a monthly bucket, so those points are in no daypart slice at all rather
+   than in a fabricated one.
+10. **Direction is never collapsed.** Per ADR-0006 the `direction` axis value is
+    `route|direction`, because a bare `direction_id` is meaningless across routes, and a
+    `stop` axis exists as well but is documented as spanning both operating sides.
+11. **Overload needs compatible ground truth, and absence is representable.**
+    `overload` is `None` plus a reason unless `target == "onboard_load"`,
+    `unit == "passengers"`, and every point carries a positive capacity. The repository's
+    open defect — `ForecastPointModel.capacity` defaulting to `180.0` against a
+    response schema demanding `gt=0`, so an unknown capacity is served as a fabricated
+    number — is not replicated: there is no default capacity anywhere in this module.
+12. **Points are canonically sorted before summation, and a repeated key is refused.**
+    Float addition is not associative, so a report that summed in caller order would be
+    order-dependent. Sorting by `(horizon, entity, bucket_start, fold_id)` fixes the
+    order; two points tying on that key would keep their input order and could still sum
+    differently, so a repeat is refused instead — one entity's bucket is scored once per
+    fold, which `forecast_v1` also requires of a published artifact.
+13. **One unit and one target per report.** A report pooling event counts with passenger
+    loads has no unit, so mixing them is refused at the boundary.
+14. **Thresholds are a frozen dataclass whose defaults are the named constants, and the
+    report prints them with `"certified": false`.** Each failure carries the constant's
+    name beside the observed value it judged.
+
+15. **`evaluation.py` is not edited at all — a deliberate deviation from the card's
+    stated scope.** The TASK-022 card names `ml/src/tramflow_ml/evaluation.py` under
+    "Evidence / scope". It was planned to gain a `slice_points()` bridge; that was
+    dropped after the design settled, for two reasons. A golden case carries no entity
+    and no bucket instant, so a bridge would have had to invent a timestamp, and the
+    daypart axis is *derived* from that timestamp — a fabricated 18:00 would have
+    manufactured an evening-peak slice out of nothing, which is precisely the kind of
+    dishonesty this task exists to prevent. And `evaluation.py` backs `make ml-eval`,
+    whose output the brief requires to stay byte-identical; every line not written there
+    is a line that cannot break it. The link the bridge was for is provided instead by
+    `ml/tests/test_evaluation_slices.py`, which imports both modules and pins their WAPE
+    and MAE against each other on the real `ml/evals/golden_cases.json` — the same
+    pattern `test_backtest_shared.py` already uses for the backtest. That file also
+    demonstrates, rather than asserts, why the second reporter exists: a `[0, 10000]`
+    interval passes the golden gate at coverage 1.0 and fails the slice report on its
+    interval score. Nothing in the card's acceptance criteria requires an edit to
+    `evaluation.py`; all four are met by the new package.
+16. **Adding width and interval score to `evaluate()` was considered and rejected.**
+    It would be a real improvement — the golden gate reports coverage alone, which is
+    the exact failure mode named in this card — but it changes `make ml-eval` bytes
+    while TASK-021 is running against that gate in parallel, for a benefit TASK-058
+    gets anyway when it routes publication through `slices`. Recorded here as known
+    debt rather than done quietly.
+
+Milestones: (a) plan; (b) `slices/` with tests, hand fixture first; (c) gate and
+interval demonstrations; (d) the golden-gate agreement test; (e) README section;
+(f) full verification.
+
+## 6. Research evidence
+
+- Winkler, R. L. (1972), "A Decision-Theoretic Approach to Interval Estimation",
+  *JASA* 67(337) — the original central-interval score.
+- Gneiting, T. & Raftery, A. E. (2007), "Strictly Proper Scoring Rules, Prediction, and
+  Estimation", *JASA* 102(477), §6.2 — the interval score as the proper rule for a
+  central prediction interval, and the statement that it decomposes into width plus a
+  miss penalty, which is why coverage alone cannot be the criterion.
+- Gneiting, T. & Katzfuss, M. (2014), "Probabilistic Forecasting", *Annual Review of
+  Statistics and Its Application* 1 — "sharpness subject to calibration", the principle
+  behind reporting width beside coverage.
+- Hyndman, R. J. & Koehler, A. B. (2006), "Another look at measures of forecast
+  accuracy", *IJF* 22(4) — why a percentage error is undefined at zero demand, which is
+  the same rule `backtest/metrics.py` already applies.
+
+No internet access was used; these are cited from the standard literature and none of
+them is implemented from a copied source — the interval score is four arithmetic
+operations and is written out in `slices/metrics.py` in the form given above. Nothing
+here introduces a dependency: `ml/pyproject.toml` is unchanged.
+
+## 7. Validation / recovery
+
+Commands and observed output are recorded below as they are run.
+
+### `make ml-eval` before and after
+
+Captured at base `a87837c` before any file was created, and again with the package in
+place. Both runs exit 0 and the captured bytes are identical:
+
+```
+$ sha256sum /tmp/ml-eval-before.txt /tmp/ml-eval-after.txt
+cff74cfae2539325321f47065ddcf2bde1eaf6d8114401cb33e7faf11be9225f  /tmp/ml-eval-before.txt
+cff74cfae2539325321f47065ddcf2bde1eaf6d8114401cb33e7faf11be9225f  /tmp/ml-eval-after.txt
+$ diff /tmp/ml-eval-before.txt /tmp/ml-eval-after.txt && echo IDENTICAL
+IDENTICAL
+```
+
+### `make ml-check` and `make check`
+
+```
+$ make ml-check          # exit 0
+ruff: All checks passed!
+mypy: Success: no issues found in 56 source files
+pytest: 559 passed in 48.05s     (479 before this branch; 80 new)
+
+$ make check             # exit 0
+Architecture boundaries passed.
+backend:   292 passed, 10 skipped
+ml:        559 passed
+ml-eval:   "passed": true
+frontend:  8 test files, 47 passed; lint and build clean
+contracts: 119 passed
+compose:   docker compose config --quiet
+```
+
+### Hand-computed fixture
+
+Computed on paper first, then compared with the code. Four points, one entity, `day`
+horizon, level 0.8 so `alpha = 0.2` and the miss multiplier is 10. The table, the
+arithmetic and the expected values are the module docstring of
+`ml/tests/test_slices_metrics.py`; the code agrees with all of them.
+
+| quantity | by hand | from the code |
+|---|---|---|
+| `actual_total` | 100+200+150+50 = 500 | 500.0 |
+| `error_total` | 10+40+10+5 = 65 | 65.0 |
+| `mae` | 65/4 = 16.25 | 16.25 |
+| `wape` | 65/500 = 0.13 | 0.13 |
+| `baseline_wape` | 240/500 = 0.48 | 0.48 |
+| `coverage` | 3/4 = 0.75 (point 2 has 200 < 210) | 0.75 |
+| `mean_width` | (30+50+50+20)/4 = 37.5 | 37.5 |
+| `mean_interval_score` | (30 + [50+10x10] + 50 + 20)/4 = 62.5 | 62.5 |
+| `relative_interval_width` | 37.5/125 = 0.3 | 0.3 |
+| `daypart=morning_peak` | 2 samples, wape 20/250 = 0.08, score 40 | same |
+| `daypart=evening_peak` | 1 sample, wape 40/200 = 0.2, score 150 | same |
+| `daypart=offpeak` | 1 sample, wape 5/50 = 0.1, score 20 | same |
+
+The one place the code and the paper disagree is float noise in `2/alpha`, which is
+`10.000000000000002`: `interval_score([210,260], 300)` is `450.00000000000006`, not
+`450.0`. That single assertion uses `pytest.approx` and says why; every other number
+above compares exactly.
+
+### A bad required slice against a passing mean
+
+48 perfect off-peak points and 12 catastrophic evening-peak points, four folds, one
+route. Overall WAPE 0.18 is inside `MAX_WAPE = 0.40`; the verdict is still a failure and
+it names the slice:
+
+```
+overall: wape=0.18 samples=60 folds=4 status=evaluated (MAX_WAPE=0.4)
+passed=False
+FAIL: 3 breached, 0 unproven
+daypart=evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+entity_daypart=route-A|dir-N|stop-1|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+route_daypart=route-A|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+every slice was judged
+```
+
+The third line and the trailing ungated line are new since the acceptance review; the
+verdict for this construction was a failure before them too.
+
+`test_the_same_slice_fails_whether_or_not_anyone_declared_it_required` asserts the same
+failure set with and without the `required=` declaration, so the mechanism does not
+depend on anybody remembering to list the slice.
+
+### A trivially wide interval beside a tight one
+
+Twelve points, demand 100, both intervals at level 0.8:
+
+```
+tight: coverage=1.0 mean_width=20.0    mean_interval_score=20.0    relative_width=0.2   passed=True
+giant: coverage=1.0 mean_width=10000.0 mean_interval_score=10000.0 relative_width=100.0 passed=False
+```
+
+Coverage is identical and says nothing. The failure line is
+`mean_interval_score 10000 event_count exceeds 200 (MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL=2)`.
+`test_the_golden_gate_passes_an_interval_the_slice_report_rejects` runs the same interval
+through `evaluate()`, which returns `passed: true` and `interval_coverage: 1.0`.
+
+### Small sample, zero demand, overload absence
+
+```
+tiny:    samples=3 folds=3 wape=0.9 status=insufficient_samples
+         reason: 3 sample(s) is below MIN_SAMPLES_FOR_GATE=12; reported in full and excluded from the gate
+         failures=0 passed=False
+route-Z: samples=12 actual_total=0.0 mae=5.0 wape=None status=insufficient_signal
+overload on counts: None | target 'synthetic_boardings' is not an occupancy; a fraction
+                    of capacity is defined only for 'onboard_load'
+```
+
+The three-sample slice keeps its WAPE of 0.9 and its support, gates on nothing, and the
+report still does not pass, because `overall` is required and is itself unproven. The
+zero-demand slice reports `null`, not `0.0`, and
+`test_zero_demand_raises_the_pooled_ratio_it_cannot_flatter_it` asserts the pooled WAPE
+rises from 0.0 to 0.0125 when it is added — its errors reach the numerator and nothing
+reaches the denominator.
+
+### Determinism
+
+```
+bytes equal: True; length 14216; digest ce8d10a1dd7ed968d6af487aa35312c9aa6512e4f28b7a70fb3c43c3ca25d159
+```
+
+Two reports over the same 60 points, the second from a `random.Random(11)`-shuffled list,
+encoded with `features.records.encode` (sorted keys, no NaN), reproduced identically under
+`PYTHONHASHSEED` 0, 1 and 42. The payload contains no `2026-` timestamp and no `/home`
+path.
+
+**The digest moved**, from `38ae081d61…` at 5993 bytes to the value above, and the payload
+is legitimately larger. Measured on that same 60-point report: the two new axes take it
+from 10 slices to 16 (4 `fold`, 2 `entity_daypart`) and account for 5993 → 9404 bytes; the
+per-slice `units` mapping and `baseline_absent_reason` account for 9404 → 14060; the
+`ungated` block accounts for the remaining 156. No fix changed a number that was already
+being reported — every previously asserted metric value still holds.
+
+### Known limits of this evidence
+
+- Every number above is from arrays written by hand to exercise the mechanism. None of
+  it is evidence about forecast quality, and no threshold here has been agreed.
+- A slice failure is reported once per axis the points fall in, so a single bad group of
+  points produces up to eight failure lines saying the same thing from different views.
+  That is honest but verbose; a real report over many entities will not collapse this way.
+- `MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL = 2.0` was derived from the calibrated-normal case
+  (mean score ~3.5 sigma against a mean demand of whatever the series carries) and is the
+  least defensible constant of the six on real data, because a genuinely noisy slice
+  legitimately needs wide intervals.
+- The peak-hour windows 07-09 and 17-19 are asserted, not measured. Moscow tram peaks
+  have not been checked against any data here.
+
+### Independent review
+
+A Python reviewer read the package and tests against the task's own criteria and found
+no CRITICAL issue and no error in the metric arithmetic. It confirmed by its own runs:
+WAPE pooled by summed totals rather than averaged ratios; zero demand `None` in three
+independent places; a required slice that is absent or not `evaluated` failing the gate;
+every sufficiently large slice judged whether or not it was declared required; overload
+refused on any unknown capacity; no wall clock, RNG or unordered-dict dependence. Four
+findings were acted on:
+
+| Severity | Finding | Response |
+|---|---|---|
+| MEDIUM | `overload` is measured but never gated, so a model that never predicts an overload on an always-overloaded route reports the gap and still passes | Not gated, deliberately, and now said so in the module docstring and the README. The feature layer can only produce `event_count`, so no slice this repository can build carries an overload figure at all; a threshold over a quantity nothing yet produces is a number invented to look rigorous. Gating belongs with the task that first produces a load target |
+| MEDIUM | Nothing in CI calls `build_report`; `make ml-eval` still runs the old golden gate, so a bad slice cannot fail `make check` through this package | True and now stated plainly in the README. Wiring belongs to TASK-058, which owns the evaluation-gated pipeline |
+| MEDIUM | `SliceMetrics` and `OverloadQuality` had no `__post_init__`, unlike every sibling dataclass; both are public exports, and `SliceMetrics(samples=0)` would raise `ZeroDivisionError` from `mean_actual` rather than a `SliceError` | Both validated: samples and folds at least one, folds no more than samples, samples equal to `totals.scored`, and overload counts within their points. Six tests construct each refusal |
+| LOW | The mismatched-`method` branch of `interval_quality` had no test, unlike the mismatched-`level` branch beside it | `test_mixed_methods_suppress_the_interval_with_a_reason` added, pinning the exact reason string |
+
+Its remaining LOW finding — that a tie on `sort_key` would leave summation order
+caller-dependent — had already been closed by commit `6881342`, which refuses a repeated
+`(entity, horizon, bucket, fold)` outright; the reviewer read the state before it.
+
+### Acceptance review: three HIGH findings, all reproduced before fixing
+
+An acceptance review passed `ACCEPT WITH FINDINGS` on commit `fed31fe` and returned three
+constructions that made models pass which should not. Each was reproduced against the
+then-current code before anything was changed, and each is now pinned in
+`ml/tests/test_slices_review_probes.py`. Two of the three left no trace anywhere in the
+report, so they failed the weaker visibility property as well as the gate.
+
+| Severity | Finding, as reproduced | Fix |
+|---|---|---|
+| HIGH | A self-declared `level` made both interval checks vacuous. Twelve points, demand 100, predicted 70, "interval" `[70, 70]`: `level 0.02 → passed=True, failures=0`; `level 0.80 → passed=False, failures=12`. Identical predictions and identical zero width. `coverage_limit = level - shortfall` was negative at 0.02, and `2/α = 2.04` made every miss nearly free | `MIN_INTERVAL_LEVEL` (0.8) added to `GateThresholds`, printed like every other threshold; a judged slice declaring less fails on `interval_level`; the coverage check is skipped rather than computed against a negative requirement; `GateThresholds` refuses a `MAX_COVERAGE_SHORTFALL` not below `MIN_INTERVAL_LEVEL`. Probe now `passed=False` at 0.02, 0.5 and 0.79 |
+| HIGH | `fold` was not an axis, so a model 100% wrong on the most recent origin was invisible: 60 perfect points over five folds plus twelve on `f5` predicting 0 gave `overall wape=0.1667, failures=[], passed=True`, and no slice showed it | `fold` axis added. It is one origin by construction, so `MIN_FOLDS_FOR_GATE` cannot apply to it — `SINGLE_ORIGIN_AXES` waives it, because a floor justified by "one origin is not a generalisation" would make the axis unable to report the thing it was added for. `fold=f5` now reads 12 samples, WAPE 1.0, `evaluated`, and fails. `fold × horizon` deliberately not added: `backtest.folds.fold_id` is `f"{horizon}@{origin}"`, so the cross is 1:1 with `fold` |
+| HIGH | The cross that matters was not produced and could not be required. One route, six stops, four folds: `stop-1` catastrophic at the evening peak read 0.2 on `stop`, 0.167 on `daypart`, 0.2 on `entity`, 0.167 on `route_daypart`, 0.033 overall — diluted below `MAX_WAPE` everywhere. Declaring `SliceKey("entity_daypart", …)` named a key no axis emitted, giving a permanent `unproven` | `entity_daypart` emitted. The bad cell now reads 12 samples, 4 folds, WAPE 1.0 and fails, while every diluting axis still passes — so the cross is demonstrably what caught it |
+| MEDIUM | The fold floor was dodgeable by *placement*, not scarcity: 20 rows on one origin with WAPE 1.0 was `insufficient_history` and `passed: True` | The `fold` axis closes the crude form outright — a bad origin with nothing to dilute it is now judged and fails. For the residual case, where the bad origin also carries enough well-predicted rows, every report now ends with an `ungated` line counting each floor and naming the worst ungated WAPE, on a pass as well as a failure |
+| MEDIUM | The interval gate was scale-relative in the wrong direction. Low demand was punished for sanity: mean 2 with `[0, 7]` scored 7 against a limit of 4 and failed on eight axes at once | `MIN_INTERVAL_SCORE_ALLOWANCE` (8.0 target units) added as an absolute floor, because integer counts cannot be sharper than a few units and a gate that fires on correct behaviour is the one that gets switched off. The opposite error — mean 1000 with `[60, 1940]` scoring 1880 against a limit of 2000 and passing — is **not** fixed, and is now in the open risks with its numbers: tightening the ratio would re-break the low-demand case, and the real fix is a reference interval score, which needs TASK-021's baselines |
+| MEDIUM | A dropped baseline silently removed the baseline check. One missing baseline anywhere disabled `wape_vs_baseline` everywhere, and no reason was recorded | `baseline_absent_reason` added as the third sibling of `interval_absent_reason` and `overload_absent_reason`, with the same "only N of M points carry…" shape, so "no baselines this run" and "one row of five thousand" read differently |
+| LOW | `required` keys were not validated, so a key with an unknown axis became a permanent `unproven` blaming the data for a typo | Refused in `_demanded`, naming the valid axes |
+| LOW | `insufficient_samples` did double duty for "this slice does not exist" | Fourth status word `missing`, used only for a required key with no points. No `SliceMetrics` can carry it — a measured slice has at least one sample |
+| LOW | The Recovery section still mentioned an `evaluation.py` bridge that decision 15 explains was never written | Corrected |
+| nits | README illustrated with `[0, ∞)`, which `_finite` rejects; `_judge`'s `wape is None` guard would have skipped the interval checks; a test mutated a pydantic model in place, bypassing its validator | Illustration changed to `[0, 10000]`, which the tests actually use; interval checks moved before the guard; `model_copy(update=…)` |
+
+### Acceptance validation: criterion 3 closed, and one honesty item
+
+A separate validation returned `ACCEPT` for `fed31fe`, confirming byte-identity of
+`make ml-eval` against its own `git archive a87837c` checkout, the determinism digest under
+three `PYTHONHASHSEED` values, and all nine hand-fixture values. It could not break the
+required-slice mechanism in eleven constructions. Its verdict covers `fed31fe`; the axes
+added above were in flight at the time and are not covered by it.
+
+It found criterion 3 — "each metric includes unit/sample/fold count" — only partly met.
+Sample and fold counts were complete, but the slice payload carried one `unit`, the
+target's, while `wape`, `baseline_wape`, `relative_interval_width`, `coverage` and the two
+overload rates sat beside it unlabelled; a consumer applying the target unit to `wape` is
+simply wrong. `SliceFailure` already carried a genuine per-metric unit, so the fix was to
+give the slice dict the same thing: a `units` mapping naming each metric's own unit.
+The nested `interval` and `overload` dicts still carry `samples` and no `folds` — both are
+`null` unless every point qualifies, so their sample count always equals the slice's and
+the slice's fold count applies unchanged. That is documented rather than duplicated.
+
+It also observed that with `entity=None` the axis set collapses and a catastrophic
+subgroup reads as the overall dilution everywhere, and that a bad subgroup sharing every
+cut axis with good points reads identically on every slice. Neither is a defect in the
+judging logic — the first is caller-supplied metadata this layer must not infer
+(ADR-0006), the second is the intrinsic limit of any fixed-axis slicer — but the README
+promised more than that. It now states both plainly under "What the axes cannot see", and
+the verdict section says what a pass does and does not mean.
+
+## Open risks
+
+- **Nothing calls this package.** `make ml-eval` runs `evaluation.py`, and the only
+  importers of `tramflow_ml.slices` are its own tests. The module proves its mechanism on
+  hand-built arrays and gates nothing in CI. TASK-058 owns the wiring, and until it lands
+  a catastrophic slice cannot fail `make check` through this code.
+- **Overload is descriptive, not gated.** See the review table above. The consequence is
+  concrete: once a load target exists, the most operationally dangerous failure — never
+  predicting an overload on a route that is always overloaded — will be visible in the
+  report and will not fail the gate until somebody adds and agrees a threshold.
+- **`MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL = 2.0` is the weakest of the seven constants, and
+  it is weak in both directions.** A ratio to mean demand is a cap on the coefficient of
+  variation. The low-demand false positive is fixed by `MIN_INTERVAL_SCORE_ALLOWANCE`;
+  the high-demand false negative is not. At mean demand 1000 an interval of `[60, 1940]`
+  scores 1880 against a limit of 2000 and passes, with `relative_interval_width 1.88`
+  printed beside it. Tightening the ratio would re-break low demand, so the correct fix
+  is to score against a reference interval rather than against demand, which needs the
+  baselines TASK-021 owns.
+- **A subgroup sharing every cut axis with well-predicted points is invisible.** This is
+  intrinsic to a fixed-axis slicer, not a threshold problem: if the bad rows carry the
+  same route, direction, stop, daypart, horizon and fold as the good ones, every slice
+  holding them also holds the good ones. A pass is never proof that no such subgroup
+  exists.
+- **Without entity identification the report can cut only a handful of axes.** With
+  `entity=None`, six of the eleven axes vanish and a catastrophic route reads as the
+  overall dilution on everything that remains. This layer cannot synthesise entity
+  identity and must not infer direction (ADR-0006), so the quality of the cut is a
+  property of what the caller supplies.
+- **The peak windows are asserted, not measured.** 07-09 and 17-19 Europe/Moscow are our
+  proposal. If the organizer's demand peaks elsewhere, `daypart` and `route_daypart` cut
+  the wrong groups and the headline demonstration measures the wrong hours.
+- **A failure repeats once per axis.** One bad group of points produces up to eight
+  failure lines saying the same thing from different views. Honest but verbose; a real
+  report over many entities will not collapse this way, but a small one reads noisily.
+- **`stop` pools both operating sides.** ADR-0006 records that tram load is sharply
+  asymmetric between directions, so a `stop` slice can look acceptable while one side of
+  it is bad. The `direction` and `entity` axes exist for that reason and are the ones to
+  declare required; the `stop` axis is a convenience and should not be the only one relied on.
+- **The report is built in memory.** Every point is held, sorted, and grouped into up to
+  nine axes, so peak memory is roughly nine references per point plus the points. Fine for
+  an offline fold set; a million-point report would want streaming aggregation.
+
+### Recovery
+
+The `slices/` package has no consumer in the running system: the backend never imports
+`tramflow_ml`, and `cli.py` is untouched, so `make ml-eval` cannot change behaviour
+whether the commits stand or are reverted. Reverting the commits removes the package,
+its tests and the README section, and leaves every other area untouched. There is no
+`evaluation.py` change to revert: decision 15 records why none was written.

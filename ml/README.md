@@ -677,3 +677,273 @@ from `features/policy.py` and are configuration, so a supportability verdict mov
 they do. `MIN_COVERAGE_RATIO` is a threshold, not a measurement. The join rate under
 the identity crosswalk is not a real join rate. And a target that is *supportable* is
 not thereby the target: which quantity the organizer actually measures is TASK-049.
+
+## Slice and interval reporting
+
+`tramflow_ml.slices` answers the question the golden gate and the rolling backtest
+deliberately do not: is this candidate good *where it has to be*. `make ml-eval` slices
+by horizon only, and `BacktestOutcome.passed` is a statement about the fold set, not
+about quality. Neither is changed by this package — `evaluation.py` is untouched and its
+output is byte-for-byte what it was.
+
+The input is a `ScoredPoint`: one forecast already placed beside its outcome. The layer
+never predicts and never invents an attribute — entity, horizon, bucket, fold, target,
+unit, optional event tag, optional interval, optional baseline, optional capacity.
+`None` is the only spelling of missing, as in `features`.
+
+### The slices
+
+Every point falls into every axis it can support, and axes are derived from the point,
+never supplied, so a slice cannot be relabelled to escape a verdict.
+
+| Axis | Value | Note |
+|---|---|---|
+| `overall` | `all` | always present, always required |
+| `horizon` | `day`/`month`/`year` | |
+| `fold` | `fold_id` | one origin, exempt from the fold floor — see below |
+| `route` | `route_id` | both operating sides pooled |
+| `direction` | `route_id\|direction_id` | a bare `direction_id` is meaningless across routes (ADR-0006) |
+| `stop` | `stop_id` | a physical place, so it spans both sides |
+| `entity` | `route_id\|direction_id\|stop_id` | the forecast key |
+| `daypart` | `morning_peak`/`evening_peak`/`offpeak` | hourly buckets only |
+| `route_daypart` | `route_id\|daypart` | "the evening peak on this route" is a cross, not an axis |
+| `entity_daypart` | `route_id\|direction_id\|stop_id\|daypart` | the forecast key crossed with the operating period |
+| `event` | the caller's tag | absent when the point carries none |
+
+`MORNING_PEAK_HOURS` is 07–09 and `EVENING_PEAK_HOURS` is 17–19 Europe/Moscow. Only the
+`day` horizon has hourly buckets, so `month` and `year` points are in **no** daypart
+slice rather than in a fabricated one: a monthly bucket has no evening peak.
+
+A `fold` slice is one origin by construction, so `MIN_FOLDS_FOR_GATE` cannot apply to it
+(`SINGLE_ORIGIN_AXES`). That floor exists because one origin is not a temporal
+generalisation; the `fold` axis exists precisely to expose a model that collapsed on one
+origin, so gating it on having two would make it unable to report the thing it is for.
+The sample floor still applies.
+
+`entity_daypart` is there because the diluting axes are not enough. On one route with six
+stops over four folds, where `stop-1` is 100% wrong at the evening peak and everything
+else is perfect, `overall` reads 0.033, `stop=stop-1` reads 0.2, `daypart=evening_peak`
+reads 0.167 and `entity=route-A|dir-N|stop-1` reads 0.2 — every one of them inside
+`MAX_WAPE`. Only the cross reads 1.0. ADR-0006 records that tram load is sharply
+asymmetric between directions, which is the same argument: the cut that exposes a
+failure is the forecast key crossed with the operating period, not either alone.
+
+`fold × horizon` is deliberately **not** produced: `backtest.folds.fold_id` is
+`f"{horizon}@{origin}"`, so on any fold set this repository generates that cross is one
+to one with `fold` and would only duplicate it.
+
+#### What the axes cannot see
+
+These are limits of a fixed-axis slicer, not of the judging logic, and no amount of
+threshold work removes them:
+
+- **A subgroup that shares every cut axis with well-predicted points is invisible by
+  construction.** If the bad rows have the same route, direction, stop, daypart, horizon
+  and fold as the good ones, every slice containing them also contains the good ones and
+  every slice reads the same diluted number. A pass is therefore never proof that no such
+  subgroup exists.
+- **A report built without entity identification can cut far fewer axes.** With
+  `entity=None` the `route`, `direction`, `stop`, `entity`, `route_daypart` and
+  `entity_daypart` axes are all absent, leaving `overall`, `horizon`, `fold`, `daypart`
+  for hourly buckets, and `event` where the caller tagged one. A catastrophic route then
+  reads as the overall dilution on every axis that remains. Entity identification is
+  caller-supplied metadata; this layer cannot synthesise it, and per ADR-0006 must not
+  infer direction.
+
+### The metrics and their units
+
+Error totals come from `backtest.metrics.fold_metrics`, unchanged, so WAPE has one
+definition across the offline path and folds pool by their summed quantities rather than
+by averaging averages.
+
+| Metric | Unit |
+|---|---|
+| `actual_total`, `error_total`, `mae`, `mean_actual`, `mean_width`, `mean_interval_score` | the target's unit |
+| `wape`, `baseline_wape`, `coverage`, `level`, `relative_interval_width`, `actual_overload_rate`, `predicted_overload_rate` | `ratio` |
+| `samples`, `folds`, `covered`, `actual_overloaded`, `predicted_overloaded` | `count` |
+
+Every slice carries `samples`, `folds`, and a `units` mapping naming the unit of each
+metric individually, beside the `unit` field that gives the target's own unit. The two are
+not the same thing and must not be confused: applying the target unit to `wape` is simply
+wrong, so the report says which metrics it applies to. Failure records carry the same
+per-metric unit. A number without its support is not reportable, so support travels with
+every number through `to_dict()` and through every failure line.
+
+The nested `interval` and `overload` dictionaries carry `samples` but no `folds`. Both are
+`null` unless *every* point of the slice qualifies, so their sample count always equals
+the slice's and the slice's fold count applies to them unchanged; a second copy would be a
+field that can only ever agree.
+
+A baseline comparison needs a baseline on every point, so one missing baseline disables
+`wape_vs_baseline` for every slice that point belongs to — `overall` included. The reason
+is recorded in `baseline_absent_reason` with the count, so "no baselines this run" and
+"one row of five thousand" read differently. `interval_absent_reason` and
+`overload_absent_reason` are its two siblings.
+
+### Why coverage alone is never reported
+
+An interval of `[0, 10000]` on demand of 100 has perfect coverage and no information.
+Coverage is therefore reported only together with mean width and the mean
+**interval (Winkler) score**
+
+```
+IS = (upper - lower) + (2/α)·(lower - y)·1{y < lower} + (2/α)·(y - upper)·1{y > upper}
+```
+
+with `α = 1 - level`, in the target's unit, lower is better. It is the standard proper
+scoring rule for a central prediction interval (Winkler 1972; Gneiting & Raftery 2007
+§6.2) and it is what makes width and coverage trade against each other at a stated rate
+instead of being two thresholds someone can play off. On twelve points with demand 100,
+a `[90, 110]` interval and a `[0, 10000]` one both have coverage 1.0; their mean scores
+are 20 and 10000.
+
+Interval quality is suppressed, with the reason on the record, when only some points in
+a slice carry bounds, or when the points declare different levels or different methods —
+a coverage figure pooled across two nominal levels describes neither.
+
+**The nominal level is itself gated.** Both interval checks are stated relative to the
+level the producer declares, so a low enough declaration makes both vacuous: at level
+0.02 the coverage requirement would be negative and `2/α` is 2.04, which makes every miss
+nearly free. Twelve points with demand 100, predicted 70, and an "interval" of
+`[70, 70]` — a point estimate wearing an interval's clothes — passed at level 0.02 and
+failed at level 0.80, on identical predictions. `MIN_INTERVAL_LEVEL` now fails any judged
+slice whose declared level is below it, the coverage check is skipped rather than computed
+against a negative requirement, and `GateThresholds` refuses a `MAX_COVERAGE_SHORTFALL`
+that is not below `MIN_INTERVAL_LEVEL`, since such a pair could only produce a
+requirement that judges nothing.
+
+### Zero demand and small samples
+
+- **Zero demand is not zero error.** WAPE is undefined when the denominator is zero, so
+  a slice whose actual total is zero reports `wape: null` and status
+  `insufficient_signal`, exactly as `backtest/metrics.py` does — never `0.0`, never an
+  epsilon. MAE stays defined and is still reported. Such a slice cannot flatter a pooled
+  ratio: its errors reach the numerator and nothing reaches the denominator.
+  (`evaluation.py` instead *raises* on zero demand. That is deliberate and unchanged: in
+  a curated five-case golden file a zero-demand horizon is an authoring mistake, whereas
+  a real slice with no demand is data.)
+- **Small samples are marked, never suppressed and never silently averaged.** Below
+  `MIN_SAMPLES_FOR_GATE` scored points the status is `insufficient_samples`; below
+  `MIN_FOLDS_FOR_GATE` distinct folds it is `insufficient_history`, reusing the
+  backtest's word for its meaning — too few independent origins. Either way the slice
+  keeps every metric and its support, is listed in full, and is excluded from the gate. A
+  three-sample WAPE is noise; hiding it defeats the point of the report, and failing on
+  it makes the gate unbelievable.
+- **An ungated slice is counted and the worst of it is named.** The floors are about
+  scarcity, but they can also be dodged by *placement*: eighteen rows is well over the
+  sample floor, and putting them all on one origin once made them `insufficient_history`
+  and invisible. The `fold` axis closes the crude form of that — a bad origin with nothing
+  to dilute it is now a judged `fold` slice that fails — but a bad origin carrying enough
+  well-predicted rows still passes on every axis. Every report therefore ends with a line
+  like `18 slices ungated: 6 below the sample floor, 12 below the fold floor, 0 without
+  demand; worst ungated WAPE 1 on direction=route-B|dir-N`, on a pass as well as a
+  failure. Ties on the worst WAPE go to the larger slice, then to key order, because the
+  same rows appear under several axis names.
+
+### Overload metrics and absent capacity
+
+Anything expressed as a fraction of capacity needs a capacity that is known and a target
+that is a load. `overload` is `null`, with the reason recorded beside it, unless the
+target is `onboard_load`, the unit is `passengers`, and **every** point in the slice
+carries a positive capacity. There is no default capacity anywhere in this package. The
+serving path currently has the opposite defect — `ForecastPointModel.capacity` defaults
+to `180.0` against a response schema demanding `gt=0`, so an unknown capacity is served
+as a fabricated number — and this package does not replicate it.
+
+Overload is **reported and not gated**. The feature layer can only produce
+`event_count`, so no slice this repository can build today carries an overload figure at
+all, and a threshold over a quantity nothing yet produces would be a number invented to
+look rigorous. A model that never predicts an overload on a route that is always
+overloaded is therefore visible in the report and does not fail the gate. Gating it
+belongs with the task that first produces a load target.
+
+### The verdict
+
+```
+passed = no failure and no unproven slice
+```
+
+- Every slice whose status is `evaluated` is judged. A bad slice cannot escape by nobody
+  having listed it.
+- A **required** slice must additionally exist and be judgeable. A required slice with no
+  points is `missing`; one too small, too short or without demand keeps its own status.
+  Either way it is `unproven`, and absence never buys a pass. A required key naming an
+  axis no point can emit is refused when the report is built, rather than becoming a
+  permanent `unproven` that blames the data for a typo.
+- `overall` is always required, so a report too small to judge does not pass either.
+
+The gate is not unconditional, and three things bound it. It judges only slices with
+status `evaluated`, so the floors decide what it looks at — the ungated line above exists
+because of that. It judges only the axes listed earlier, so a subgroup sharing every axis
+with well-predicted points is invisible to it. And overload is measured but not gated.
+Read a pass as "nothing the configured axes and thresholds can see is wrong", never as
+"nothing is wrong".
+
+An excellent overall number removes nothing from either list. On 48 perfect off-peak
+points and 12 catastrophic evening-peak ones across four folds, overall WAPE is 0.18 —
+inside `MAX_WAPE` — and the verdict is:
+
+```
+FAIL: 3 breached, 0 unproven
+daypart=evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+entity_daypart=route-A|dir-N|stop-1|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+route_daypart=route-A|evening_peak: wape 0.9 ratio exceeds 0.4 (MAX_WAPE=0.4) on 12 samples across 4 folds
+every slice was judged
+```
+
+### Thresholds, all provisional
+
+| Constant | Value | Judges |
+|---|---|---|
+| `MIN_SAMPLES_FOR_GATE` | 12 | scored points needed before a slice is judged |
+| `MIN_FOLDS_FOR_GATE` | 2 | distinct origins needed before a slice is judged |
+| `MAX_WAPE` | 0.40 | slice WAPE |
+| `MAX_WAPE_RATIO_TO_BASELINE` | 1.0 | slice WAPE against its own baseline's |
+| `MAX_COVERAGE_SHORTFALL` | 0.10 | how far empirical coverage may fall below the nominal level |
+| `MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL` | 2.0 | mean interval score against the slice's mean demand |
+| `MIN_INTERVAL_LEVEL` | 0.8 | the nominal level a judged interval must declare |
+| `MIN_INTERVAL_SCORE_ALLOWANCE` | 8.0 (target units) | absolute interval score never called too wide |
+
+**Not one of these is certified.** They were chosen so the mechanism could be
+demonstrated on synthetic points. The report prints `"certified": false` beside them and
+every failure carries the constant's name and value next to the observed number, so a
+breach can be told apart from a badly chosen constant. Agreeing them against organizer
+data is TASK-051. The interval score is compared with mean demand rather than with MAE
+because a perfectly predicted slice has MAE 0, and an `evaluated` slice always has
+positive demand — zero demand is `insufficient_signal` before it reaches the gate.
+
+`MAX_INTERVAL_SCORE_TO_MEAN_ACTUAL` is the weakest of the seven, and it is weak in both
+directions because a ratio to mean demand is a cap on the coefficient of variation.
+Integer counts cannot be sharper than a few units, so a two-passenger bucket with a
+`[0, 7]` interval is behaving correctly and the ratio alone failed it on every axis at
+once; `MIN_INTERVAL_SCORE_ALLOWANCE` is the absolute floor that stops the gate firing on
+correct behaviour, because a gate that does that is the one that gets switched off. The
+opposite error is still open and is **not** fixed here: at mean demand 1000 an interval of
+`[60, 1940]` scores 1880 against a limit of 2000 and passes, with
+`relative_interval_width 1.88` printed beside it. Tightening the ratio to catch that would
+re-break the low-demand case, so the real fix is to score against a reference interval
+rather than against demand — which needs the baselines TASK-021 owns. Until then, read
+`relative_interval_width` yourself; the gate will not catch a wide interval on a busy
+slice.
+
+Determinism: points are sorted canonically before any float is summed, so the report is a
+function of the point set and not of the caller's ordering. Two points tying on that
+order would still sum by input order, so a repeated `(entity, horizon, bucket, fold)` is
+refused — a bucket is scored once per fold, as `forecast_v1` also requires of a published
+artifact. The payload carries no wall clock and no absolute path, and
+`SliceReport.digest` is the SHA-256 of it.
+
+**Nothing calls this in anger yet.** `make ml-eval` still runs the old golden gate, and
+`grep -rl tramflow_ml.slices` finds only the tests. A model that fails catastrophically
+on one slice cannot fail `make check` through this package today; it can only fail these
+unit tests on hand-built arrays. Wiring `build_report` into the publication pipeline is
+TASK-058.
+
+**What synthetic results do not establish.** Every demonstration above runs on arrays
+constructed by hand to exercise the mechanism. A passing report on synthetic points says
+that the reporting works, and says nothing whatever about whether any model forecasts
+Moscow tram demand well. No threshold here has been agreed with anyone; no interval here
+has been calibrated (TASK-024); no baseline here is the organizer's incumbent (TASK-021);
+and the peak hours, the slice list and the required-slice list are our proposal, not an
+operational requirement. Real evidence needs real data on untouched temporal slices,
+which is TASK-051.
