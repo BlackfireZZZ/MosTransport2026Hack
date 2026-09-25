@@ -372,8 +372,11 @@ contracts mypy 3 files, 119 passed; `docker compose config --quiet` clean.
 
 - `make ml-check`: exit 0. `ruff check ml` → "All checks passed!"; `mypy ml/src` →
   "Success: no issues found in 42 source files" (32 before, 10 added); `pytest ml/tests`
-  → **381 passed in 26.59s** (116 new backtest tests: folds 41, history 15, availability
-  14, manifest 14, shared 11, fixtures 11, leakage 10; 265 pre-existing, unchanged).
+  → **381 passed in 26.59s** (116 new backtest tests; 265 pre-existing, unchanged).
+  After the review batch: **409 passed in 43.76s** — 139 backtest tests (folds 41,
+  history 21, availability 18, shared 15, manifest 14, leakage 14, fixtures 13, 3 more in
+  `test_backtest_folds` unchanged) plus 4 new coverage-perturbation tests in the feature
+  layer's own leakage suite.
 - `make ml-eval`: exit 0, `"passed": true`, overall WAPE 0.0220 against baseline 0.1222,
   interval coverage 1.0 — byte-identical to the pre-change run, as expected from an
   untouched `evaluation.py`.
@@ -414,22 +417,27 @@ Both runs return `status="insufficient_history"`, `passed=False`, `scored=0`,
 `wape=None` for every model.
 
 Determinism, two `run_backtest` calls per row plus, for the gapped fixture, a build from a
-second independent ingestion of the same source:
+second independent ingestion of the same source. Every row was scored by `zero@0.1.0`
+then `constant-one@0.1.0`, in that order: `manifest_hash` covers the model names and
+versions, so a published value without its model set cannot be reproduced. The first
+version of this table omitted it, which both checkers caught.
 
 | Fixture / horizon | `config_hash` | `fold_hash` | `manifest_hash` (both runs) |
 |---|---|---|---|
-| gapped, month | `14aeb53a423a5510…` | `a80efc226688b4c4…` | `324fb0ebbc9f1230b95ed409c60f93421014d67701b646a083df379cdedce1b8` |
-| gapped, year | `a2b864ad0d4157c6…` | `a29495ab648a7d7c…` | `7a044e30358881aae7fea6ed904228df44cc6eda744ed6c72d226ff36dffeda4` |
-| gapless 2y, month | `14aeb53a423a5510…` | `0c49eaf2995b14ef…` | `f3ff88096bcde293199fddee42974e372aff1ccf10f2d451ab4408edf6a13791` |
-| gapless 2y, year | `a2b864ad0d4157c6…` | `6e1cf66e370d01f6…` | `27765f71ffa2e760c70aadccb95fd0fc54475756734b5cff9091561a4ce2a729` |
-| gapless 8y, month | `14aeb53a423a5510…` | `9960e175481fdcd3…` | `02970638512eeeda4f943c0db8616ab920ca69ad688912e4523552dfc1a4cd78` |
-| gapless 8y, year | `a2b864ad0d4157c6…` | `711145a909194a8e…` | `b5df78cc2a156bac7e2033212d4835b3594eb5beb8e63722e8741e7b33715b5b` |
+| gapped, month | `da8ffcae72422a69…` | `a80efc226688b4c4…` | `d74bc3a7238f0e0e97c089ea218e6aef720e7e63c12435afe2b6fa6e548f8775` |
+| gapped, year | `89e1be3ee4605ae4…` | `a29495ab648a7d7c…` | `40eb72abb5878c85b23019f5400da9145bdd602d38cc1e8218dafcb82973b42e` |
+| gapless 2y, month | `da8ffcae72422a69…` | `755ca80bd8af1e72…` | `21a3b973a5ee94eeea49c0a3eaca2dd73884e8f349d96d79b0e18292655797f9` |
+| gapless 2y, year | `89e1be3ee4605ae4…` | `6e1cf66e370d01f6…` | `75d72874b4d90c8bed53457233f54f90f4a95d594c5973d3c082921d215ebb44` |
+| gapless 8y, month | `da8ffcae72422a69…` | `96ae9be3f8bb0710…` | `cacff4e0121322bda1df8c08994f1a9e2b3f5c84434d34e948175707f21fe28a` |
+| gapless 8y, year | `89e1be3ee4605ae4…` | `553c1f5378dcc021…` | `51ac6a3dbb9ca73857f4d32038a65661ad68cb24bff467448aed1900ff509a74` |
 
 `data_hash` agreed across the two independent ingestion runs of the gapped fixture
-(`beef6cab5201b8a1…`) and across repeats of the gapless ones (`bc572e95e28d5234…`,
-`8b66caa2e3e611dd…`). The `config_hash` is identical across fixtures for the same rules
-and differs between month and year rules, which is what it is for. Reversing the input
-event order leaves `data_hash` and every downstream hash unchanged.
+(`beef6cab5201b8a1993521de829cd93bea34b812e8cc2e6bd75a46f2ef45d3f8`) and across repeats
+of the gapless ones (`bc572e95e28d5234…`, `8b66caa2e3e611dd…`). The `config_hash` is
+identical across fixtures for the same rules and differs between month and year rules,
+which is what it is for. Reversing the input event order leaves `data_hash` and every
+downstream hash unchanged. `test_backtest_fixtures.py` now pins the gapless-2y month row —
+all four hashes plus the model list — so the published numbers cannot go stale in silence.
 
 Scoring sanity, gapless 8-year, 83 month folds and 4 year folds, a constant-zero model
 against a constant-one model on identical folds: both score the same 30 312 (month) and
@@ -455,6 +463,46 @@ defects were mine and not the code's: `dataclasses.replace(observation, event_at
 broke the `available_at >= event_at` invariant the feature layer enforces, and shortening
 a coverage calendar without shortening the events made `aggregate` refuse a date it did
 not cover — both correct refusals.
+
+## Review record (2026-09-25)
+
+Independent acceptance validation ACCEPT — all five criteria met by reproduction: test
+windows enumerated pairwise over a ten-year coverage (day 3645 folds, month 107, year 6)
+with **zero** overlapping pairs and zero ordering violations; 23 month folds audited row
+by row for anything handed to a model with `event_at >= cutoff` or `available_at > cutoff`,
+**zero** found; every fold count, origin range, refusal breakdown, status string and the
+`config_hash`/`fold_hash`/`data_hash` families reproduced exactly.
+
+Independent review ACCEPT WITH FINDINGS. The reviewer built its own negative controls and
+all of them fired, so the leakage suite is not passing vacuously. It independently
+endorsed two judgement calls rather than overruling them: the day-period alignment (it
+confirmed `calendar_v1` says a day horizon "accepts any exact Moscow hour and covers 24
+elapsed hours", so civil-day tiling is not available at all and the trade recorded in
+decision 14 is the only one consistent with the contract), and the embargo default of 0
+(it checked every premise in decision 8 against the code). `insufficient_signal` was
+judged correct and kept.
+
+| Severity | Finding | Fix |
+|---|---|---|
+| HIGH | `insufficient_train_history` compared a pure calendar distance against the requirement, so coverage holes inside the train window were invisible. Reproduced: coverage `{2023-01-01} ∪ {2025-04-30…2025-12-31}` (247 of 1096 dates) gave 8 eligible month folds, `month@2025-05-01` with `train_buckets=821` and **one** covered train day, `status="evaluated"`, `passed=True` — every lag, window and season `None` and the run reporting success. A false pass on the axis acceptance criterion 3 exists to guard, through a different door than a short span | Covered buckets are now counted with the same `CoverageView.units` machinery `_label_refusal` uses, and the calendar distance is kept only as a cheap pre-filter. The grid is walked once per horizon into a prefix-count array and every window answered by two bisections, so the per-fold cost stays constant. `Fold` carries `train_covered_buckets`, which reaches the fold hash. The reproduction is now a test asserting the exact refusal `1 of 821 train buckets are covered, 364 required` |
+| HIGH | TASK-019 defect surfacing here, fixed under an explicit lift of the `features/` restriction: `unit_counts` was not gated by `ends_by(cutoff)` unlike `available_value`, and `CoverageView.available()` answers `True` for any covered date when the calendar carries no `published_at`, so a bucket after the cutoff answered truthfully about the future through the `*_units` columns | `unit_counts` takes the cutoff and returns `(0, total)` for a bucket that has not finished; the total is a pure calendar fact and leaks nothing. Committed separately as `6f28a04` so it can be recorded against TASK-019. A coverage-calendar perturbation was added to `ml/tests/test_features_leakage.py`, which is where the axis was missing — that suite perturbs events, and this is a perturbation of the coverage statement — and a `YEAR_MONTH` case to `test_backtest_leakage.py`, since `carries_unit_ratio` is monthly-only and `MONTH_DAY` never exercises those columns |
+| HIGH | `FoldData.test_features` rows and their nested `features` mapping were plain mutable dicts, and the runner hands one `FoldData` to every model by design, so the first model could rewrite the second's input silently — defeating the branch's headline claim, with `test_backtest_shared.py`'s object-identity proof making the mutation contagious | Both levels wrapped in `MappingProxyType`. A `Vandal` model now attempts `row["route_id"] = "HACKED"` and `row["features"]["lag_1d"] = 999999.0` on every fold, counts the refusals, and a recorder scored after it confirms it saw pristine rows |
+| MEDIUM | Six published `manifest_hash` values did not reproduce, found by both checkers independently. Everything else in those rows reproduced byte for byte; the validator localised the cause instead of guessing, brute-forcing 2016 model-identity combinations against the two zero-fold rows with zero hits. `manifest_hash` covers the model names and versions and the evidence never recorded which models ran | Re-run and corrected above, with the model set (`zero@0.1.0` then `constant-one@0.1.0`) recorded alongside. `test_backtest_fixtures.py` pins the gapless-2y month row — `config_hash`, `data_hash`, `fold_hash`, `manifest_hash` and the model list — and a second test asserts that swapping the two models leaves `fold_hash` alone and moves `manifest_hash` |
+| MEDIUM | `FoldData`'s docstring and the README both claimed a model "never receives the observation set, the coverage calendar or the origin". False: a `CoverageView` carries its whole `CoverageCalendar` (1096 dates reachable), and `fold.origin` plus `label_covered_units`/`label_total_units` were `predict` arguments. Not a target leak, but with `minimum_label_unit_ratio < 1.0` the label-unit counts state how much of the horizon the source covers | Both claims corrected, and both alternatives taken rather than one: `FoldData` no longer carries any coverage object at all — coverage reaches a model only through the feature columns the feature layer clips — and `predict` receives a `FoldView`, a projection of `Fold` that leaves the label-unit counts behind. `Fold.view()` is the only constructor, so a field added to `Fold` does not reach a model until someone adds it there on purpose |
+| MEDIUM | The plan and README claimed `fold_metrics` "reuses `evaluation.py`'s WAPE verbatim" and that a test "pins the two definitions together". They share no code and deliberately diverge on zero demand, and the pin was one hand-written case exercising neither the divergence nor cross-fold pooling | The claim is downgraded to what is true — semantically aligned on `Σ\|error\| / Σactual`, deliberately divergent on zero demand — and the pin strengthened: a test asserts the golden gate *raises* on zero demand where a fold reports `None`, and another asserts pooling two folds equals scoring their concatenation. Refactoring `evaluation.py` to share the summation was considered and rejected: it backs the `make ml-eval` gate and the divergence is intentional |
+| LOW | `_validate_passing` never checked that `results` was non-empty or matched `eligible_origins`, so a hand-built `HorizonOutcome` could report `passed=True` with nothing scored — unreachable from `run_backtest`, but the docstring claimed unconstructible "by any code path" and the class is a public export | `_validate_scored` added; two tests construct both shapes and assert the refusal |
+| LOW | `minimum_origins` gated both eligible origins and origins carrying demand, so raising it for more folds silently tightened an unrelated gate | `minimum_origins_with_demand` added, defaulting to `minimum_origins`, carried into the config hash and reported on the outcome as `required_origins_with_demand` |
+| LOW | `config.py` accepted an `int` for `minimum_label_unit_ratio`, so `1` and `1.0` hashed differently for one configuration | Normalised with `float()` in `__post_init__`; a test asserts the two spellings hash alike |
+| LOW | Speculative exports with no consumer | `PERIOD_STEP` and `FoldMetrics.has_demand` removed; `FoldModel` converted from a base class to a `Protocol`, so it now structurally checks a typed caller instead of merely documenting. `BacktestData.of` kept: it accepts iterables where the dataclass declares tuples and has seven call sites |
+
+Two fold counts were checked for movement under the HIGH coverage fix and did not move:
+the gapped fixture's 667 day folds still carry at least 168 covered hourly buckets each,
+and its month and year candidates were already refused earlier in the rule order. The
+gapless fixtures have no holes. Only `fold_hash` moved, because `train_covered_buckets`
+joined the fold descriptor.
+
+Two earlier hints from the lead were stale and the reviewer checked and dismissed them:
+the `fold` bindings are `predict` interface parameters, and the `replace` import is used.
 
 ## Open risks
 
@@ -489,6 +537,18 @@ not cover — both correct refusals.
 - **`passed` is about folds, not quality.** A caller reading `outcome.passed` as "the
   candidate is good" would be wrong, and nothing in the type system stops them. The README
   says so twice; TASK-022 owns the quality verdict.
+- **The covered-bucket prefix array is built per horizon over the whole span.** Hourly
+  granularity over ten years is ~87 600 entries, walked once. Bounded and fine for any
+  realistic offline span, but it is memory proportional to span × granularity, and a
+  much longer hourly history would want the date-interval form instead.
+- **A documented TASK-019 digest moved.** `year/month` is now
+  `58e57f490b3315b195dc3b480bc5b14dea44c390f796256b1388b9680db30156`, superseding
+  `408d45807ce37fe661b2edb3e888e5afae19cc015cb093c6f485a7f687ab8445`, and its
+  `feature_digest` `fb7bf53b…` supersedes `3e8a211c…`. `day/hour` and `month/day` are
+  unchanged. The values in `ml/README.md`, `docs/exec-plans/completed/horizon-features.md`
+  and the TASK-019 tracker entry are deliberately **not** rewritten here — that is the
+  lead's record against TASK-019. TD-001 already notes that no test pins them, which is
+  why nothing failed; pinning them would have caught this.
 
 Recovery: the package has no consumer yet, so reverting the commits removes it cleanly
 and no other area changes behaviour. `evaluation.py`, `cli.py` and every other package are
