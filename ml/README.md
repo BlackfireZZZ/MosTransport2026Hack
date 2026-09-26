@@ -286,3 +286,11 @@ at a forecast origin and therefore cannot be features; no placeholder column exi
 them. There is no holiday calendar — `is_weekend` is the civil weekday and is not a
 holiday proxy. For real data the coverage calendar must come from the organizer's own
 coverage statement, not from our row counts.
+
+
+## Organizer boarding-data experiment
+
+`python -m tramflow_ml.boarding --help` exposes a separate offline audit/detect/decode/
+evaluate/export workflow. See [the verified preparation report](../docs/analysis/2026-09-26-boarding/README.md).
+The output target remains validation rows; no inferred stop is observed ground truth,
+and source availability is unknown. The original ML CLI and serving models are unchanged.

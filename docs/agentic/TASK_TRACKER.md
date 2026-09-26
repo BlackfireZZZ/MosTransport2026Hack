@@ -140,6 +140,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-060 | [Train and compare real route-level forecast candidates](../exec-plans/completed/route-ml-experiments.md) | feature | ml,docs | P1 | R2 | done | route-ml-experiments lead | ML-EXPERIMENT | TASK-059 | DATA | M |
 | TASK-061 | [Data/target/model passport and ensemble challenger](../analysis/2026-09-25-model-passport/README.md) | research | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-EXPERIMENT | TASK-060 | DATA | M |
 | TASK-062 | [Plan AFC boarding-stop reconstruction research](../exec-plans/active/boarding-stop-reconstruction.md) | docs | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-RESEARCH-PLAN | TASK-061 | DATA | M |
+| TASK-063 | [Execute boarding training-data preparation](../analysis/2026-09-26-boarding/README.md) | feature | ml,docs | P1 | R2 | blocked | boarding-dataset lead | ML-BOARDING | TASK-062 | DATA | L |
 
 ## TASK-001
 
@@ -904,3 +905,25 @@ ML265, frontend92, reference119; static/build/OpenAPI/Compose gates passed.
 Independent report review passed after clarifying the PDF performance attribution.
 Integration method: local fast-forward of reviewed research commit; no remote push.
 Worktree retained because branch is unpushed. Production implementation remains open.
+
+
+## TASK-063
+
+User-authorized execution of the boarding reconstruction plan. Owner: boarding-dataset lead.
+Base 181a73bfd6a3b4e361229e148cd2decc2b9e922f; branch agent/boarding-dataset;
+worktree /Users/cute/MosTransport2026Hack-worktrees/boarding-dataset.
+Scope: new offline boarding package, tests and evidence; production contracts unchanged.
+Acceptance: conserve every successful source row, freeze chronological selection,
+validate ambiguity/budgets/leakage, export reproducible data with absent stop truth explicit.
+Independent reviews: source/audit and detector/export; parent owns final gate and integration.
+
+2026-09-26 outcome: available offline pipeline and training export implemented and
+verified. Full stop-label reconstruction remains blocked on historical patterns and
+independent gold (G1/G3); no inferred stop labels promoted. Full audit: 62,443,497 rows,
+59,667,191 successes, 57,551 labels exact; 57,594 source-observed route/hour training cells.
+Two complete scans produced identical shard hashes. Pilot: 449,635 rows on routes 1/12;
+54 new tests. Parent make check passed: 350 backend, 353 ML, 92 frontend, 119 contracts
+(48 SQL skipped; no SQL/runtime changes). See evidence.json for resource/quality data.
+Next: obtain missing-data-request.md inputs, then resume frozen stop-level evaluation.
+Integration: reviewed local commit fast-forwarded to main; no remote publication.
+Worktree retained for ignored data artifacts and unpushed branch.

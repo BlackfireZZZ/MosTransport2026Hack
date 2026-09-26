@@ -1,6 +1,6 @@
 # План: восстановление остановок посадки по временным логам валидаций
 
-Дата: 26.09.2026. TASK-062 — подготовка и проверка плана; реализация ещё не начата.
+Дата: 26.09.2026. TASK-062 — подготовка плана. TASK-063 — выполнение по явному запросу пользователя; см. журнал исполнения в конце.
 Владелец плана: ML lead. Требования: поддержка RQ-03; восстановление скрытых
 посещений — исследовательское расширение, не уже доказанная возможность данных.
 
@@ -653,3 +653,62 @@ Worktree сохранить: неопубликованная ветка и ар
 48SQL skipped,299ML,92frontend,119reference passed; static/build/contract/Compose
 проверки прошли. Это проверка неизменности проекта, не тест будущего алгоритма.
 План и ссылки интегрируются локальным fast-forward; push не выполняется.
+
+
+## TASK-063 — execution journal
+
+User authorized implementation on 2026-09-26. Base 181a73bfd6a3b4e361229e148cd2decc2b9e922f,
+worktree `/Users/cute/MosTransport2026Hack-worktrees/boarding-dataset`, branch
+`agent/boarding-dataset`. Primary checkout preserved read-only until verified integration.
+Lead owns audit/detectors/pilot/export/CLI and docs; independent agents own disjoint
+alignment/simulation and catalog modules and reviews. No production dependency additions.
+
+P0 contracts and falsifying fixtures implemented before the source run. Full raw audit
+started with immutable input and versioned ledger; follow-up reviewed run adds explicit
+implementation fingerprint and pre-manifest conservation assertions. Earlier preliminary
+run remains local evidence, not the delivered dataset.
+
+P2 actual workbook evidence: routes 7/11/12 pattern starts 2025-12-20, roster 2026-02-08,
+only 15 schedule examples. Absolute labels are blocked by G1/G3; §20 explicitly permits
+P1/P3 research and P6 unassigned/relative output. No independent event gold has appeared.
+
+Research review verified the primary sources in §19. Exact-small sequential reference
+and synthetic alternatives exercise invariants; HMM/HSMM/beam escalation is not justified
+without historical inputs and independent benefit. P7 remains optional and unadopted.
+
+Available implementation completed; stop-label promotion blocked on external data.
+Final full audit: 62,443,497 raw rows; 59,667,191 in-range successes; 2,775,691 rejects;
+615 rows outside range. All57,551 label keys reconcile exactly. Repeated full scans
+produce identical shard hashes. Source ledger 1.8 GB; reviewed pass 489.54 s, peak RSS 576,454,656 bytes.
+Training output 57,594 source-observed hour cells (34,521 train / 11,742 development / 11,331 diagnostic);
+43 additional source cells carry zero successes and rejected rows only, rather than
+being fabricated calendar zeros. Forecast origin is each target day's midnight;
+publication availability remains unknown and retrospective-only.
+
+Pilot: routes 1/12, 12 coverage-selected dates, 449,635 events including 427,494 successes.
+Four detector configurations conserve all mass. Default 265,804 device bursts;
+9 perturbation cases on 10,000 events, plus 24 synthetic cases from two families.
+No geographic accuracy is established by these tests. Full time-quality diagnostics
+beyond basic source-wide minute-resolution/missing-ID checks are pilot-scoped;
+vehicle assignments remain unverified and absolute journey boundaries unresolved.
+
+Independent reviews found/fixed pre-manifest G0, code-bound resumption, timestamp
+canonicalization, label-window filtering, rejected-event soft weights and mutable
+pilot-metadata issues. Parent make check exit 0: 350 backend passed / 48 SQL skipped,
+353 ML, 92 frontend, 119 reference; Ruff/mypy/build/OpenAPI/Compose/golden evaluation passed.
+54 boarding tests cover interruption/resume, chunk-size invariance, future mutation,
+finite/schema boundaries, source-mass conservation, conservative decoding and stress.
+SQL runtime checks are not applicable because no DB/API/runtime code changed.
+
+Result: [report](../../analysis/2026-09-26-boarding/README.md),
+[evidence](../../analysis/2026-09-26-boarding/evidence.json), ignored artifacts under
+`ml/artifacts/boarding-2025-*`; downloadable local `ml/artifacts/boarding-training-2025.zip`.
+Base remains 181a73bfd6a3b4e361229e148cd2decc2b9e922f. Integration is reviewed local
+fast-forward; no push. Worktree retained because it contains data artifacts and an
+unpushed branch. Rollback: revert isolated implementation commit; no migrations or
+model registry updates occurred. Existing 10 model artifact files verified unchanged.
+
+Exact next action: supply independently dated historical patterns, validator/vehicle
+bindings and withheld event/visit/count gold described in missing-data-request.md;
+freeze a new evaluation cohort and resume P4/P5/G3. Do not call this active research
+plan fully completed while those gates remain blocked.
