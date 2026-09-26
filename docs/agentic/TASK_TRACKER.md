@@ -141,6 +141,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-061 | [Data/target/model passport and ensemble challenger](../analysis/2026-09-25-model-passport/README.md) | research | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-EXPERIMENT | TASK-060 | DATA | M |
 | TASK-062 | [Plan AFC boarding-stop reconstruction research](../exec-plans/active/boarding-stop-reconstruction.md) | docs | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-RESEARCH-PLAN | TASK-061 | DATA | M |
 | TASK-063 | [Execute boarding training-data preparation](../analysis/2026-09-26-boarding/README.md) | feature | ml,docs | P1 | R2 | blocked | boarding-dataset lead | ML-BOARDING | TASK-062 | DATA | L |
+| TASK-064 | [Infer real payment stops from dated public route evidence](../analysis/2026-09-26-real-stops/README.md) | feature | ml,docs | P1 | R2 | done | boarding-real-alignment lead | ML-BOARDING-INFERENCE | TASK-063 | DATA | L |
 
 ## TASK-001
 
@@ -927,3 +928,37 @@ Two complete scans produced identical shard hashes. Pilot: 449,635 rows on route
 Next: obtain missing-data-request.md inputs, then resume frozen stop-level evaluation.
 Integration: reviewed local commit fast-forwarded to main; no remote publication.
 Worktree retained for ignored data artifacts and unpushed branch.
+
+
+## TASK-064
+
+User-authorized real AFC-to-stop inference without independent AVL/gold. Owner:
+boarding-real-alignment lead. Base `06e9884ea4abd86ce2a1d6c92f8fc8a6549ea582`;
+branch `agent/boarding-real-alignment`; dedicated worktree
+`/Users/cute/MosTransport2026Hack-worktrees/boarding-real-alignment`.
+
+Operational scope completed: all 59,667,191 successful payments, nine routes,
+304 days January–October2025. Every original route/hour mass is conserved; no
+successful source events omitted or undecoded. Another2,775,690 rejected rows
+are counted for selected routes; one rejected route5 row remains in the source
+ledger outside route selection. Public evidence:24 OSM histories,37 complete
+published timetable snapshots (one actual2025archive),20 official notices.
+
+Training artifact:3,421,698 soft stop/hour rows;57,679,999 expected-event mass
+eligible for experimental training after explicit source/model exclusions.
+No strict stop labels qualify:17 raw candidates exposed a mixed timetable
+precision bias and are excluded. This is a completed probabilistic reconstruction,
+not a passed real-stop accuracy gate; TASK063 gold-based certification remains open.
+No data are promoted into serving or presented as measured stop truth.
+
+Evidence: [report](../analysis/2026-09-26-real-stops/README.md), source registry,
+fullrun manifests/receipts, algorithmic-quality finding and real perturbation report.
+Independent reviews covered source parsing, exact sequence inference, real pipeline,
+calendar/export and statistical bias; parent owns final verification/integration.
+Parent `make check` passed350backend,497ML,92frontend,119reference tests;48SQL
+skipped (no SQL changes). Static/build/golden/Compose gates passed. Four restart
+failure/reuse tests passed;14 real output files identical at2/6workers; real
+sensitivity report reproduced byte-for-byte. Dependencies unchanged.
+
+Integration method: verified local fast-forward into main; no remote publication.
+Worktree retained for ignored training/source artifacts and unpushed branch.

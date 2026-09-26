@@ -294,3 +294,10 @@ coverage statement, not from our row counts.
 evaluate/export workflow. See [the verified preparation report](../docs/analysis/2026-09-26-boarding/README.md).
 The output target remains validation rows; no inferred stop is observed ground truth,
 and source availability is unknown. The original ML CLI and serving models are unchanged.
+
+Real-payment reconstruction and experimental stop targets are documented in
+[the dated route/timetable report](../docs/analysis/2026-09-26-real-stops/README.md).
+`prepare-real`, `reconstruct`, `sensitivity-real` and `export-real` are offline
+commands. Training rows require `training_eligible=True`; this authorizes an
+experiment with inferred targets, not a claim of observed stop truth. Original
+payment-hour mass, excluded targets and source dates remain auditable.

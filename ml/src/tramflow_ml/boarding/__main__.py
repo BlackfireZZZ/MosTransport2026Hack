@@ -8,7 +8,11 @@ from .alignment import Anchor, DecodeConfig, DelayScenario, Pattern, decode
 from .audit import audit, verify_run, write_json
 from .catalog import catalog_inventory
 from .dataset import export_dataset
+from .partitions import prepare
 from .pilot import pilot
+from .real import RealConfig, reconstruct
+from .real_export import export_real_dataset
+from .real_stability import run_sensitivity
 from .records import AuditConfig
 from .simulation import evaluate_synthetic
 
@@ -37,6 +41,21 @@ def main(argv: list[str] | None = None) -> int:
     d = commands.add_parser("decode")
     d.add_argument("--input", type=Path, required=True)
     d.add_argument("--out", type=Path, required=True)
+    prep = commands.add_parser("prepare-real")
+    prep.add_argument("--run", type=Path, required=True)
+    prep.add_argument("--out", type=Path, required=True)
+    real = commands.add_parser("reconstruct")
+    for option in ["partitions", "histories", "graph", "timetables", "config", "out"]:
+        real.add_argument("--" + option, type=Path, required=True)
+    real.add_argument("--workers", type=int, default=1)
+    real_export = commands.add_parser("export-real")
+    real_export.add_argument("--run", type=Path, required=True)
+    real_export.add_argument("--out", type=Path, required=True)
+    real_export.add_argument("--service-policy", type=Path)
+    sensitivity = commands.add_parser("sensitivity-real")
+    for option in ["partitions", "histories", "graph", "timetables", "out"]:
+        sensitivity.add_argument("--" + option, type=Path, required=True)
+    sensitivity.add_argument("--seed", type=int, default=20260926)
     args = parser.parse_args(argv)
     try:
         result: Any
@@ -47,6 +66,31 @@ def main(argv: list[str] | None = None) -> int:
                 else AuditConfig()
             )
             result = audit(args.source, args.out, config)
+        elif args.command == "prepare-real":
+            result = prepare(args.run, args.out)
+        elif args.command == "reconstruct":
+            result = reconstruct(
+                args.partitions,
+                args.histories,
+                args.graph,
+                args.timetables,
+                args.out,
+                RealConfig(**json.loads(args.config.read_text())),
+                workers=args.workers,
+            )
+        elif args.command == "export-real":
+            result = export_real_dataset(args.run, args.out, service_policy=args.service_policy)
+        elif args.command == "sensitivity-real":
+            if args.out.exists():
+                raise ValueError("output already exists")
+            result = run_sensitivity(
+                args.partitions,
+                args.histories,
+                args.graph,
+                args.timetables,
+                args.out,
+                seed=args.seed,
+            )
         elif args.command == "verify":
             result = verify_run(args.run)
         elif args.command == "detect":
