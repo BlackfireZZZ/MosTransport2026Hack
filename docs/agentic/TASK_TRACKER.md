@@ -1109,7 +1109,7 @@ Owner: boarding-research-publish lead. User explicitly requested documentation a
 remote push of all completed research. Type maintenance/docs; area ml/docs; risk R3
 (publication authorized). Base47b8298323ffeb4bb821ff43b823ae543c94b4de; dedicated
 worktree boarding-research-publish, branch agent/boarding-research-publish.
-Status verified; ready for authorized push. Archive full-run, small-pulse, strong-anchor matching audits,
+Status done. Archive full-run, small-pulse, strong-anchor matching audits,
 aggregated evidence and standalone previews; preserve immutable original receipts.
 Raw payment archives and OS metadata excluded. No serving/training contract changes.
 Acceptance: reproducible cached checks, byte-preserved originals, make check,
@@ -1120,3 +1120,7 @@ TASK-071 verification: 27 original artifacts byte-identical; 15 matching configu
 and 108 cached fits verified. Full make check: 1186 passed / 48 SQL skipped;
 static, build, golden, contract and Compose checks passed. No new dependencies.
 Evidence: docs/analysis/2026-09-26-boarding-matching/VALIDATION.md.
+
+TASK-071 publication: c2b73084c67cf1d62fb5a88e0b4c5bfbec2a15b7 fast-forward
+integrated and pushed to origin/codex/current-state-2026-09-26; ls-remote SHA
+matched local HEAD. Worktree retained; raw ZIP and OS metadata remain local.
