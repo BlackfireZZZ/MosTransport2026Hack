@@ -1102,3 +1102,21 @@ suffix matching locked. Sixablations/twoshiftcontrols; no stop-truth promotion.
 32focusedtests; fullmakecheck1186passed/48SQLskipped; static/build/golden/Compose pass.
 Independent read-only reviews complete. Verified patch integration; retained trees.
 Evidence docs/analysis/2026-09-26-absolute-clock/README.md.
+
+## TASK-071
+
+Owner: boarding-research-publish lead. User explicitly requested documentation and
+remote push of all completed research. Type maintenance/docs; area ml/docs; risk R3
+(publication authorized). Base47b8298323ffeb4bb821ff43b823ae543c94b4de; dedicated
+worktree boarding-research-publish, branch agent/boarding-research-publish.
+Status verified; ready for authorized push. Archive full-run, small-pulse, strong-anchor matching audits,
+aggregated evidence and standalone previews; preserve immutable original receipts.
+Raw payment archives and OS metadata excluded. No serving/training contract changes.
+Acceptance: reproducible cached checks, byte-preserved originals, make check,
+reviewed staged files, normal push with matching remote SHA. Evidence:
+[research index](../analysis/2026-09-26-boarding-matching/README.md).
+
+TASK-071 verification: 27 original artifacts byte-identical; 15 matching configurations
+and 108 cached fits verified. Full make check: 1186 passed / 48 SQL skipped;
+static, build, golden, contract and Compose checks passed. No new dependencies.
+Evidence: docs/analysis/2026-09-26-boarding-matching/VALIDATION.md.
