@@ -142,6 +142,12 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-062 | [Plan AFC boarding-stop reconstruction research](../exec-plans/active/boarding-stop-reconstruction.md) | docs | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-RESEARCH-PLAN | TASK-061 | DATA | M |
 | TASK-063 | [Execute boarding training-data preparation](../analysis/2026-09-26-boarding/README.md) | feature | ml,docs | P1 | R2 | blocked | boarding-dataset lead | ML-BOARDING | TASK-062 | DATA | L |
 | TASK-064 | [Infer real payment stops from dated public route evidence](../analysis/2026-09-26-real-stops/README.md) | feature | ml,docs | P1 | R2 | done | boarding-real-alignment lead | ML-BOARDING-INFERENCE | TASK-063 | DATA | L |
+| TASK-065 | [Compare first-validation and schedule interval reconstruction](../analysis/2026-09-26-timing-v2/README.md) | feature | ml,docs | P1 | R2 | done | boarding-timing-v2 lead | ML-BOARDING-TIMING | TASK-064 | DATA | L |
+| TASK-066 | [Validate density-normalized boarding onsets on busy routes](../analysis/2026-09-26-dense-route-audit/README.md) | research | ml,docs | P1 | R2 | done | boarding-dense-audit lead | ML-BOARDING-ONSET-AUDIT | TASK-065 | DATA | L |
+| TASK-067 | [Compare multiscale, clustered and multi-validator onsets](../analysis/2026-09-26-multiscale-onsets/README.md) | research | ml,docs | P1 | R2 | done | boarding-multiscale lead | ML-BOARDING-ADAPTIVE | TASK-066 | DATA | L |
+| TASK-068 | [Coalesce repeated candidate starts within adaptive waves](../analysis/2026-09-26-wave-merge/README.md) | research | ml,docs | P1 | R2 | done | boarding-wave-merge lead | ML-WAVE-MERGE | TASK-067 | DATA | M |
+| TASK-069 | [First observed payment anchor](../analysis/2026-09-26-first-anchor/README.md) | bug | ml,docs | P1 | R2 | done | boarding-first-anchor lead | ML-FIRST-ANCHOR | TASK-068 | DATA | S |
+| TASK-070 | [Historical schedules and absolute-clock hypotheses](../analysis/2026-09-26-absolute-clock/README.md) | research | ml,data,docs | P1 | R2 | done | boarding-absolute-clock lead | ML-ABSOLUTE-CLOCK | TASK-069 | DATA | M |
 
 ## TASK-001
 
@@ -962,3 +968,137 @@ sensitivity report reproduced byte-for-byte. Dependencies unchanged.
 
 Integration method: verified local fast-forward into main; no remote publication.
 Worktree retained for ignored training/source artifacts and unpushed branch.
+
+2026-09-26 documentation follow-up (owner: lead; done):
+[algorithm reference](../analysis/2026-09-26-real-stops/ALGORITHM.md) documents the
+implemented payment grouping, cyclic sum/max-product equations, schedule evidence,
+scenario filters, stop/hour mass conservation and final training exclusions.
+Independent read-only review checked the formulas against source; two illustrative
+examples were clarified. All 17 document links and numerical examples passed;
+`git diff --check` passed. `make check` passed on the retained worktree at the same
+`eabc2d5` HEAD (350 backend, 497 ML, 92 frontend, 119 contracts; 48 SQL skipped,
+static/build/golden/Compose passed). The primary checkout lacks dev/frontend
+installations, so its attempted gate stopped at missing Ruff before using the
+already provisioned worktree. Only documentation changed; no data regeneration,
+contract changes or dependency changes. Documentation remains in the main working
+tree for review; no new worktree or integration step required.
+
+## TASK-065
+
+Owner: boarding-timing-v2 lead. Completed implementation and paired experiment;
+new reconstruction is not promoted. Base eabc2d5e1030e6366d0d0ccba37e989ce4343eb8;
+branch agent/boarding-timing-v2, dedicated sibling worktree boarding-timing-v2.
+
+First-payment burst timestamps, validated unpaired timetable edge shifts, local
+actual-time transitions, initial departure candidates, missing-visit diagnostics,
+chronological dense-profile learning/holdout, and reproducible spatial comparison
+are implemented. Backward-compatible optional edge durations leave v1 defaults
+unchanged. No trip identifiers or ground-truth stops are fabricated.
+
+Evidence: [report](../analysis/2026-09-26-timing-v2/README.md). All4,017,177 successful
+events on20fixed dates/all9routes conserved by original route/hour. V1/V2 candidate
+agreement8.43%; soft hourly mass moved7.42%; v2 mass only6.81%away from uniform.
+No stable labels or supported dense profiles. On identical six-session
+perturbations v2 is less stable in allfourcases; do not promote or call it an
+accuracy gain. Broader81-session/101,289-event ablation report preserved.
+
+Parent make check:350backend,545ML,92frontend,119contracts passed;48SQLskipped;
+static,build,golden,Composepassed. Focused86tests passed. Seven Jan15files identical
+at1vs4workers; paired stability repeated byte-identically. No dependency changes.
+Source/test/code ownership separated among lead and two subagents; lead personally
+ran final checks and reviewed limitations. Artifacts retained in ignored ml/artifacts;
+small JSON evidence is intentionally versioned with report. Primary documentation
+edits from the preceding request are preserved during verified patch integration.
+
+
+## TASK-066
+
+Owner: boarding-dense-audit lead. Completed reproducible detector and phase audit;
+not certified stop labels. Base aef37dfe49cec65d05d36f7f8bc58111f65268ce;
+branch agent/boarding-dense-audit, sibling worktree boarding-dense-audit.
+
+Six detectors evaluated on identical 536 raw-density-selected windows (90,021
+payments), 20 dates/all9routes, with full304-day route ranking. Added DBSCAN,
+local-rate-normalized DBSCAN and rise/decay onset scoring. Independent held-out
+payments support real pulse structure (6.36x initial rise; 4,062 onsets vs1,531
+rate-preserving randomized controls). This is not ground-truth door detection.
+Dense12 and40-observation sequences retain competing stop phases; no strong
+candidate satisfies all diagnostic gates. No serving/training contracts changed.
+
+Evidence: [report](../analysis/2026-09-26-dense-route-audit/README.md), versioned
+aggregate JSON and figures, ignored full daily results and source hashes.
+Parent make check passed350backend+561ML+92frontend+119contracts;48SQLskipped.
+Static checks, build, golden, architecture and Compose passed. One-worker Jan15
+rerun is byte-identical; all manifest artifact and implementation hashes verified.
+No dependency changes. Integration by verified patch preserving existing primary
+edits. Worktree retained for experiment artifacts and unpushed branch.
+
+
+## TASK-067
+
+Owner boarding-multiscale lead; completed experiment, no stop-label promotion.
+Base a7d273ca6010c4b31d5a8c8533274c27d8c46897, agent/boarding-multiscale,
+worktree /Users/cute/MosTransport2026Hack-worktrees/boarding-multiscale.
+
+Implemented multiscale event counts2/3/5/10/20/40/80s, adaptive significance,
+HDBSCAN temporal variants, train-only GMM feature mixture with contrastive scoring,
+multi-device synchrony and bounded cross-family consensus. Same536frozenwindows,
+90,021payments; Jan-Apr fit/calibration, May-Oct holdout320windows/54,142payments.
+Uniform and independent per-device circular controls, payment/device holdouts,
+parameter sensitivity,36synthetic scenarios and route/month evidence are saved.
+Consensus3 produces1,952real vs342shifted-device candidates; held-out device initial
+activity6.20xcontrol. This is pulse evidence, not stop identity accuracy. Strict
+consensus misses small/late groups; no serving or training labels were overwritten.
+
+Evidence: [report](../analysis/2026-09-26-multiscale-onsets/README.md), aggregate JSON,
+manifest and figures. Full model/rows stay in ignored ml/artifacts/multiscale-v3.
+Read-only independent review covered identity, chronology, controls, agreement and
+reporting; synthetic queue correction is tested. Parent make check passed1,137tests
+(350backend,576ML,92frontend,119contracts),48SQLskipped; static/build/golden/Compose
+passed. Source/output hashes verified; refit identical; one/four-worker held-out
+window identical. Dependencies unchanged. Verified patch integration preserves
+primary uncommitted edits. Worktree retained for artifacts and unpushed branch.
+
+
+## TASK-068
+
+Owner boarding-wave-merge lead. Isolated base1d35e0bde147ed9a7b884e26a564a8d3484d9938,
+agent/boarding-wave-merge. Same-support coalescing with quiet-gap veto and retained
+raw alternatives implemented; no fixed stop-spacing exclusion or hard-label
+promotion.320realheldoutwindows: consensus1952→1792, GMM2203→2140; adaptive unchanged.
+Three-window timetable visualization compares original/coalesced intervals with
+fresh fits and null controls. Independent review fixed gap-overlap boundary case.
+Evidence [report](../analysis/2026-09-26-wave-merge/README.md).11focusedtests passed;
+parentmakecheck1148passed/48SQLskipped; static/build/golden/Compose passed. Browser
+interaction/responsive checks0errors. Dependencies unchanged. Verified patch
+integration preserves primary edits; worktree retained with ignored artifacts.
+
+
+## TASK-069
+
+Owner boarding-first-anchor lead. Base 7c07bc09b4af97f43d89306565a1da09d9af5b07,
+agent/boarding-first-anchor, dedicated worktree boarding-first-anchor. Mandatory
+first observed payment is an optional auditable boundary hypothesis, not a route
+ordinal or confirmed trip start. Existing support/quiet merge rules preserved.
+320 real heldout windows audited; three displayed fits recomputed; 960 invariants
+passed. 17 focused tests; make check 1154 passed/48 SQL skipped, static/build/golden/
+Compose pass. Independent review no blockers; browser 0 errors.
+Evidence [report](../analysis/2026-09-26-first-anchor/README.md). Verified patch
+integration preserves primary uncommitted work; retained worktree/artifacts.
+
+
+## TASK-070
+
+Owner boarding-absolute-clock lead, base cb9dce42dddb6a6aca57b18f5143359006ee8c26,
+branch agent/boarding-absolute-clock in dedicated sibling worktree. Research
+historical timetables, compare terminal-start prior and absolute clock evidence
+on real immutable records, evaluate prefix-selected continuation and stop stability.
+No truth-label promotion. Implementation/test module independently owned in
+agent/boarding-clock-model; lead owns experiment/report/source audit.
+
+TASK-070 completion: parsed1798GTFS trips; dates/provenance and archived table/order
+audits retained.87eligiblemethodrows/35windows, first4onsets selectprofile andoffset;
+suffix matching locked. Sixablations/twoshiftcontrols; no stop-truth promotion.
+32focusedtests; fullmakecheck1186passed/48SQLskipped; static/build/golden/Compose pass.
+Independent read-only reviews complete. Verified patch integration; retained trees.
+Evidence docs/analysis/2026-09-26-absolute-clock/README.md.

@@ -141,6 +141,7 @@ def infer_sequence(
     config: SequenceConfig = DEFAULT_CONFIG,
     *,
     log_emissions: FloatArray | None = None,
+    edge_seconds: FloatArray | None = None,
 ) -> SequenceResult:
     """Exact sum/max-product over bounded forward transitions with a uniform start.
 
@@ -149,6 +150,7 @@ def infer_sequence(
     participate, including repeated cycle traversals; top-two is display only.
     Long gaps and globally impossible residuals start independent blocks.
     Complexity is O(T*N*max_steps); exhausted budgets raise before allocation.
+    Optional edge_seconds overrides complete local travel/standing durations.
     Optional external log evidence has shape (T,N), is nonpositive, and may use
     -inf for impossible states. Its source/calibration belongs to the caller.
     """
@@ -173,6 +175,10 @@ def infer_sequence(
         + config.dwell_seconds
         + np.asarray(template.terminal_after) * config.terminal_seconds
     )
+    if edge_seconds is not None:
+        edge_times = np.asarray(edge_seconds, dtype=np.float64)
+        if edge_times.shape != (n,) or not np.isfinite(edge_times).all() or np.any(edge_times <= 0):
+            raise ValueError("edge seconds must be a positive finite vector matching visits")
     states = np.arange(n, dtype=np.int64)
     steps = np.arange(k, dtype=np.int64)[:, None]
     targets = (states + steps) % n
