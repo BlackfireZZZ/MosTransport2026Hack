@@ -139,6 +139,7 @@ to install dependencies. Do not silently weaken existing contracts.
 | TASK-059 | [Profile supplied organizer data and map the ML integration gap](../analysis/2026-09-25-organizer-data/README.md) | research | data,ml,docs | P1 | R1 | done | real-data-eda lead | DATA-REVIEW | none | DATA | S |
 | TASK-060 | [Train and compare real route-level forecast candidates](../exec-plans/completed/route-ml-experiments.md) | feature | ml,docs | P1 | R2 | done | route-ml-experiments lead | ML-EXPERIMENT | TASK-059 | DATA | M |
 | TASK-061 | [Data/target/model passport and ensemble challenger](../analysis/2026-09-25-model-passport/README.md) | research | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-EXPERIMENT | TASK-060 | DATA | M |
+| TASK-062 | [Plan AFC boarding-stop reconstruction research](../exec-plans/active/boarding-stop-reconstruction.md) | docs | ml,docs | P1 | R1 | done | route-ml-experiments lead | ML-RESEARCH-PLAN | TASK-061 | DATA | M |
 
 ## TASK-001
 
